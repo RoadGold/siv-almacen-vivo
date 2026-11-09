@@ -1,4 +1,4 @@
-﻿"""Endpoints de catÃ¡logo: productos, presentaciones, unidades, categorÃ­as y marcas."""
+"""Endpoints de catálogo: productos, presentaciones, unidades, categorías y marcas."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ from app.schemas.importacion import (
     ResumenImportacion as ResultadoResumen,
 )
 
-router = APIRouter(prefix="/catalogo", tags=["CatÃ¡logo"])
+router = APIRouter(prefix="/catalogo", tags=["Catálogo"])
 
 
 @router.get("/productos", response_model=Pagina[ProductoOut])
@@ -251,7 +251,7 @@ def crear_marca(
 def plantilla_importacion(
     _: Usuario = Depends(requiere_permiso(Permiso.CATALOGO_GESTIONAR)),
 ) -> Response:
-    """Plantilla Excel para la importaciÃ³n del catÃ¡logo."""
+    """Plantilla Excel para la importación del catálogo."""
     contenido = importador.plantilla_excel()
     return Response(
         content=contenido,
@@ -285,7 +285,7 @@ async def confirmar_importacion(
     usuario: Usuario = Depends(requiere_permiso(Permiso.CATALOGO_GESTIONAR)),
     db: Session = Depends(get_db),
 ) -> ResultadoImportacion:
-    """Aplica las filas vÃ¡lidas del archivo."""
+    """Aplica las filas válidas del archivo."""
     contenido = await archivo.read()
     resultado = importador.confirmar(
         db,
@@ -313,7 +313,7 @@ def busqueda_universal(
     _: Usuario = Depends(requiere_permiso(Permiso.CATALOGO_VER)),
     db: Session = Depends(get_db),
 ) -> list[dict[str, Any]]:
-    """Buscador universal: agrupa resultados por tipo (plan Â§3)."""
+    """Buscador universal: agrupa resultados por tipo (plan §3)."""
     from app.services.proveedores import listar_proveedores
 
     productos, _ = catalogo.listar_productos(db, q=q, pagina=1, tamano=limite)

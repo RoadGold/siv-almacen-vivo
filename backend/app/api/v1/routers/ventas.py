@@ -1,4 +1,4 @@
-﻿"""Endpoints de ventas (punto de venta)."""
+"""Endpoints de ventas (punto de venta)."""
 
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def previsualizar(
 
 
 def _puede_cambiar_precio(usuario: Usuario) -> bool:
-    """Solo quien administra precios puede fijar un precio distinto al de la presentaciÃ³n."""
+    """Solo quien administra precios puede fijar un precio distinto al de la presentación."""
     return Permiso.PRECIOS_GESTIONAR.value in permisos_usuario(usuario)
 
 

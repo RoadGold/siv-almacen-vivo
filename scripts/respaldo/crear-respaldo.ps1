@@ -46,5 +46,5 @@ $versionEsquema = docker exec siv-db psql -U $Usuario -d $Base -t -c "select ver
 ) | Set-Content -Path "$archivo.info" -Encoding UTF8
 
 Write-Host "[SIV] Respaldo creado: $archivo" -ForegroundColor Green
-Write-Host "[SIV] Conserve una copia en otro dispositivo o ubicaci��n fsica."
-Write-Host "[SIV] Verifique peri��dicamente la restauraci��n en una base de pruebas."
+Write-Host "[SIV] Conserve una copia en otro dispositivo o ubicación física."
+Write-Host "[SIV] Verifique periódicamente la restauración en una base de pruebas."

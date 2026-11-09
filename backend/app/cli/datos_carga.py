@@ -1,17 +1,17 @@
-﻿"""Generador del conjunto de datos de prueba de carga (plan Â§11.2).
+"""Generador del conjunto de datos de prueba de carga (plan §11.2).
 
 Crea, de forma reproducible y ficticia:
 
-- 10 000 productos con nombres, cÃ³digos y presentaciones variadas
+- 10 000 productos con nombres, códigos y presentaciones variadas
 - 500 proveedores
-- 100 000 ventas histÃ³ricas con varias lÃ­neas
+- 100 000 ventas históricas con varias líneas
 - 500 000 movimientos de inventario
 
 Uso (solo sobre una base de DESARROLLO o de pruebas):
     python -m app.cli.datos_carga --productos 10000 --proveedores 500 \
         --ventas 100000 --avance 5000
 
-AVISO: no lo ejecute contra la base de producciÃ³n.
+AVISO: no lo ejecute contra la base de producción.
 """
 
 from __future__ import annotations
@@ -48,25 +48,25 @@ from app.domain.unidades import q4
 
 
 def _volcar(db: Session, modelo: type, filas: list[dict]) -> None:
-    """Inserta un lote de filas de forma directa (mÃ¡s rÃ¡pido que el ORM)."""
+    """Inserta un lote de filas de forma directa (más rápido que el ORM)."""
     if filas:
         db.execute(insert(modelo), filas)
 
 PALABRAS = [
-    "Arroz", "Fideo", "AzÃºcar", "Aceite", "Leche", "Gaseosa", "Agua", "JabÃ³n",
-    "Detergente", "Papel", "CafÃ©", "TÃ©", "Sal", "Pan", "Galleta", "Biscuit",
-    "AtÃºn", "Leche evaporada", "Mermelada", "Chocolate", "Cereal", "Yogurt",
-    "Mantequilla", "Queso", "JamÃ³n", "Hot dog", "Frijoles", "Lentejas",
+    "Arroz", "Fideo", "Azúcar", "Aceite", "Leche", "Gaseosa", "Agua", "Jabón",
+    "Detergente", "Papel", "Café", "Té", "Sal", "Pan", "Galleta", "Biscuit",
+    "Atún", "Leche evaporada", "Mermelada", "Chocolate", "Cereal", "Yogurt",
+    "Mantequilla", "Queso", "Jamón", "Hot dog", "Frijoles", "Lentejas",
     "Arvejas", "Mayonesa", "Ketchup", "Mostaza", "Vinagre", "Salsa",
     "Espagueti", "Harina", "Maicena", "Huevos", "Tomate", "Cebolla", "Papa",
 ]
 PRESENTACIONES = {
     "UND": [("unidad", 1), ("paquete x6", 6), ("caja x24", 24)],
     "GR": [("1 kg", 1000), ("saco 50 kg", 50000)],
-    "ML": [("botella 1 L", 1000), ("bidÃ³n 5 L", 5000)],
+    "ML": [("botella 1 L", 1000), ("bidón 5 L", 5000)],
 }
 CATEGORIAS = [
-    "Abarrotes", "Bebidas", "LÃ¡cteos", "PanaderÃ­a", "Aseo del hogar",
+    "Abarrotes", "Bebidas", "Lácteos", "Panadería", "Aseo del hogar",
     "Cuidado personal", "Snacks", "Granos y menestras", "Conservas", "Condimentos",
 ]
 
@@ -132,14 +132,14 @@ def generar(
             select(Almacen).where(Almacen.es_principal.is_(True))
         ).scalar_one_or_none()
         if almacen is None:
-            almacen = Almacen(nombre="AlmacÃ©n principal", activo=True, es_principal=True)
+            almacen = Almacen(nombre="Almacén principal", activo=True, es_principal=True)
             db.add(almacen)
             db.flush()
         usuario = db.execute(
             select(Usuario).where(Usuario.activo.is_(True)).order_by(Usuario.id)
         ).scalars().first()
         if usuario is None:
-            print("Se requiere un usuario activo. Ejecute antes la instalaciÃ³n inicial.")
+            print("Se requiere un usuario activo. Ejecute antes la instalación inicial.")
             return
 
         categorias = []
@@ -219,10 +219,10 @@ def generar(
             db.add(vinculo)
             if indice % 1000 == 0:
                 db.commit()
-                print(f"  Â· {indice} productos")
+                print(f"  · {indice} productos")
         db.commit()
 
-        # --- Ventas histÃ³ricas ------------------------------------------------
+        # --- Ventas históricas ------------------------------------------------
         total_productos = db.execute(select(func.count()).select_from(Producto)).scalar_one()
         print(f"Generando {ventas} ventas sobre {total_productos} productos...")
         codigos = db.execute(select(Producto.codigo).order_by(Producto.codigo)).scalars().all()
@@ -303,7 +303,7 @@ def generar(
                 _volcar(db, DetalleVenta, lote_detalles)
                 _volcar(db, MovimientoInventario, lote_movimientos)
                 lote_ventas, lote_detalles, lote_movimientos = [], [], []
-                print(f"  Â· {numero_venta} ventas")
+                print(f"  · {numero_venta} ventas")
 
         if lote_ventas:
             _volcar(db, Venta, lote_ventas)

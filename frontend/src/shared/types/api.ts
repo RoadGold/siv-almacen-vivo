@@ -1,5 +1,5 @@
-﻿/**
- * Tipos del API de SIV Â· AlmacÃ©n Vivo.
+/**
+ * Tipos del API de SIV · Almacén Vivo.
  * Reflejan los esquemas de `backend/app/schemas`.
  * Los importes y cantidades viajan como cadenas decimales.
  */
@@ -43,7 +43,7 @@ export interface Presentacion {
   activo: boolean;
 }
 
-/** PresentaciÃ³n tal como se envÃ­a al backend al crear o editar un producto. */
+/** Presentación tal como se envía al backend al crear o editar un producto. */
 export interface PresentacionIn {
   nombre: string;
   factor_base: string;
@@ -479,7 +479,7 @@ export interface MargenBruto {
   nota: string;
 }
 
-/* --- ImportaciÃ³n de catÃ¡logo ---------------------------------------- */
+/* --- Importación de catálogo ---------------------------------------- */
 
 export interface ResumenImportacion {
   filas: number;
@@ -545,7 +545,7 @@ export interface AjusteInventario {
   created_at?: string | null;
 }
 
-/* --- AdministraciÃ³n -------------------------------------------------- */
+/* --- Administración -------------------------------------------------- */
 
 export interface RegistroAuditoria {
   id: number;

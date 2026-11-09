@@ -45,7 +45,7 @@ if ($LASTEXITCODE -ne 0) { throw "No se pudo copiar el respaldo al contenedor." 
 docker exec siv-db pg_restore -U $Usuario -d $BaseDestino --clean --if-exists --no-owner $destinoContenedor
 if ($LASTEXITCODE -ne 0) {
     docker exec siv-db rm $destinoContenedor | Out-Null
-    throw "Falló la restauraci��n. Revise que el archivo sea un respaldo v��lido."
+    throw "Falló la restauración. Revise que el archivo sea un respaldo válido."
 }
 docker exec siv-db rm $destinoContenedor | Out-Null
 

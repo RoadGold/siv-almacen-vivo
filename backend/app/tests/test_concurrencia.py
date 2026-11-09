@@ -1,4 +1,4 @@
-﻿"""Pruebas de concurrencia (plan Â§11.1 Â· T09) y de atomicidad (T11)."""
+"""Pruebas de concurrencia (plan §11.1 · T09) y de atomicidad (T11)."""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def _preparar_datos() -> dict:
             select(Almacen).where(Almacen.es_principal.is_(True))
         ).scalar_one_or_none()
         if almacen is None:
-            almacen = Almacen(nombre="AlmacÃ©n principal", activo=True, es_principal=True)
+            almacen = Almacen(nombre="Almacén principal", activo=True, es_principal=True)
             db.add(almacen)
             db.flush()
 
@@ -122,7 +122,7 @@ def _vender_una_unidad(datos: dict, barrera: threading.Barrier, resultado: list)
     except ErrorStockInsuficiente:
         db.rollback()
         resultado.append(("sin_stock", None))
-    except Exception as exc:  # pragma: no cover - diagnÃ³stico
+    except Exception as exc:  # pragma: no cover - diagnóstico
         db.rollback()
         resultado.append(("error", str(exc)))
     finally:
@@ -203,7 +203,7 @@ def test_t09_dos_vendedores_disputan_la_ultima_unidad():
     errores = [r for r in resultado if r[0] == "error"]
 
     assert not errores, f"Errores inesperados: {errores}"
-    assert len(exitosas) == 1, f"Debe existir exactamente una venta vÃ¡lida: {resultado}"
+    assert len(exitosas) == 1, f"Debe existir exactamente una venta válida: {resultado}"
     assert len(sin_stock) == 1, f"La segunda venta debe rechazarse por stock: {resultado}"
 
     # El stock no puede quedar negativo.
@@ -249,7 +249,7 @@ def test_t11_transaccion_se_revierte_si_falla_un_movimiento(monkeypatch):
         raise RuntimeError("fallo simulado al registrar el movimiento")
 
     monkeypatch.setattr(inventario, "registrar_movimiento", _fallar)
-    # ventas.py llama al sÃ­mbolo imported en su propio mÃ³dulo
+    # ventas.py llama al símbolo imported en su propio módulo
     import app.services.ventas as modulo_ventas
 
     monkeypatch.setattr(modulo_ventas.inventario, "registrar_movimiento", _fallar)
@@ -274,7 +274,7 @@ def test_t11_transaccion_se_revierte_si_falla_un_movimiento(monkeypatch):
 
     monkeypatch.setattr(inventario, "registrar_movimiento", original)
 
-    # La venta no quedÃ³ registrada ni descontada.
+    # La venta no quedó registrada ni descontada.
     db = SesionPruebas()
     try:
         from app.db.models import DetalleVenta, Venta

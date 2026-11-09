@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Ajuste administrativo de inventario y carga de saldo inicial.
  *
  * No existe un botón de «editar stock»: toda corrección se registra como una

@@ -1,9 +1,9 @@
-﻿"""Servicio de ventas (Fase 7 Â· punto de venta).
+"""Servicio de ventas (Fase 7 · punto de venta).
 
 Reglas clave:
-- El servidor recalcula precios, conversiones y disponibilidad: nunca confÃ­a en el total del navegador.
-- La confirmaciÃ³n es idempotente: la misma `idempotency_key` devuelve la misma venta.
-- Venta + detalles + movimientos + existencias ocurren en una Ãºnica transacciÃ³n.
+- El servidor recalcula precios, conversiones y disponibilidad: nunca confía en el total del navegador.
+- La confirmación es idempotente: la misma `idempotency_key` devuelve la misma venta.
+- Venta + detalles + movimientos + existencias ocurren en una única transacción.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ def _principal(db: Session) -> Almacen:
         select(Almacen).where(Almacen.activo.is_(True)).order_by(Almacen.id)
     ).scalars().first()
     if almacen is None:
-        raise ErrorNegocio("No hay un almacÃ©n activo configurado.")
+        raise ErrorNegocio("No hay un almacén activo configurado.")
     return almacen
 
 
@@ -42,7 +42,7 @@ def _resolver_almacen(db: Session, almacen_id: int | None) -> Almacen:
         return _principal(db)
     almacen = db.get(Almacen, almacen_id)
     if almacen is None or not almacen.activo:
-        raise ErrorNegocio("El almacÃ©n indicado no existe o estÃ¡ inactivo.")
+        raise ErrorNegocio("El almacén indicado no existe o está inactivo.")
     return almacen
 
 
@@ -53,21 +53,21 @@ def _cargar_presentacion(
         select(Producto).options(selectinload(Producto.unidad_base)).where(Producto.id == producto_id)
     ).scalar_one_or_none()
     if producto is None:
-        raise ErrorNegocio("El producto de la lÃ­nea no existe.", detalle={"producto_id": producto_id})
+        raise ErrorNegocio("El producto de la línea no existe.", detalle={"producto_id": producto_id})
     presentacion = db.get(PresentacionProducto, presentacion_id)
     if presentacion is None or presentacion.producto_id != producto.id:
         raise ErrorNegocio(
-            "La presentaciÃ³n indicada no corresponde al producto de la lÃ­nea.",
+            "La presentación indicada no corresponde al producto de la línea.",
             detalle={"presentacion_id": presentacion_id},
         )
     if not producto.activo:
         raise ErrorNegocio(
-            f"El producto Â«{producto.nombre}Â» estÃ¡ desactivado y no puede venderse.",
+            f"El producto «{producto.nombre}» está desactivado y no puede venderse.",
             detalle={"producto_id": producto.id},
         )
     if not presentacion.activo or not presentacion.es_venta:
         raise ErrorNegocio(
-            f"La presentaciÃ³n Â«{presentacion.nombre}Â» no estÃ¡ disponible para venta.",
+            f"La presentación «{presentacion.nombre}» no está disponible para venta.",
             detalle={"presentacion_id": presentacion.id},
         )
     return producto, presentacion
@@ -168,7 +168,7 @@ def confirmar(
     *,
     puede_cambiar_precio: bool = False,
 ) -> Venta:
-    """Confirma la venta: cabecera, detalles, movimientos y existencias en una transacciÃ³n."""
+    """Confirma la venta: cabecera, detalles, movimientos y existencias en una transacción."""
     clave = payload.get("idempotency_key")
     if clave:
         existente = db.execute(
@@ -221,7 +221,7 @@ def confirmar(
 
         if conversion.cantidad_base > stock_actual:
             raise ErrorStockInsuficiente(
-                f"No hay stock suficiente de Â«{producto.nombre}Â».",
+                f"No hay stock suficiente de «{producto.nombre}».",
                 detalle={
                     "producto_id": producto.id,
                     "producto": producto.nombre,
@@ -276,7 +276,7 @@ def anular(db: Session, venta_id: int, motivo: str, usuario_id: int) -> Venta:
         raise ErrorNegocio("La venta no existe.", detalle={"venta_id": venta_id})
     if venta.estado != "CONFIRMADO":
         raise ErrorNegocio(
-            "La venta ya fue anulada o no estÃ¡ confirmada.",
+            "La venta ya fue anulada o no está confirmada.",
             detalle={"estado": venta.estado.value},
         )
 

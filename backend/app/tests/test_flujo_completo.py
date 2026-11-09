@@ -1,4 +1,4 @@
-﻿"""Pruebas de integraciÃ³n del flujo completo (plan Â§11.1 Â· T01â€“T18)."""
+"""Pruebas de integración del flujo completo (plan §11.1 · T01–T18)."""
 
 from __future__ import annotations
 
@@ -87,7 +87,7 @@ def stock(cliente: TestClient, cabeceras: dict, producto_id: int, almacen_id: in
     return "0"
 
 
-# --- CatÃ¡logo --------------------------------------------------------------
+# --- Catálogo --------------------------------------------------------------
 def test_t01_crear_producto_con_presentacion(cliente, cabeceras_admin, unidades):
     producto = crear_producto(cliente, cabeceras_admin, unidades)
     assert producto["codigo"] == "P001"
@@ -212,7 +212,7 @@ def test_t08_venta_superior_al_stock_rechazada(cliente, cabeceras_admin, unidade
     )
     assert respuesta.status_code == 409
     assert respuesta.json()["error"]["codigo"] == "stock_insuficiente"
-    # No se creÃ³ una venta parcial
+    # No se creó una venta parcial
     assert stock(cliente, cabeceras_admin, producto["id"], almacen.id) == "2000"
 
 
@@ -249,7 +249,7 @@ def test_t07_venta_de_media_unidad_indivisible(cliente, cabeceras_admin, unidade
         cabeceras_admin,
         unidades,
         codigo="INDIV",
-        nombre="JabÃ³n en barra",
+        nombre="Jabón en barra",
         unidad="UND",
         presentaciones=[{"nombre": "barra", "factor_base": "1", "precio_venta": "3.00"}],
     )
@@ -343,14 +343,14 @@ def test_t12_anular_venta_restituye_stock(cliente, cabeceras_admin, unidades, al
 
     anulacion = cliente.post(
         f"/api/v1/ventas/{venta['id']}/anular",
-        json={"motivo": "Error de digitaciÃ³n en caja"},
+        json={"motivo": "Error de digitación en caja"},
         headers=cabeceras_admin,
     )
     assert anulacion.status_code == 200, anulacion.text
     assert anulacion.json()["estado"] == "ANULADO"
     assert stock(cliente, cabeceras_admin, producto["id"], almacen.id) == "10"
 
-    # La huella histÃ³rica se conserva
+    # La huella histórica se conserva
     movimientos = cliente.get(
         "/api/v1/inventario/movimientos",
         params={"producto_id": producto["id"]},
@@ -390,12 +390,12 @@ def test_t13_anular_dos_veces_rechazado(cliente, cabeceras_admin, unidades, alma
     ).json()
     cliente.post(
         f"/api/v1/ventas/{venta['id']}/anular",
-        json={"motivo": "AnulaciÃ³n de prueba"},
+        json={"motivo": "Anulación de prueba"},
         headers=cabeceras_admin,
     )
     segunda = cliente.post(
         f"/api/v1/ventas/{venta['id']}/anular",
-        json={"motivo": "AnulaciÃ³n de prueba repetida"},
+        json={"motivo": "Anulación de prueba repetida"},
         headers=cabeceras_admin,
     )
     assert segunda.status_code == 400

@@ -1,4 +1,4 @@
-﻿"""Servicios de proveedores y su relaciÃ³n con productos."""
+"""Servicios de proveedores y su relación con productos."""
 
 from __future__ import annotations
 
@@ -87,7 +87,7 @@ def crear_proveedor(db: Session, datos: dict[str, Any]) -> Proveedor:
         select(Proveedor).where(func.lower(Proveedor.codigo) == codigo.lower())
     ).scalar_one_or_none()
     if existe is not None:
-        raise ErrorNegocio("Ya existe un proveedor con ese cÃ³digo.", detalle={"campo": "codigo"})
+        raise ErrorNegocio("Ya existe un proveedor con ese código.", detalle={"campo": "codigo"})
     ruc = (datos.get("ruc") or "").strip() or None
     if ruc:
         ruc_existente = db.execute(
@@ -171,7 +171,7 @@ def vincular_producto(
 
 
 def productos_del_proveedor(db: Session, proveedor_id: int) -> list[dict[str, Any]]:
-    """Productos habituales del proveedor, con presentaciÃ³n y Ãºltimo costo."""
+    """Productos habituales del proveedor, con presentación y último costo."""
     filas = db.execute(
         select(ProductoProveedor, Producto, PresentacionProducto)
         .join(Producto, Producto.id == ProductoProveedor.producto_id)
@@ -269,7 +269,7 @@ def costos_historicos(
 
 
 def actualizar_costo_referencia(db: Session, producto_id: int, proveedor_id: int) -> None:
-    """Guarda el Ãºltimo costo y la Ãºltima fecha de compra del vÃ­nculo."""
+    """Guarda el último costo y la última fecha de compra del vínculo."""
     vinculo = db.execute(
         select(ProductoProveedor).where(
             ProductoProveedor.producto_id == producto_id,

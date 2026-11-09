@@ -1,4 +1,4 @@
-﻿"""Servicios de catÃ¡logo: unidades, categorÃ­as, marcas, productos y presentaciones."""
+"""Servicios de catálogo: unidades, categorías, marcas, productos y presentaciones."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from app.domain.unidades import ErrorNegocio, dec, num
 
 
 def normalizar(texto: str) -> str:
-    """MinÃºsculas sin acentos, para bÃºsquedas tolerantes a diferencias de escritura."""
+    """Minúsculas sin acentos, para búsquedas tolerantes a diferencias de escritura."""
     descompuesto = unicodedata.normalize("NFD", texto.strip().lower())
     return "".join(c for c in descompuesto if unicodedata.category(c) != "Mn").strip()
 
@@ -32,7 +32,7 @@ def _verificar_codigo_unico(db: Session, codigo: str, producto_id: int | None = 
         stmt = stmt.where(Producto.id != producto_id)
     if db.execute(stmt).scalar_one_or_none() is not None:
         raise ErrorNegocio(
-            f"Ya existe un producto con el cÃ³digo Â«{codigo}Â».",
+            f"Ya existe un producto con el código «{codigo}».",
             detalle={"campo": "codigo"},
         )
 
@@ -52,7 +52,7 @@ def _verificar_codigo_barras(
         stmt = stmt.where(PresentacionProducto.id != presentacion_id)
     if db.execute(stmt).scalar_one_or_none() is not None:
         raise ErrorNegocio(
-            f"El cÃ³digo de barras Â«{limpio}Â» ya estÃ¡ registrado en otra presentaciÃ³n.",
+            f"El código de barras «{limpio}» ya está registrado en otra presentación.",
             detalle={"campo": "codigo_barras"},
         )
 
@@ -122,7 +122,7 @@ def listar_productos(
     tamano: int = 20,
     almacen_id: int | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Listado paginado con bÃºsqueda tolerante (plan Â§5.1)."""
+    """Listado paginado con búsqueda tolerante (plan §5.1)."""
     pagina = max(1, pagina)
     tamano = max(1, min(tamano, 200))
 
@@ -250,7 +250,7 @@ def crear_presentacion(db: Session, producto_id: int, datos: dict[str, Any]) -> 
     ).scalar_one_or_none()
     if existe is not None:
         raise ErrorNegocio(
-            "El producto ya tiene una presentaciÃ³n con ese nombre.",
+            "El producto ya tiene una presentación con ese nombre.",
             detalle={"campo": "nombre"},
         )
     presentacion = PresentacionProducto(
@@ -276,7 +276,7 @@ def actualizar_presentacion(
 ) -> PresentacionProducto:
     presentacion = db.get(PresentacionProducto, presentacion_id)
     if presentacion is None:
-        raise ErrorNegocio("La presentaciÃ³n no existe.")
+        raise ErrorNegocio("La presentación no existe.")
     if "codigo_barras" in cambios:
         _verificar_codigo_barras(db, cambios["codigo_barras"], presentacion_id)
         presentacion.codigo_barras = (cambios["codigo_barras"] or "").strip() or None
@@ -298,7 +298,7 @@ def actualizar_presentacion(
 def desactivar_presentacion(db: Session, presentacion_id: int) -> PresentacionProducto:
     presentacion = db.get(PresentacionProducto, presentacion_id)
     if presentacion is None:
-        raise ErrorNegocio("La presentaciÃ³n no existe.")
+        raise ErrorNegocio("La presentación no existe.")
     presentacion.activo = False
     db.flush()
     return presentacion
@@ -314,7 +314,7 @@ def crear_unidad(db: Session, datos: dict[str, Any]) -> UnidadMedida:
         select(UnidadMedida).where(func.lower(UnidadMedida.codigo) == codigo.lower())
     ).scalar_one_or_none()
     if existe is not None:
-        raise ErrorNegocio("Ya existe una unidad de medida con ese cÃ³digo.")
+        raise ErrorNegocio("Ya existe una unidad de medida con ese código.")
     unidad = UnidadMedida(
         codigo=codigo,
         nombre=datos["nombre"].strip(),

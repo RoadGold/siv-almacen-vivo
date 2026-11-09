@@ -1,7 +1,7 @@
-﻿"""Motor de inventario: existencias, movimientos y conciliaciÃ³n (Fase 3).
+"""Motor de inventario: existencias, movimientos y conciliación (Fase 3).
 
-Todas las funciones trabajan dentro de la transacciÃ³n abierta por el llamador.
-Ninguna hace commit: la atomicidad la garantiza el servicio de operaciÃ³n.
+Todas las funciones trabajan dentro de la transacción abierta por el llamador.
+Ninguna hace commit: la atomicidad la garantiza el servicio de operación.
 """
 
 from __future__ import annotations
@@ -91,7 +91,7 @@ def aplicar_entrada(
     usuario_id: int | None,
     referencia: str | None = None,
 ) -> Existencia:
-    """Suma stock y recalcula el costo promedio ponderado mÃ³vil."""
+    """Suma stock y recalcula el costo promedio ponderado móvil."""
     if cantidad_base <= 0:
         raise ErrorNegocio("La cantidad de entrada debe ser mayor que cero.")
     existencia = bloquear_existencia(db, almacen_id, producto_id)
@@ -143,7 +143,7 @@ def aplicar_salida(
 
     if cantidad_base > cantidad_previa and not permitir_negativo:
         raise ErrorStockInsuficiente(
-            "No hay stock suficiente para completar la operaciÃ³n.",
+            "No hay stock suficiente para completar la operación.",
             detalle={
                 "producto_id": producto_id,
                 "cantidad_solicitada": num(q4(cantidad_base)),
@@ -183,7 +183,7 @@ def existencia_actual(db: Session, almacen_id: int, producto_id: int) -> Existen
 
 
 def saldo_movimientos(db: Session, almacen_id: int, producto_id: int) -> Decimal:
-    """Suma de movimientos: la verdad histÃ³rica del kardex."""
+    """Suma de movimientos: la verdad histórica del kardex."""
     total = db.execute(
         select(func.coalesce(func.sum(MovimientoInventario.cantidad_base_signed), 0)).where(
             MovimientoInventario.almacen_id == almacen_id,
@@ -194,9 +194,9 @@ def saldo_movimientos(db: Session, almacen_id: int, producto_id: int) -> Decimal
 
 
 def conciliar(db: Session, almacen_id: int | None = None) -> list[dict]:
-    """Compara la suma del kardex con la tabla de existencias (plan Â§7.4).
+    """Compara la suma del kardex con la tabla de existencias (plan §7.4).
 
-    Devuelve las diferencias detectadas sin alterar ningÃºn dato.
+    Devuelve las diferencias detectadas sin alterar ningún dato.
     """
     stmt = select(
         Existencia.almacen_id,

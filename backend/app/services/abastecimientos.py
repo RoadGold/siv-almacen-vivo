@@ -1,8 +1,8 @@
-﻿"""Servicio de abastecimientos (Fase 6 Â· recepciÃ³n de mercaderÃ­a).
+"""Servicio de abastecimientos (Fase 6 · recepción de mercadería).
 
-El proveedor es obligatorio en todo abastecimiento normal. La confirmaciÃ³n mueve
-existencias, guarda costos por presentaciÃ³n y actualiza el Ãºltimo costo conocido
-del vÃ­nculo productoâ€“proveedor.
+El proveedor es obligatorio en todo abastecimiento normal. La confirmación mueve
+existencias, guarda costos por presentación y actualiza el último costo conocido
+del vínculo producto–proveedor.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ def _principal(db: Session) -> Almacen:
         select(Almacen).where(Almacen.activo.is_(True)).order_by(Almacen.id)
     ).scalars().first()
     if almacen is None:
-        raise ErrorNegocio("No hay un almacÃ©n activo configurado.")
+        raise ErrorNegocio("No hay un almacén activo configurado.")
     return almacen
 
 
@@ -50,7 +50,7 @@ def _resolver_almacen(db: Session, almacen_id: int | None) -> Almacen:
         return _principal(db)
     almacen = db.get(Almacen, almacen_id)
     if almacen is None or not almacen.activo:
-        raise ErrorNegocio("El almacÃ©n indicado no existe o estÃ¡ inactivo.")
+        raise ErrorNegocio("El almacén indicado no existe o está inactivo.")
     return almacen
 
 
@@ -61,21 +61,21 @@ def _cargar_presentacion(
         select(Producto).options(selectinload(Producto.unidad_base)).where(Producto.id == producto_id)
     ).scalar_one_or_none()
     if producto is None:
-        raise ErrorNegocio("El producto de la lÃ­nea no existe.", detalle={"producto_id": producto_id})
+        raise ErrorNegocio("El producto de la línea no existe.", detalle={"producto_id": producto_id})
     presentacion = db.get(PresentacionProducto, presentacion_id)
     if presentacion is None or presentacion.producto_id != producto.id:
         raise ErrorNegocio(
-            "La presentaciÃ³n indicada no corresponde al producto de la lÃ­nea.",
+            "La presentación indicada no corresponde al producto de la línea.",
             detalle={"presentacion_id": presentacion_id},
         )
     if not producto.activo:
         raise ErrorNegocio(
-            f"El producto Â«{producto.nombre}Â» estÃ¡ desactivado y no puede ingresarse.",
+            f"El producto «{producto.nombre}» está desactivado y no puede ingresarse.",
             detalle={"producto_id": producto.id},
         )
     if not presentacion.activo or not presentacion.es_compra:
         raise ErrorNegocio(
-            f"La presentaciÃ³n Â«{presentacion.nombre}Â» no estÃ¡ disponible para compra.",
+            f"La presentación «{presentacion.nombre}» no está disponible para compra.",
             detalle={"presentacion_id": presentacion.id},
         )
     return producto, presentacion
@@ -215,7 +215,7 @@ def anular(db: Session, abastecimiento_id: int, motivo: str, usuario_id: int) ->
         raise ErrorNegocio("El abastecimiento no existe.", detalle={"abastecimiento_id": abastecimiento_id})
     if abastecimiento.estado != "CONFIRMADO":
         raise ErrorNegocio(
-            "El abastecimiento ya fue revertido o no estÃ¡ confirmado.",
+            "El abastecimiento ya fue revertido o no está confirmado.",
             detalle={"estado": abastecimiento.estado.value},
         )
 
@@ -224,7 +224,7 @@ def anular(db: Session, abastecimiento_id: int, motivo: str, usuario_id: int) ->
         stock_actual = dec(existencia.cantidad_base)
         if stock_actual < dec(detalle.cantidad_base):
             raise ErrorStockInsuficiente(
-                "No se puede revertir: parte de la mercaderÃ­a ya fue vendida.",
+                "No se puede revertir: parte de la mercadería ya fue vendida.",
                 detalle={
                     "producto_id": detalle.producto_id,
                     "cantidad_a_retirar": num(q4(dec(detalle.cantidad_base))),

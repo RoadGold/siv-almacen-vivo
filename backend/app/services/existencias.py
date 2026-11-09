@@ -1,4 +1,4 @@
-﻿"""Servicios de consulta de existencias, kardex, radar y dashboard."""
+"""Servicios de consulta de existencias, kardex, radar y dashboard."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from app.services.secuencias import siguiente_numero
 
 
 def _presentacion_visual(producto: Producto, cantidad_base: Decimal) -> PresentacionProducto | None:
-    """Elige la presentaciÃ³n con la que se entiende mejor la cantidad actual."""
+    """Elige la presentación con la que se entiende mejor la cantidad actual."""
     activas = [p for p in producto.presentaciones if p.activo and p.es_venta]
     if not activas:
         return None
@@ -218,7 +218,7 @@ def producto_nombre_usuario(db: Session, usuario_id: int | None) -> str | None:
 def radar_reposicion(
     db: Session, *, almacen_id: int | None = None, limite: int = 50
 ) -> list[dict[str, Any]]:
-    """Ordena productos por urgencia de reposiciÃ³n (plan Â§5.6)."""
+    """Ordena productos por urgencia de reposición (plan §5.6)."""
     existencias, _ = listar_existencias(
         db, almacen_id=almacen_id, pagina=1, tamano=1, sin_paginacion=True
     )
