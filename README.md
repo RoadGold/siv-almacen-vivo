@@ -145,6 +145,7 @@ archivo `.info` con fecha y versión del esquema.
 | `docs/arquitectura/decisiones.md` | Decisiones técnicas y sus motivos |
 | `docs/manuales/usuario.md` | Manual corto de operación para el personal |
 | `docs/manuales/guia-usuario.md` | **Guía de usuario completa**: todas las pantallas, paso a paso |
+| `docs/manuales/carga-inicial-catalogo.md` | **Carga inicial del catálogo** (productos que aún no tienen proveedor) |
 | `docs/manuales/administrador.md` | Guía técnica: instalación, respaldo, restauración, red local, diagnóstico |
 | `docs/pruebas/matriz-de-pruebas.md` | Estado de los casos T01–T20 y criterios de calidad |
 | `PLAN_DESARROLLO_SIV_ALMACEN_VIVO.md` | Plan maestro del proyecto |

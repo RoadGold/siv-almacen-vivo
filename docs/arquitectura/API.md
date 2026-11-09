@@ -34,9 +34,24 @@ Base: `http://127.0.0.1:8000/api/v1` · Documentación interactiva: `http://127.
 | DELETE | `/catalogo/presentaciones/{id}` | Desactiva (no borra) |
 | GET/POST | `/catalogo/unidades`, `/catalogo/categorias`, `/catalogo/marcas` | Listados y altas |
 | GET | `/catalogo/buscar?q=` | Buscador universal agrupado por tipo |
-| GET | `/catalogo/importar/plantilla` | Plantilla Excel del catálogo (descarga) |
+| GET | `/catalogo/importar/plantilla` | Plantilla Excel del catálogo (descarga, con hoja «Ayuda») |
 | POST | `/catalogo/importar/previsualizar` | `multipart/form-data` con `archivo` → vista previa, sin escribir en la base |
 | POST | `/catalogo/importar/confirmar` | `multipart/form-data` con `archivo` (+ `aplicar_stock_inicial`, `almacen_id`) → aplica las filas válidas |
+
+**Columnas de la plantilla**: `Código`, `Nombre del producto`, `Categoría`, `Marca`,
+`Unidad base (UND/GR/ML)`, `Stock mínimo`, `Presentación de venta`, `Factor de conversión`,
+`Precio de venta`, `Costo de referencia`, `Código de barras`, `¿Admite fracción?`,
+`Stock inicial`, `Costo unitario inicial`, `Código del proveedor`, `¿Proveedor habitual?`,
+`Presentación de compra`.
+
+**Reglas del importador**:
+
+- El **stock inicial se aplica una sola vez por producto** y solo si el producto **no tiene
+  existencias**; así, repetir la importación no duplica el stock.
+- La vista previa distingue **errores** (la fila no se importa) de **avisos** (la fila se importa,
+  pero conviene revisarla: stock repetido, producto con existencias, posible duplicado por nombre).
+- El **proveedor es opcional**: si no se conoce, la celda queda vacía y el vínculo se crea más
+  adelante. Si se indica un código inexistente, la fila se rechaza con un mensaje claro.
 
 `presentaciones[]` devuelve: `{ id, producto_id, nombre, factor_base, precio_venta, costo_referencia, codigo_barras, es_compra, es_venta, permite_fraccion, activo }`.
 

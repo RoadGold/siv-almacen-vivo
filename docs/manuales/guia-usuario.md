@@ -359,15 +359,28 @@ pero todo su historial se conserva intacto.
 
 Pulse **Importar desde Excel** en el catálogo. El proceso tiene tres pasos obligatorios:
 
-1. **Plantilla y archivo** — descargue la plantilla con el botón correspondiente y elija su
-   archivo (`.xlsx` o `.csv`).
+1. **Plantilla y archivo** — descargue la plantilla (trae una hoja «Ayuda» con el significado de
+   cada columna) y elija su archivo (`.xlsx` o `.csv`).
+   - «Aplicar también el stock inicial» viene **desmarcado** por defecto. Si lo marca, la cantidad
+     inicial se registra como `SALDO_INICIAL` (una carga de inventario), **no** como una compra.
 2. **Vista previa** — el sistema analiza el archivo **sin tocar la base de datos** y muestra:
-   cuántas filas hay, cuántos productos son nuevos, cuántos se actualizarán y cuáles tienen
-   errores, con el detalle de cada error por fila.
-   - «Aplicar stock inicial» viene **desmarcado** por defecto. Si lo marca, la cantidad inicial se
-     registra como `SALDO_INICIAL` (una carga de inventario), **no** como una compra.
-3. **Resultado** — tras confirmar, se listan los productos creados, los actualizados y las filas
-   rechazadas.
+   - los contadores: filas, productos nuevos, a actualizar, con errores, **con avisos**, con stock
+     inicial y vínculos de proveedor;
+   - el detalle de cada fila: sus **errores** (en rojo: la fila no se importará) y sus **avisos**
+     (en amarillo: la fila sí se importará, pero conviene saberlo).
+3. **Resultado** — tras confirmar, se listan los productos creados, los actualizados, los saldos
+   iniciales cargados, los vínculos de proveedor y las filas rechazadas.
+
+**Reglas del stock inicial en el archivo:**
+
+- Se escribe **en unidad base** (unidades, gramos o mililitros), no en cajas.
+- Se escribe **una sola vez por producto**, en la primera fila. Si se repite, el sistema avisa y
+  la aplica una sola vez.
+- Si el producto **ya tiene existencias**, el sistema no vuelve a cargar el stock inicial: avisa
+  y, si hace falta corregirlo, se usa un ajuste.
+
+> Para el procedimiento completo de carga del catálogo (incluido el caso de productos sin
+> proveedor conocido), ver la **[guía de carga inicial](carga-inicial-catalogo.md)**.
 
 > Las filas con errores **nunca** se dan de alta. Corrija el archivo y vuelva a subirlo.
 
