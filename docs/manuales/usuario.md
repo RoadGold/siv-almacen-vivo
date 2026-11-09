@@ -1,6 +1,9 @@
 # Manual corto de uso · SIV · Almacén Vivo
 
 > Guía para el personal de la tienda. No requiere conocimientos técnicos.
+>
+> Para el detalle de **todas** las pantallas (productos, proveedores, reportes, kardex,
+> ajustes, administración y respaldos) ver la **[guía de usuario completa](guia-usuario.md)**.
 
 ## 1. Entrar al sistema
 
@@ -11,6 +14,13 @@
 
 > Si aparece «Servidor local no disponible», avise al administrador: el equipo que aloja el sistema
 > debe estar encendido.
+
+## 1 bis. Modo claro y modo oscuro
+
+En la franja superior, a la derecha, hay un interruptor con tres opciones: **Modo claro**,
+**Modo oscuro** y **Según el sistema** (esta última es la predeterminada). La elección se recuerda
+en ese equipo y no afecta los datos ni las operaciones en curso. El modo oscuro mantiene los
+mismos colores de estado (Agotado, Bajo mínimo, Disponible).
 
 ## 2. VENDER — registrar una venta
 

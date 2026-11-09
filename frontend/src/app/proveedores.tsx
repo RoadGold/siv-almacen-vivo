@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { ToastProvider } from '@/design-system';
 import { ProveedorAutenticacion } from '@/shared/auth/ProveedorAutenticacion';
+import { ProveedorTema } from '@/shared/tema/ProveedorTema';
 import { ErrorApi } from '@/shared/api/client';
 
 /** Proveedores globales de la aplicación. */
@@ -27,9 +28,11 @@ export function ProveedoresApp({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={cliente}>
-      <ProveedorAutenticacion>
-        <ToastProvider>{children}</ToastProvider>
-      </ProveedorAutenticacion>
+      <ProveedorTema>
+        <ProveedorAutenticacion>
+          <ToastProvider>{children}</ToastProvider>
+        </ProveedorAutenticacion>
+      </ProveedorTema>
     </QueryClientProvider>
   );
 }

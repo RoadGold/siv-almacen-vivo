@@ -100,7 +100,7 @@ export function Modal({
   if (!abierto) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[rgba(25,42,49,0.42)] p-4 sm:p-8">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-overlay p-4 sm:p-8">
       <div
         className="absolute inset-0"
         aria-hidden="true"
@@ -136,7 +136,7 @@ export function Modal({
         </header>
         <div className="max-h-[70vh] overflow-y-auto px-5 py-4">{children}</div>
         {pie ? (
-          <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-linea bg-[#faf9f5] px-5 py-3">
+          <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-linea bg-surface-tenue px-5 py-3">
             {pie}
           </footer>
         ) : null}

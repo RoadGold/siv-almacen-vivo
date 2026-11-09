@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { claves } from '@/shared/api/clavesConsulta';
 import { sistemaApi } from '@/shared/api/endpoints';
 import { formatearHora } from '@/shared/format/formato';
+import { InterruptorTema } from '@/design-system';
 import { useAutenticacion } from '@/shared/auth/ProveedorAutenticacion';
 import { suscribirOperacion, type Operacion } from '@/shared/estado/operaciones';
 import { useEffect, useState } from 'react';
@@ -26,7 +27,7 @@ export function BarraPulso() {
   const conectado = !isError && !isLoading;
 
   return (
-    <div className="border-b border-linea bg-[#f1efe8] text-2xs text-ink-suave">
+    <div className="border-b border-linea bg-canvas-tenue text-2xs text-ink-suave">
       <div className="mx-auto flex max-w-contenido flex-wrap items-center justify-between gap-x-6 gap-y-1 px-6 py-1.5">
         <p className="flex items-center gap-2">
           <span
@@ -57,6 +58,7 @@ export function BarraPulso() {
             <span className="font-semibold uppercase tracking-[0.12em]">Usuario: </span>
             {usuario ? `${usuario.nombre} (${usuario.usuario})` : '—'}
           </span>
+          <InterruptorTema />
         </p>
       </div>
     </div>

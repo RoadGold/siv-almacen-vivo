@@ -256,7 +256,7 @@ export function Analizar() {
               onClick={() => setVista(item.id)}
               className={[
                 'rounded-[6px] px-3 py-1.5 text-sm font-semibold transition-colors',
-                vista === item.id ? 'bg-brand text-white' : 'text-muted hover:text-brand',
+                vista === item.id ? 'bg-brand text-sobre-brand' : 'text-muted hover:text-brand',
               ].join(' ')}
             >
               {item.titulo}

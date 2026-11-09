@@ -33,6 +33,8 @@ import {
 } from '@/shared/format/formato';
 import { useRetraso } from '@/shared/hooks/useRetraso';
 import { esSinPermisos, mensajeDeError } from '@/shared/hooks/errores';
+import { useAutenticacion } from '@/shared/auth/ProveedorAutenticacion';
+import { PanelAjusteInventario, type ModoAjuste } from './PanelAjusteInventario';
 
 const TONO_ESTADO = {
   agotado: 'peligro',
@@ -51,6 +53,9 @@ export function Explorar() {
   const [productoId, setProductoId] = useState<number | null>(null);
   const [panel, setPanel] = useState<Panel>('radar');
   const [parametrosUrl, setParametrosUrl] = useSearchParams();
+  const [modalAjuste, setModalAjuste] = useState<ModoAjuste | null>(null);
+  const { puede } = useAutenticacion();
+  const puedeAjustar = puede('inventario.ajustar');
 
   // Permite abrir la ficha de un producto desde otras pantallas (kardex, reportes).
   useEffect(() => {
@@ -92,6 +97,12 @@ export function Explorar() {
 
   const datos = existencias.data;
   const totalPaginas = datos?.paginas ?? 0;
+
+  // Un producto sin existencias puede recibir una carga de saldo inicial.
+  const sinExistencias =
+    (ficha.data?.existencias ?? []).every(
+      (existencia) => Number(existencia.cantidad_base || '0') === 0,
+    );
 
   function seleccionar(id: number) {
     setProductoId(id);
@@ -275,7 +286,7 @@ export function Explorar() {
               onClick={() => setPanel('ficha')}
               className={[
                 'flex-1 rounded-[4px] px-3 py-1.5 text-sm font-semibold',
-                panel === 'ficha' ? 'bg-brand text-white' : 'text-muted hover:text-brand',
+                panel === 'ficha' ? 'bg-brand text-sobre-brand' : 'text-muted hover:text-brand',
               ].join(' ')}
             >
               Ficha viva
@@ -287,7 +298,7 @@ export function Explorar() {
               onClick={() => setPanel('radar')}
               className={[
                 'flex-1 rounded-[4px] px-3 py-1.5 text-sm font-semibold',
-                panel === 'radar' ? 'bg-brand text-white' : 'text-muted hover:text-brand',
+                panel === 'radar' ? 'bg-brand text-sobre-brand' : 'text-muted hover:text-brand',
               ].join(' ')}
             >
               Radar de reposición
@@ -355,6 +366,32 @@ export function Explorar() {
                       </dd>
                     </div>
                   </dl>
+
+                  {puedeAjustar ? (
+                    <section className="border-t border-linea pt-3">
+                      <h4 className="etiqueta mb-2">Acciones administrativas</h4>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variante="secundario"
+                          onClick={() => setModalAjuste('ajuste')}
+                        >
+                          Registrar ajuste
+                        </Button>
+                        {sinExistencias ? (
+                          <Button
+                            variante="secundario"
+                            onClick={() => setModalAjuste('saldo-inicial')}
+                          >
+                            Cargar saldo inicial
+                          </Button>
+                        ) : null}
+                      </div>
+                      <p className="mt-2 text-xs text-muted">
+                        Los ajustes y las cargas iniciales se registran con motivo, usuario y fecha.
+                        No existe un botón para «editar el stock».
+                      </p>
+                    </section>
+                  ) : null}
 
                   <section>
                     <h4 className="etiqueta mb-1">Precios por presentación</h4>
@@ -499,6 +536,24 @@ export function Explorar() {
           )}
         </div>
       </div>
+
+      <PanelAjusteInventario
+        abierto={modalAjuste !== null}
+        onCerrar={() => setModalAjuste(null)}
+        modo={modalAjuste ?? 'ajuste'}
+        producto={
+          ficha.data
+            ? {
+                id: ficha.data.id,
+                nombre: ficha.data.nombre,
+                codigo: ficha.data.codigo,
+                unidad_base: ficha.data.unidad_base ?? null,
+              }
+            : null
+        }
+        almacenId={ficha.data?.existencias?.[0]?.almacen_id ?? null}
+        existenciaBase={ficha.data?.existencias?.[0]?.cantidad_base ?? '0'}
+      />
     </div>
   );
 }

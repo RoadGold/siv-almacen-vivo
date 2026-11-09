@@ -333,7 +333,7 @@ function SelectorProducto({
                   onElegir(producto.id, producto.nombre);
                   setTexto('');
                 }}
-                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-[#faf9f5]"
+                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-surface-tenue"
               >
                 <span className="font-semibold text-ink">{producto.nombre}</span>
                 <span className="numero text-xs text-muted">{producto.codigo}</span>

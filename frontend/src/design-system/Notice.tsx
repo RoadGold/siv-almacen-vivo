@@ -17,7 +17,7 @@ export interface NoticeProps {
 export function Notice({ children, tono = 'info', titulo, className = '', acciones }: NoticeProps) {
   const estilos: Record<TonoAviso, { contenedor: string; texto: string; etiqueta: string }> = {
     info: {
-      contenedor: 'border-linea-fuerte bg-[#f7f8f8]',
+      contenedor: 'border-linea-fuerte bg-surface-tenue',
       texto: 'text-ink',
       etiqueta: 'Aviso',
     },

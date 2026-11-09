@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import (
@@ -57,9 +57,10 @@ def listar_existencias(
     estado: str | None = None,
     pagina: int = 1,
     tamano: int = 25,
+    sin_paginacion: bool = False,
 ) -> tuple[list[dict[str, Any]], int]:
     pagina = max(1, pagina)
-    tamano = max(1, min(tamano, 200))
+    tamano = max(1, min(tamano, 200)) if not sin_paginacion else max(1, tamano)
 
     filtros = []
     if almacen_id is not None:
@@ -67,11 +68,28 @@ def listar_existencias(
     if categoria_id is not None:
         filtros.append(Producto.categoria_id == categoria_id)
 
+    # El estado se resuelve en el servidor para poder filtrar y paginar sin
+    # cargar todo el catálogo en memoria.
+    if estado == "agotado":
+        filtros.append(Existencia.cantidad_base <= 0)
+    elif estado == "bajo_minimo":
+        filtros.append(Existencia.cantidad_base > 0)
+        filtros.append(Existencia.cantidad_base < Producto.stock_minimo_base)
+    elif estado == "disponible":
+        filtros.append(Existencia.cantidad_base > 0)
+        filtros.append(
+            or_(
+                Producto.stock_minimo_base <= 0,
+                Existencia.cantidad_base >= Producto.stock_minimo_base,
+            )
+        )
+
     consulta = (
         select(Existencia, Producto, Almacen)
         .join(Producto, Producto.id == Existencia.producto_id)
         .join(Almacen, Almacen.id == Existencia.almacen_id)
         .where(*filtros)
+        .order_by(Producto.nombre_normalizado, Producto.id, Existencia.almacen_id)
     )
 
     if q:
@@ -81,7 +99,14 @@ def listar_existencias(
             | (func.lower(Producto.codigo).like(f"%{texto}%"))
         )
 
-    filas = db.execute(consulta).all()
+    total = db.execute(
+        select(func.count()).select_from(consulta.subquery())
+    ).scalar_one()
+
+    if sin_paginacion:
+        filas = db.execute(consulta).all()
+    else:
+        filas = db.execute(consulta.offset((pagina - 1) * tamano).limit(tamano)).all()
     resultado: list[dict[str, Any]] = []
 
     for existencia, producto, almacen in filas:
@@ -94,9 +119,6 @@ def listar_existencias(
             estado_producto = "bajo_minimo"
         else:
             estado_producto = "disponible"
-
-        if estado and estado != estado_producto:
-            continue
 
         resultado.append(
             {
@@ -117,9 +139,7 @@ def listar_existencias(
             }
         )
 
-    total = len(resultado)
-    inicio = (pagina - 1) * tamano
-    return resultado[inicio : inicio + tamano], total
+    return resultado, total
 
 
 def movimientos(
@@ -199,8 +219,11 @@ def radar_reposicion(
     db: Session, *, almacen_id: int | None = None, limite: int = 50
 ) -> list[dict[str, Any]]:
     """Ordena productos por urgencia de reposiciÃ³n (plan Â§5.6)."""
-    existencias, _ = listar_existencias(db, almacen_id=almacen_id, pagina=1, tamano=100000)
+    existencias, _ = listar_existencias(
+        db, almacen_id=almacen_id, pagina=1, tamano=1, sin_paginacion=True
+    )
     urgentes = [e for e in existencias if e["estado"] in ("agotado", "bajo_minimo")]
+    # Se usa el listado completo (no paginado) para no perder productos urgentes.
 
     proveedores_por_producto: dict[int, list[tuple[int, str, str | None]]] = {}
     for vinculo, proveedor in db.execute(
@@ -246,10 +269,32 @@ def dashboard_resumen(db: Session, almacen_id: int | None = None) -> dict[str, A
         .where(Venta.fecha == hoy, Venta.estado == "CONFIRMADO")
     ).scalar_one()
 
-    existencias, _ = listar_existencias(db, almacen_id=almacen_id, pagina=1, tamano=100000)
-    agotados = sum(1 for e in existencias if e["estado"] == "agotado")
-    bajo_minimo = sum(1 for e in existencias if e["estado"] == "bajo_minimo")
-    valor = sum((dec(e["valor_costo"]) for e in existencias), Decimal("0"))
+    # Los indicadores se calculan con agregaciones en el servidor: así el
+    # resumen es correcto con 10 000 productos y no se carga todo en memoria.
+    filtros_stock = []
+    if almacen_id is not None:
+        filtros_stock.append(Existencia.almacen_id == almacen_id)
+
+    agotados = db.execute(
+        select(func.count())
+        .select_from(Existencia)
+        .where(*filtros_stock, Existencia.cantidad_base <= 0)
+    ).scalar_one()
+    bajo_minimo = db.execute(
+        select(func.count())
+        .select_from(Existencia)
+        .join(Producto, Producto.id == Existencia.producto_id)
+        .where(
+            *filtros_stock,
+            Existencia.cantidad_base > 0,
+            Existencia.cantidad_base < Producto.stock_minimo_base,
+        )
+    ).scalar_one()
+    valor = db.execute(
+        select(func.coalesce(func.sum(Existencia.cantidad_base * Existencia.costo_promedio_base), 0)).where(
+            *filtros_stock
+        )
+    ).scalar_one()
     total_productos = db.execute(
         select(func.count()).select_from(Producto).where(Producto.activo.is_(True))
     ).scalar_one()

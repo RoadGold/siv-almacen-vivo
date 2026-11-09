@@ -5,6 +5,7 @@ export { Card, CardBody, type CardProps } from './Card';
 export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { Field, type FieldProps } from './Field';
 export { Input, type InputProps } from './Input';
+export { InterruptorTema } from './InterruptorTema';
 export { Modal, type ModalProps } from './Modal';
 export { Notice, type NoticeProps, type TonoAviso } from './Notice';
 export { Select, type SelectProps } from './Select';

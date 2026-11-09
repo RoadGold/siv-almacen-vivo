@@ -242,7 +242,7 @@ export function Recibir() {
                 className={[
                   'flex items-center gap-2 rounded-[6px] border px-3 py-1.5 text-sm transition-colors',
                   activo
-                    ? 'border-brand bg-brand text-white'
+                    ? 'border-brand bg-brand text-sobre-brand'
                     : completado
                       ? 'border-brand bg-brand-tenue text-brand'
                       : 'border-linea bg-surface text-muted',

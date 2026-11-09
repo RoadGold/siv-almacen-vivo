@@ -2,6 +2,9 @@
  * Tokens visuales de SIV · Almacén Vivo.
  * Estética «editorial de mercado»: fondo cálido, tinta profunda, panels blancos
  * y bordes finos. Todos los pares texto/fondo mantienen contraste WCAG AA.
+ *
+ * El tema oscuro se activa con `data-tema="oscuro"` en <html> y redefine las
+ * mismas variables: ningún componente necesita saber en qué tema está.
  */
 :root {
   /* --- Tokens oficiales (plan §2.2) --- */
@@ -26,9 +29,66 @@
   --linea-fuerte: #d2cdc0;
   --ink-suave: #35474e;
 
+  /* --- Superficies secundarias y colores de apoyo --- */
+  --surface-tenue: #faf9f5; /* cabeceras de tabla, pies de panel */
+  --canvas-tenue: #f1efe8; /* franja superior */
+  --accent-fuerte: #d6ea82; /* hover del acento */
+  --danger-fuerte: #9c332c; /* hover del peligro */
+  --overlay: rgba(25, 42, 49, 0.42); /* velo de las ventanas modales */
+
+  /* --- Color de texto sobre superficies sólidas --- */
+  --sobre-brand: #ffffff; /* texto sobre `bg-brand` */
+  --sobre-ink: #ffffff; /* texto sobre `bg-ink` */
+
+  /* --- Sombras (en el tema oscuro se apoyan en el negro, no en la tinta) --- */
+  --sombra-panel: 0 1px 2px rgba(25, 42, 49, 0.05);
+  --sombra-elevado: 0 8px 24px rgba(25, 42, 49, 0.12);
+
   /* Espaciado y radios usados por los componentes base */
   --radio-tarjeta: 10px;
   --radio-control: 6px;
+
+  color-scheme: light;
+}
+
+/*
+ * Tema oscuro: mismas superficies, invertidas con cuidado para mantener el
+ * contraste AA en textos, cifras y estados.
+ */
+[data-tema='oscuro'] {
+  --canvas: #10171a;
+  --ink: #e8e6de;
+  --surface: #172124;
+  --brand: #4fb3a4;
+  --accent: #d7ec9a;
+  --warning: #e0a84a;
+  --danger: #f08a80;
+  --muted: #9aaba8;
+
+  --brand-tenue: #14312f;
+  --brand-hondo: #3d9a8d;
+  --accent-tenue: #23301a;
+  --warning-tenue: #2e2412;
+  --danger-tenue: #33201e;
+  --muted-tenue: #212a2c;
+
+  --linea: #293436;
+  --linea-fuerte: #3b4a4c;
+  --ink-suave: #c3ccc8;
+
+  --surface-tenue: #131c1e;
+  --canvas-tenue: #0c1214;
+  --accent-fuerte: #c3dc80;
+  --danger-fuerte: #d9706a;
+  --overlay: rgba(0, 0, 0, 0.62);
+
+  --sobre-brand: #0e1517;
+  --sobre-ink: #10171a;
+
+  --sombra-panel: 0 1px 2px rgba(0, 0, 0, 0.38);
+  --sombra-elevado: 0 10px 30px rgba(0, 0, 0, 0.55);
+
+  color-scheme: dark;
 }
 
 /* Modo de alto contraste opcional para el usuario (accesibilidad). */
@@ -37,5 +97,11 @@
     --muted: #4b5a5f;
     --linea: #b9b3a6;
     --linea-fuerte: #8d8778;
+  }
+
+  [data-tema='oscuro'] {
+    --muted: #cfd8d4;
+    --linea: #55656a;
+    --linea-fuerte: #7d8f92;
   }
 }

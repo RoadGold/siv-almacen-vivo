@@ -106,11 +106,12 @@ La base de pruebas vive en memoria (`tmpfs`) y se crea sola:
 docker compose --profile test up -d db-test
 ```
 
-Cobertura actual: **38 pruebas** de backend (pytest) y **22** de frontend (Vitest), que incluyen
+Cobertura actual: **38 pruebas** de backend (pytest) y **64** de frontend (Vitest), que incluyen
 conversiones exactas (caja × 24, saco de 50 kg, venta fraccionada de 0,750 kg), rechazo de
 fracciones en productos indivisibles, stock insuficiente, idempotencia, concurrencia sobre la
 última unidad, atomicidad de la transacción, reversión por anulación, snapshots históricos,
-autoridad del precio, permisos por rol, importación de Excel y reportes.
+autoridad del precio, permisos por rol, importación de Excel, reportes y **contraste WCAG AA de
+las paletas clara y oscura**.
 
 Recorrido de aceptación contra el sistema en marcha:
 
@@ -143,6 +144,7 @@ archivo `.info` con fecha y versión del esquema.
 | `docs/arquitectura/API.md` | Contrato completo de la API |
 | `docs/arquitectura/decisiones.md` | Decisiones técnicas y sus motivos |
 | `docs/manuales/usuario.md` | Manual corto de operación para el personal |
+| `docs/manuales/guia-usuario.md` | **Guía de usuario completa**: todas las pantallas, paso a paso |
 | `docs/manuales/administrador.md` | Guía técnica: instalación, respaldo, restauración, red local, diagnóstico |
 | `docs/pruebas/matriz-de-pruebas.md` | Estado de los casos T01–T20 y criterios de calidad |
 | `PLAN_DESARROLLO_SIV_ALMACEN_VIVO.md` | Plan maestro del proyecto |

@@ -62,7 +62,7 @@ export function Administrar() {
             onClick={() => setSeccionElegida(item.id)}
             className={[
               'rounded-[4px] px-4 py-1.5 text-sm font-semibold transition-colors',
-              seccion === item.id ? 'bg-brand text-white' : 'text-muted hover:text-brand',
+              seccion === item.id ? 'bg-brand text-sobre-brand' : 'text-muted hover:text-brand',
             ].join(' ')}
           >
             {item.titulo}

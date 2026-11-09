@@ -31,6 +31,7 @@ import type {
   RespuestaLogin,
   ResultadoImportacion,
   ResultadoInventarioInicial,
+  AjusteInventario,
   ResumenDashboard,
   UnidadMedida,
   Usuario,
@@ -209,6 +210,13 @@ export const inventarioApi = {
       tamano: filtros.tamano ?? 50,
     }),
   radar: (limite = 25) => api.get<RadarReposicion[]>('/inventario/radar-reposicion', { limite }),
+  /** Ajuste administrativo: suma (positivo) o resta (negativo) de existencias. */
+  ajustar: (cuerpo: {
+    almacen_id: number;
+    producto_id: number;
+    cantidad_base: string;
+    motivo: string;
+  }) => api.post<AjusteInventario>('/inventario/ajustes', cuerpo),
   /** Carga inicial de existencias: es una operación administrativa, no una compra. */
   inventarioInicial: (cuerpo: {
     almacen_id?: number | null;

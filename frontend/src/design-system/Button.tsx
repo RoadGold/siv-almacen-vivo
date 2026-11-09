@@ -16,14 +16,14 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANTES: Record<VarianteBoton, string> = {
   primario:
-    'bg-brand text-white border border-brand hover:bg-brand-hondo hover:border-brand-hondo',
+    'bg-brand text-sobre-brand border border-brand hover:bg-brand-hondo hover:border-brand-hondo',
   acento:
-    'bg-accent text-ink border border-accent hover:bg-[#d6ea82] hover:border-[#d6ea82]',
+    'bg-accent text-ink border border-accent hover:bg-accent-fuerte hover:border-accent-fuerte',
   secundario:
     'bg-surface text-ink border border-linea-fuerte hover:border-brand hover:text-brand',
   fantasma:
     'bg-transparent text-brand border border-transparent hover:bg-brand-tenue',
-  peligro: 'bg-danger text-white border border-danger hover:bg-[#9c332c] hover:border-[#9c332c]',
+  peligro: 'bg-danger text-sobre-brand border border-danger hover:bg-danger-fuerte hover:border-danger-fuerte',
 };
 
 const TAMANOS: Record<TamanoBoton, string> = {

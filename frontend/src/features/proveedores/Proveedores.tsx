@@ -555,7 +555,7 @@ function FormularioVinculo({
                 }}
                 className={[
                   'flex w-full items-center justify-between px-3 py-2 text-left text-sm',
-                  productoId === item.id ? 'bg-brand-tenue text-brand' : 'hover:bg-[#faf9f5]',
+                  productoId === item.id ? 'bg-brand-tenue text-brand' : 'hover:bg-surface-tenue',
                 ].join(' ')}
               >
                 <span className="font-semibold text-ink">{item.nombre}</span>

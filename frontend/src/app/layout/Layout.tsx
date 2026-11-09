@@ -21,7 +21,7 @@ export function Layout() {
     <div className="flex min-h-screen flex-col bg-canvas">
       <a
         href="#contenido-principal"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-[6px] focus:bg-ink focus:px-3 focus:py-2 focus:text-sm focus:text-white"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-[6px] focus:bg-ink focus:px-3 focus:py-2 focus:text-sm focus:text-sobre-ink"
       >
         Saltar al contenido principal
       </a>
@@ -46,7 +46,7 @@ export function Layout() {
             </Button>
           </div>
         </div>
-        <div className="border-t border-linea bg-[#faf9f5]">
+        <div className="border-t border-linea bg-surface-tenue">
           <div className="mx-auto flex max-w-contenido flex-wrap items-center justify-between gap-3 px-6 py-1.5">
             <NavegacionSecundaria />
             <NavLink

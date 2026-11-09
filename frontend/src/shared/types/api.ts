@@ -533,6 +533,18 @@ export interface ResultadoInventarioInicial {
   }[];
 }
 
+export interface AjusteInventario {
+  id: number;
+  numero: string;
+  almacen_id: number;
+  producto_id: number;
+  tipo: string;
+  cantidad_base: string;
+  motivo: string;
+  estado: string;
+  created_at?: string | null;
+}
+
 /* --- AdministraciÃ³n -------------------------------------------------- */
 
 export interface RegistroAuditoria {

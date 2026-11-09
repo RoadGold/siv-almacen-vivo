@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <meta
       name="description"
       content="SIV · Almacén Vivo — sistema local de inventario, proveedores, abastecimiento y ventas."
@@ -12,6 +12,23 @@
   </head>
   <body>
     <div id="raiz"></div>
+    <script>
+      // Se aplica el tema antes de pintar para evitar el parpadeo claro/oscuro.
+      (function () {
+        try {
+          var preferencia = window.localStorage.getItem('siv.tema') || 'sistema';
+          var oscuro =
+            preferencia === 'oscuro' ||
+            (preferencia === 'sistema' &&
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.dataset.tema = oscuro ? 'oscuro' : 'claro';
+          document.documentElement.style.colorScheme = oscuro ? 'dark' : 'light';
+        } catch (error) {
+          document.documentElement.dataset.tema = 'claro';
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

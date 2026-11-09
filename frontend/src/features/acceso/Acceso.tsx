@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, Navigate } from 'react-router-dom';
-import { Button, Field, Input, Notice } from '@/design-system';
+import { Button, Field, Input, InterruptorTema, Notice } from '@/design-system';
 import { useAutenticacion } from '@/shared/auth/ProveedorAutenticacion';
 import { ErrorApi } from '@/shared/api/client';
 
@@ -47,6 +47,9 @@ export function Acceso() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10">
       <div className="w-full max-w-md">
+        <div className="mb-4 flex justify-end">
+          <InterruptorTema />
+        </div>
         <div className="mb-6 text-center">
           <span
             aria-hidden="true"

@@ -20,7 +20,7 @@ export function Table({ children, descripcion, className = '' }: TableProps) {
 
 export function TableHead({ children }: { children: ReactNode }) {
   return (
-    <thead className="border-b border-linea bg-[#faf9f5]">
+    <thead className="border-b border-linea bg-surface-tenue">
       <tr>{children}</tr>
     </thead>
   );
@@ -44,7 +44,7 @@ export function TableRow({
       onClick={onClick}
       className={[
         'align-middle',
-        onClick ? 'cursor-pointer hover:bg-[#faf9f5]' : '',
+        onClick ? 'cursor-pointer hover:bg-surface-tenue' : '',
         activa ? 'bg-brand-tenue' : '',
       ]
         .filter(Boolean)
@@ -106,7 +106,7 @@ export function TableCell({
 /** Pie de tabla para paginación y resúmenes. */
 export function TableFooter({ children }: { children: ReactNode }) {
   return (
-    <tfoot className="border-t border-linea bg-[#faf9f5] text-sm">
+    <tfoot className="border-t border-linea bg-surface-tenue text-sm">
       <tr>{children}</tr>
     </tfoot>
   );

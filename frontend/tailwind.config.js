@@ -35,6 +35,13 @@ export default {
           DEFAULT: 'var(--linea)',
           fuerte: 'var(--linea-fuerte)',
         },
+        'surface-tenue': 'var(--surface-tenue)',
+        'canvas-tenue': 'var(--canvas-tenue)',
+        'accent-fuerte': 'var(--accent-fuerte)',
+        'danger-fuerte': 'var(--danger-fuerte)',
+        overlay: 'var(--overlay)',
+        'sobre-brand': 'var(--sobre-brand)',
+        'sobre-ink': 'var(--sobre-ink)',
       },
       fontFamily: {
         sans: [
@@ -54,8 +61,8 @@ export default {
         tarjeta: '10px',
       },
       boxShadow: {
-        panel: '0 1px 2px rgba(25, 42, 49, 0.05)',
-        elevado: '0 8px 24px rgba(25, 42, 49, 0.12)',
+        panel: 'var(--sombra-panel)',
+        elevado: 'var(--sombra-elevado)',
       },
       maxWidth: {
         contenido: '1440px',

@@ -56,7 +56,7 @@ export function NavegacionEstaciones() {
             [
               'group rounded-[6px] border px-4 py-2 transition-colors',
               isActive
-                ? 'border-brand bg-brand text-white'
+                ? 'border-brand bg-brand text-sobre-brand'
                 : 'border-linea bg-surface text-ink hover:border-brand hover:text-brand',
             ].join(' ')
           }
@@ -67,7 +67,7 @@ export function NavegacionEstaciones() {
               <span
                 className={[
                   'text-2xs',
-                  isActive ? 'text-white/85' : 'text-muted group-hover:text-brand',
+                  isActive ? 'text-sobre-brand/85' : 'text-muted group-hover:text-brand',
                 ].join(' ')}
               >
                 {estacion.descripcion}
