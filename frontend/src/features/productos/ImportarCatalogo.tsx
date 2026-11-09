@@ -206,7 +206,7 @@ export function ImportarCatalogo({ abierto, onCerrar }: { abierto: boolean; onCe
                 <Contador titulo="Filas" valor={previa.resumen.filas} />
                 <Contador titulo="Productos nuevos" valor={previa.resumen.nuevos} tono="marca" />
                 <Contador titulo="A actualizar" valor={previa.resumen.actualizar} tono="aviso" />
-                <Contador titulo="Con errores" valor={previa.resumen.con_con_errores} tono="peligro" />
+                <Contador titulo="Con errores" valor={previa.resumen.con_errores} tono="peligro" />
               </div>
 
               {previa.resumen.con_errores > 0 ? (

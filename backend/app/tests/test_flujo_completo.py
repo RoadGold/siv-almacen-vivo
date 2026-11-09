@@ -470,6 +470,69 @@ def test_t15_cambiar_factor_no_altera_historial(cliente, cabeceras_admin, unidad
     assert historial["detalles"][0]["factor_snapshot"] == "10"
 
 
+def test_t16_vendedor_no_puede_fijar_precio_propio(
+    cliente, cabeceras_admin, cabeceras_vendedor, unidades, almacen
+):
+    """El precio lo define la presentación; solo el administrador puede cambiarlo."""
+    producto = crear_producto(
+        cliente,
+        cabeceras_admin,
+        unidades,
+        codigo="PRECIOV",
+        nombre="Gaseosa 500 ml",
+        unidad="UND",
+        presentaciones=[{"nombre": "botella", "factor_base": "1", "precio_venta": "2.50"}],
+    )
+    ids = abbreviaturas_presentaciones(producto)
+    proveedor = crear_proveedor(cliente, cabeceras_admin, "PRV-PREC")
+    ingresar(
+        cliente,
+        cabeceras_admin,
+        proveedor["id"],
+        almacen.id,
+        [{"producto_id": producto["id"], "presentacion_id": ids["botella"], "cantidad": "10", "costo_unitario": "2.00"}],
+    )
+
+    venta_vendedor = cliente.post(
+        "/api/v1/ventas",
+        json={
+            "almacen_id": almacen.id,
+            "lineas": [
+                {
+                    "producto_id": producto["id"],
+                    "presentacion_id": ids["botella"],
+                    "cantidad": "1",
+                    "precio_unitario": "0.10",
+                }
+            ],
+        },
+        headers=cabeceras_vendedor,
+    )
+    assert venta_vendedor.status_code == 201, venta_vendedor.text
+    assert venta_vendedor.json()["detalles"][0]["precio_unitario"] == "2.5"
+    assert venta_vendedor.json()["total"] == "2.5"
+
+    # El administrador sí puede fijar un precio distinto.
+    venta_admin = cliente.post(
+        "/api/v1/ventas",
+        json={
+            "almacen_id": almacen.id,
+            "lineas": [
+                {
+                    "producto_id": producto["id"],
+                    "presentacion_id": ids["botella"],
+                    "cantidad": "1",
+                    "precio_unitario": "2.00",
+                }
+            ],
+        },
+        headers=cabeceras_admin,
+    )
+    assert venta_admin.status_code == 201, venta_admin.text
+    assert venta_admin.json()["detalles"][0]["precio_unitario"] == "2"
+    assert venta_admin.json()["total"] == "2"
+
+
 def test_t16_vendedor_no_puede_crear_productos(cliente, cabeceras_vendedor, unidades):
     respuesta = cliente.post(
         "/api/v1/catalogo/productos",

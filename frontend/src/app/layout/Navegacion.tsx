@@ -29,12 +29,16 @@ const ESTACIONES: Estacion[] = [
   },
 ];
 
-const SECUNDARIOS: { ruta: string; titulo: string; permiso?: string }[] = [
-  { ruta: '/analizar', titulo: 'Analizar', permiso: 'reportes.ver' },
-  { ruta: '/kardex', titulo: 'Kardex', permiso: 'inventario.ver' },
-  { ruta: '/gestionar/productos', titulo: 'Gestionar productos', permiso: 'catalogo.ver' },
-  { ruta: '/gestionar/proveedores', titulo: 'Gestionar proveedores', permiso: 'proveedores.ver' },
-  { ruta: '/administrar', titulo: 'Administrar', permiso: 'admin.usuarios' },
+const SECUNDARIOS: { ruta: string; titulo: string; permisos?: string[] }[] = [
+  { ruta: '/analizar', titulo: 'Analizar', permisos: ['reportes.ver'] },
+  { ruta: '/kardex', titulo: 'Kardex', permisos: ['inventario.ver'] },
+  { ruta: '/gestionar/productos', titulo: 'Gestionar productos', permisos: ['catalogo.ver'] },
+  { ruta: '/gestionar/proveedores', titulo: 'Gestionar proveedores', permisos: ['proveedores.ver'] },
+  {
+    ruta: '/administrar',
+    titulo: 'Administrar',
+    permisos: ['admin.usuarios', 'admin.auditoria'],
+  },
 ];
 
 /** Navegación principal: tres estaciones de trabajo. */
@@ -79,7 +83,9 @@ export function NavegacionEstaciones() {
 /** Banda secundaria: herramientas menos frecuentes. */
 export function NavegacionSecundaria() {
   const { puede } = useAutenticacion();
-  const visibles = SECUNDARIOS.filter((item) => !item.permiso || puede(item.permiso));
+  const visibles = SECUNDARIOS.filter(
+    (item) => !item.permisos || item.permisos.some((permiso) => puede(permiso)),
+  );
 
   if (visibles.length === 0) return null;
 

@@ -6,7 +6,6 @@ import {
   Card,
   CardBody,
   EmptyState,
-  Input,
   LoadingBlock,
   Notice,
   Select,

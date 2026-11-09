@@ -15,6 +15,9 @@ const URL_API_POR_DEFECTO = 'http://127.0.0.1:8000/api/v1';
 
 const URL_API = (import.meta.env.VITE_API_URL?.trim() || URL_API_POR_DEFECTO).replace(/\/+$/, '');
 
+/** URL base de la API (se exporta para mostrarla en el diagnóstico del servidor). */
+export { URL_API };
+
 /** Endpoint de salud del servidor (vive fuera del prefijo `/api/v1`). */
 export const URL_SALUD = URL_API.replace(/\/api\/v1$/, '/api/salud');
 

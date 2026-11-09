@@ -36,7 +36,7 @@ import {
 
 type VistaDetalle = 'producto' | 'categoria' | 'usuario';
 
-const ATajos: { titulo: string; aplicar: () => { desde: string; hasta: string } }[] = [
+const ATAJOS: { titulo: string; aplicar: () => { desde: string; hasta: string } }[] = [
   {
     titulo: 'Hoy',
     aplicar: () => ({ desde: hoyISO(), hasta: hoyISO() }),
@@ -92,7 +92,7 @@ export function Analizar() {
 
   const inventario = useQuery({
     queryKey: claves.reportes.inventario({}),
-    queryFn: () => reportesApi.inventario({}),
+    queryFn: () => reportesApi.inventario(),
   });
 
   const valorInventario = useMemo(
@@ -168,7 +168,7 @@ export function Analizar() {
               />
             </Field>
             <div className="flex flex-wrap gap-2">
-              {Atajos.map((atajo) => (
+              {ATAJOS.map((atajo) => (
                 <Button
                   key={atajo.titulo}
                   variante="secundario"

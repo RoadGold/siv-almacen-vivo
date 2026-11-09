@@ -1,4 +1,4 @@
-"""Endpoints de ventas (punto de venta)."""
+﻿"""Endpoints de ventas (punto de venta)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import get_current_user, requiere_permiso
+from app.api.deps import get_current_user, permisos_usuario, requiere_permiso
 from app.core.permissions import Permiso
 from app.db.models import DetalleVenta, Usuario, Venta
 from app.db.session import get_db
@@ -28,10 +28,21 @@ router = APIRouter(prefix="/ventas", tags=["Ventas"])
 @router.post("/previsualizar", response_model=PrevisualizacionVentaOut)
 def previsualizar(
     datos: VentaIn,
-    _: Usuario = Depends(requiere_permiso(Permiso.VENTAS_CREAR)),
+    usuario: Usuario = Depends(requiere_permiso(Permiso.VENTAS_CREAR)),
     db: Session = Depends(get_db),
 ) -> PrevisualizacionVentaOut:
-    return PrevisualizacionVentaOut(**servicio.previsualizar(db, datos.model_dump()))
+    return PrevisualizacionVentaOut(
+        **servicio.previsualizar(
+            db,
+            datos.model_dump(),
+            puede_cambiar_precio=_puede_cambiar_precio(usuario),
+        )
+    )
+
+
+def _puede_cambiar_precio(usuario: Usuario) -> bool:
+    """Solo quien administra precios puede fijar un precio distinto al de la presentaciÃ³n."""
+    return Permiso.PRECIOS_GESTIONAR.value in permisos_usuario(usuario)
 
 
 @router.post("", response_model=VentaOut, status_code=status.HTTP_201_CREATED)
@@ -40,7 +51,12 @@ def confirmar(
     usuario: Usuario = Depends(requiere_permiso(Permiso.VENTAS_CREAR)),
     db: Session = Depends(get_db),
 ) -> VentaOut:
-    venta = servicio.confirmar(db, datos.model_dump(), usuario.id)
+    venta = servicio.confirmar(
+        db,
+        datos.model_dump(),
+        usuario.id,
+        puede_cambiar_precio=_puede_cambiar_precio(usuario),
+    )
     auditoria.registrar(
         db,
         accion="venta.confirmar",
@@ -141,3 +157,4 @@ def anular(
     db.commit()
     db.refresh(venta)
     return VentaOut(**servicio.venta_a_dict(_cargar(db, venta.id)))
+

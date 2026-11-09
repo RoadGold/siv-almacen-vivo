@@ -65,6 +65,10 @@ Base: `http://127.0.0.1:8000/api/v1` · Documentación interactiva: `http://127.
 
 Línea de entrada/salida: `{ producto_id, presentacion_id, cantidad, costo_unitario }` (en venta, `precio_unitario` es opcional).
 
+> **Precio:** el servidor siempre recalcula el precio. Si la venta incluye `precio_unitario`, solo se
+> respeta cuando quien opera tiene el permiso `precios.gestionar` (administrador); en caso contrario
+> se aplica el precio de la presentación.
+
 `PrevisualizacionOut.lineas[]`: `{ producto_id, producto_codigo, producto_nombre, presentacion_id, presentacion_nombre, cantidad, factor_snapshot, cantidad_base, unidad_base, costo_unitario, subtotal, stock_actual_base, stock_resultante_base, alerta }`.
 
 ## Ventas

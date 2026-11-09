@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import {
   Badge,
   Button,
@@ -80,6 +81,29 @@ export function Kardex() {
   });
 
   const datos = movimientos.data;
+
+  // Nombre de los productos de la página actual (el kardex solo devuelve el identificador).
+  const idsUnicos = useMemo(
+    () => Array.from(new Set((datos?.items ?? []).map((item) => item.producto_id))),
+    [datos],
+  );
+
+  const consultasProducto = useQueries({
+    queries: idsUnicos.map((id) => ({
+      queryKey: claves.productos.detalle(id),
+      queryFn: () => catalogoApi.obtenerProducto(id),
+      staleTime: 5 * 60_000,
+    })),
+  });
+
+  const nombrePorProducto = useMemo(() => {
+    const mapa = new Map<number, string>();
+    idsUnicos.forEach((id, indice) => {
+      const nombre = consultasProducto[indice]?.data?.nombre;
+      if (nombre) mapa.set(id, nombre);
+    });
+    return mapa;
+  }, [idsUnicos, consultasProducto]);
 
   function cambiarFiltro(fn: () => void) {
     fn();
@@ -182,6 +206,7 @@ export function Kardex() {
             <TableHead>
               <TableHeader>Fecha</TableHeader>
               <TableHeader>Tipo</TableHeader>
+              <TableHeader>Producto</TableHeader>
               <TableHeader className="text-right">Cantidad</TableHeader>
               <TableHeader className="text-right">Saldo después</TableHeader>
               <TableHeader>Referencia</TableHeader>
@@ -195,6 +220,14 @@ export function Kardex() {
                     <Badge tono={TONO_TIPO[item.tipo] ?? 'neutro'}>
                       {etiquetaTipoMovimiento(item.tipo)}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Link
+                      to={`/explorar?producto=${item.producto_id}`}
+                      className="text-sm font-semibold text-brand hover:text-ink"
+                    >
+                      {nombrePorProducto.get(item.producto_id) ?? `Producto #${item.producto_id}`}
+                    </Link>
                   </TableCell>
                   <TableCell numerica>
                     <span
@@ -225,7 +258,7 @@ export function Kardex() {
               ))}
             </TableBody>
             <TableFooter>
-              <td className="px-3 py-2 text-xs text-muted" colSpan={5}>
+              <td className="px-3 py-2 text-xs text-muted" colSpan={6}>
                 Página {datos?.pagina} de {datos?.paginas || 1} · {datos?.total ?? 0} movimientos
               </td>
               <td className="px-3 py-2">

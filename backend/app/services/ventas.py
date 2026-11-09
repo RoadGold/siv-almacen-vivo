@@ -73,7 +73,29 @@ def _cargar_presentacion(
     return producto, presentacion
 
 
-def previsualizar(db: Session, payload: dict[str, Any]) -> dict[str, Any]:
+def _precio_de_linea(
+    linea: dict[str, Any],
+    presentacion: PresentacionProducto,
+    puede_cambiar_precio: bool,
+) -> Decimal:
+    """Precio de la línea.
+
+    El precio siempre se recalcula en el servidor. Solo quien tiene el permiso
+    `precios.gestionar` puede fijar un precio distinto al de la presentación
+    (plan §5.8 y supuestos de V1).
+    """
+    precio_presentacion = dec(presentacion.precio_venta)
+    if not puede_cambiar_precio or linea.get("precio_unitario") is None:
+        return precio_presentacion
+    return dec(linea["precio_unitario"])
+
+
+def previsualizar(
+    db: Session,
+    payload: dict[str, Any],
+    *,
+    puede_cambiar_precio: bool = False,
+) -> dict[str, Any]:
     """Calcula el total y la cinta de impacto sin tocar existencias."""
     almacen = _resolver_almacen(db, payload.get("almacen_id"))
     lineas: list[dict[str, Any]] = []
@@ -92,11 +114,7 @@ def previsualizar(db: Session, payload: dict[str, Any]) -> dict[str, Any]:
             producto.unidad_base.paso_minimo if producto.unidad_base else 1,
             permite_fraccion=bool(presentacion.permite_fraccion or producto.permite_fraccion),
         )
-        precio = (
-            dec(linea["precio_unitario"])
-            if linea.get("precio_unitario") is not None
-            else dec(presentacion.precio_venta)
-        )
+        precio = _precio_de_linea(linea, presentacion, puede_cambiar_precio)
         subtotal = q2(cantidad * precio)
 
         existencia = inventario.existencia_actual(db, almacen.id, producto.id)
@@ -143,7 +161,13 @@ def previsualizar(db: Session, payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def confirmar(db: Session, payload: dict[str, Any], usuario_id: int) -> Venta:
+def confirmar(
+    db: Session,
+    payload: dict[str, Any],
+    usuario_id: int,
+    *,
+    puede_cambiar_precio: bool = False,
+) -> Venta:
     """Confirma la venta: cabecera, detalles, movimientos y existencias en una transacciÃ³n."""
     clave = payload.get("idempotency_key")
     if clave:
@@ -188,11 +212,7 @@ def confirmar(db: Session, payload: dict[str, Any], usuario_id: int) -> Venta:
             producto.unidad_base.paso_minimo if producto.unidad_base else 1,
             permite_fraccion=bool(presentacion.permite_fraccion or producto.permite_fraccion),
         )
-        precio = (
-            dec(linea["precio_unitario"])
-            if linea.get("precio_unitario") is not None
-            else dec(presentacion.precio_venta)
-        )
+        precio = _precio_de_linea(linea, presentacion, puede_cambiar_precio)
         subtotal = q2(cantidad * precio)
 
         existencia = inventario.bloquear_existencia(db, almacen.id, producto.id)

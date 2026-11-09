@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Badge,
   Button,
@@ -49,6 +50,18 @@ export function Explorar() {
   const [pagina, setPagina] = useState(1);
   const [productoId, setProductoId] = useState<number | null>(null);
   const [panel, setPanel] = useState<Panel>('radar');
+  const [parametrosUrl, setParametrosUrl] = useSearchParams();
+
+  // Permite abrir la ficha de un producto desde otras pantallas (kardex, reportes).
+  useEffect(() => {
+    const desdeUrl = parametrosUrl.get('producto');
+    if (!desdeUrl) return;
+    const id = Number(desdeUrl);
+    if (Number.isFinite(id) && id > 0) {
+      setProductoId(id);
+      setPanel('ficha');
+    }
+  }, [parametrosUrl]);
 
   const existencias = useQuery({
     queryKey: claves.existencias({
@@ -83,16 +96,25 @@ export function Explorar() {
   function seleccionar(id: number) {
     setProductoId(id);
     setPanel('ficha');
+    setParametrosUrl({ producto: String(id) }, { replace: true });
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <header>
-        <p className="etiqueta">Estación · Explorar</p>
-        <h1 className="mt-1 text-2xl font-bold text-ink">Explorar existencias</h1>
-        <p className="mt-1 text-sm text-muted">
-          Busca por nombre o código y abre la ficha viva de un producto para ver su historia.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="etiqueta">Estación · Explorar</p>
+          <h1 className="mt-1 text-2xl font-bold text-ink">Explorar existencias</h1>
+          <p className="mt-1 text-sm text-muted">
+            Busca por nombre o código y abre la ficha viva de un producto para ver su historia.
+          </p>
+        </div>
+        <Link
+          to="/kardex"
+          className="rounded-[6px] border border-linea-fuerte px-4 py-2 text-sm font-semibold text-ink hover:border-brand hover:text-brand"
+        >
+          Ver kardex completo →
+        </Link>
       </header>
 
       <Card titulo="Filtros">
