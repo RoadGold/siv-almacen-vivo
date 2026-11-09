@@ -1,8 +1,8 @@
-"""Importación de catálogo desde Excel/CSV con vista previa (plan §5.1, Fase 4).
+﻿"""ImportaciÃ³n de catÃ¡logo desde Excel/CSV con vista previa (plan Â§5.1, Fase 4).
 
 El flujo tiene dos pasos obligatorios:
 1. `previsualizar` lee el archivo y devuelve el detalle de cada fila sin tocar la base.
-2. `confirmar` aplica solo las filas válidas, registrando el resultado por fila.
+2. `confirmar` aplica solo las filas vÃ¡lidas, registrando el resultado por fila.
 """
 
 from __future__ import annotations
@@ -41,18 +41,18 @@ COLUMNAS = [
 ]
 
 TITULOS = {
-    "codigo": "Código",
+    "codigo": "CÃ³digo",
     "nombre": "Nombre del producto",
-    "categoria": "Categoría",
+    "categoria": "CategorÃ­a",
     "marca": "Marca",
     "unidad_base": "Unidad base (UND/GR/ML)",
-    "stock_minimo": "Stock mínimo (unidad base)",
-    "presentacion": "Presentación de venta",
-    "factor_base": "Factor de conversión",
+    "stock_minimo": "Stock mÃ­nimo (unidad base)",
+    "presentacion": "PresentaciÃ³n de venta",
+    "factor_base": "Factor de conversiÃ³n",
     "precio_venta": "Precio de venta",
     "costo_referencia": "Costo de referencia",
-    "codigo_barras": "Código de barras",
-    "permite_fraccion": "¿Admite fracción? (SI/NO)",
+    "codigo_barras": "CÃ³digo de barras",
+    "permite_fraccion": "Â¿Admite fracciÃ³n? (SI/NO)",
     "stock_inicial": "Stock inicial (opcional)",
     "costo_inicial": "Costo unitario inicial (opcional)",
 }
@@ -106,7 +106,7 @@ def _texto(valor: Any) -> str:
 
 
 def _normalizar_encabezado(texto: str) -> str:
-    """Minúsculas, sin acentos ni signos: 'Unidad base (UND/GR/ML)' -> 'unidad base'."""
+    """MinÃºsculas, sin acentos ni signos: 'Unidad base (UND/GR/ML)' -> 'unidad base'."""
     limpio = "".join(
         c for c in unicodedata.normalize("NFD", texto.strip().lower())
         if unicodedata.category(c) != "Mn"
@@ -163,7 +163,7 @@ def _resolver_columna(encabezado: str) -> str | None:
 
 
 def _es_verdadero(valor: str) -> bool:
-    return valor.strip().upper() in {"SI", "SÍ", "X", "1", "TRUE", "VERDADERO"}
+    return valor.strip().upper() in {"SI", "SÃ", "X", "1", "TRUE", "VERDADERO"}
 
 
 def leer_filas(contenido: bytes, nombre_archivo: str = "") -> list[FilaImportada]:
@@ -206,7 +206,7 @@ def leer_filas(contenido: bytes, nombre_archivo: str = "") -> list[FilaImportada
 
 def _validar_fila(db: Session, fila: FilaImportada) -> None:
     if not fila.codigo:
-        fila.mensajes.append("Falta el código del producto.")
+        fila.mensajes.append("Falta el cÃ³digo del producto.")
     if not fila.nombre:
         fila.mensajes.append("Falta el nombre del producto.")
     if not fila.unidad_base:
@@ -219,24 +219,24 @@ def _validar_fila(db: Session, fila: FilaImportada) -> None:
         ).scalar_one_or_none()
         if unidad is None:
             fila.mensajes.append(
-                f"La unidad base «{fila.unidad_base}» no está registrada (UND, GR, ML)."
+                f"La unidad base Â«{fila.unidad_base}Â» no estÃ¡ registrada (UND, GR, ML)."
             )
     if fila.presentacion:
         if not fila.factor_base:
-            fila.mensajes.append("Falta el factor de conversión de la presentación.")
+            fila.mensajes.append("Falta el factor de conversiÃ³n de la presentaciÃ³n.")
         else:
             try:
                 if dec(fila.factor_base) <= 0:
-                    fila.mensajes.append("El factor de conversión debe ser mayor que cero.")
+                    fila.mensajes.append("El factor de conversiÃ³n debe ser mayor que cero.")
             except Exception:
-                fila.mensajes.append("El factor de conversión no es un número válido.")
+                fila.mensajes.append("El factor de conversiÃ³n no es un nÃºmero vÃ¡lido.")
     for campo in ("precio_venta", "costo_referencia", "stock_minimo", "stock_inicial"):
         valor = getattr(fila, campo)
         if valor:
             try:
                 dec(valor)
             except Exception:
-                fila.mensajes.append(f"El valor de «{campo}» no es numérico.")
+                fila.mensajes.append(f"El valor de Â«{campo}Â» no es numÃ©rico.")
 
     if fila.codigo:
         existente = db.execute(
@@ -253,21 +253,26 @@ def previsualizar(db: Session, contenido: bytes, nombre_archivo: str = "") -> di
             getattr(fila, columna)
             for columna in ("codigo", "nombre", "presentacion", "factor_base")
         ):
-            continue  # fila vacía
+            continue  # fila vacÃ­a
         _validar_fila(db, fila)
 
-    # Códigos duplicados dentro del mismo archivo
+    # Duplicados dentro del mismo archivo: un mismo producto puede repetirse en
+    # varias filas si cada fila describe una presentaciÃ³n distinta.
     vistos: dict[str, list[int]] = {}
     for fila in filas:
         if not fila.codigo:
             continue
-        vistos.setdefault(fila.codigo.lower(), []).append(fila.numero)
-    for codigo, numeros in vistos.items():
+        clave = f"{fila.codigo.lower()}::{fila.presentacion.strip().lower()}"
+        vistos.setdefault(clave, []).append(fila.numero)
+    for clave, numeros in vistos.items():
         if len(numeros) > 1:
+            codigo = clave.split("::")[0]
+            presentacion = clave.split("::")[1]
             for fila in filas:
-                if fila.codigo.lower() == codigo:
+                if fila.codigo.lower() == codigo and fila.presentacion.strip().lower() == presentacion:
                     fila.mensajes.append(
-                        f"El código «{fila.codigo}» aparece repetido en las filas {numeros}."
+                        f"La combinaciÃ³n cÃ³digo Â«{fila.codigo}Â» + presentaciÃ³n "
+                        f"Â«{fila.presentacion}Â» aparece repetida en las filas {numeros}."
                     )
 
     validas = [f for f in filas if f.codigo or f.nombre or f.presentacion]
@@ -308,15 +313,18 @@ def confirmar(
     almacen_id: int | None = None,
     usuario_id: int | None = None,
 ) -> dict[str, Any]:
-    """Aplica las filas válidas y devuelve el resultado por fila."""
+    """Aplica las filas vÃ¡lidas y devuelve el resultado por fila."""
     analisis = previsualizar(db, contenido, nombre_archivo)
     filas: list[FilaImportada] = analisis["detalle"]
 
     aplicadas: list[dict[str, Any]] = []
     rechazadas: list[dict[str, Any]] = []
     importadas = 0
-    productos_creados = 0
-    productos_actualizados = 0
+    productos_creados: set[int] = set()
+    productos_tocados: set[int] = set()
+
+    # Productos que ya existían antes de la importación (para reportarlos aparte).
+    preexistentes = set(db.execute(select(Producto.id)).scalars().all())
 
     from app.services import inventario
 
@@ -357,7 +365,7 @@ def confirmar(
                     "presentaciones": [],
                 },
             )
-            productos_creados += 1
+            productos_creados.add(producto.id)
         else:
             producto.nombre = fila.nombre or producto.nombre
             producto.nombre_normalizado = catalogo.normalizar(producto.nombre)
@@ -367,7 +375,7 @@ def confirmar(
                 producto.marca_id = marca.id
             if fila.stock_minimo:
                 producto.stock_minimo_base = dec(fila.stock_minimo)
-            productos_actualizados += 1
+            productos_tocados.add(producto.id)
             db.flush()
 
         if fila.presentacion:
@@ -416,7 +424,7 @@ def confirmar(
                 else:
                     almacen = db.get(Almacen, almacen_id)
                 if almacen is None:
-                    raise ErrorNegocio("No hay un almacén activo para registrar el stock inicial.")
+                    raise ErrorNegocio("No hay un almacÃ©n activo para registrar el stock inicial.")
                 costo = dec(fila.costo_inicial or "0")
                 inventario.aplicar_entrada(
                     db,
@@ -428,7 +436,7 @@ def confirmar(
                     origen_tipo="IMPORTACION",
                     origen_id=0,
                     usuario_id=usuario_id,
-                    referencia="Importación de catálogo",
+                    referencia="ImportaciÃ³n de catÃ¡logo",
                 )
 
         importadas += 1
@@ -436,8 +444,8 @@ def confirmar(
 
     return {
         "importadas": importadas,
-        "productos_creados": productos_creados,
-        "productos_actualizados": productos_actualizados,
+        "productos_creados": len(productos_creados),
+        "productos_actualizados": len(productos_tocados & preexistentes),
         "rechazadas": len(rechazadas),
         "aplicadas": aplicadas,
         "errores": rechazadas,
@@ -445,7 +453,7 @@ def confirmar(
 
 
 def plantilla_excel() -> bytes:
-    """Genera la plantilla de importación con sus encabezados y un ejemplo."""
+    """Genera la plantilla de importaciÃ³n con sus encabezados y un ejemplo."""
     libro = Workbook()
     hoja = libro.active
     hoja.title = "Catalogo"
@@ -455,7 +463,7 @@ def plantilla_excel() -> bytes:
             "P0001",
             "Arroz a granel",
             "Granos y menestras",
-            "Genérica",
+            "GenÃ©rica",
             "GR",
             "10000",
             "1 kg",
@@ -473,7 +481,7 @@ def plantilla_excel() -> bytes:
             "P0001",
             "Arroz a granel",
             "Granos y menestras",
-            "Genérica",
+            "GenÃ©rica",
             "GR",
             "10000",
             "saco 50 kg",
@@ -495,3 +503,5 @@ def plantilla_excel() -> bytes:
 
 
 __all__ = ["confirmar", "leer_filas", "previsualizar", "plantilla_excel"]
+
+

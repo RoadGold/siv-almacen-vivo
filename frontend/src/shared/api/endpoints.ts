@@ -243,6 +243,7 @@ export const abastecimientosApi = {
       pagina: filtros.pagina ?? 1,
       tamano: filtros.tamano ?? 5,
     }),
+  obtener: (id: number) => api.get<Abastecimiento>(`/abastecimientos/${id}`),
 };
 
 export const dashboardApi = {

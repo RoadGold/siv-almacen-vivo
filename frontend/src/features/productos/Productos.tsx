@@ -28,6 +28,7 @@ import { esSinPermisos, mensajeDeError } from '@/shared/hooks/errores';
 import { registrarOperacion } from '@/shared/estado/operaciones';
 import { useAutenticacion } from '@/shared/auth/ProveedorAutenticacion';
 import { FormularioProducto, type DatosProductoFormulario } from './FormularioProducto';
+import { ImportarCatalogo } from './ImportarCatalogo';
 import type { Producto } from '@/shared/types/api';
 
 /** Gestión de productos: catálogo paginado con búsqueda y alta/edición. */
@@ -37,6 +38,7 @@ export function Productos() {
   const busquedaRetrasada = useRetraso(busqueda, 250);
   const [pagina, setPagina] = useState(1);
   const [modalAlta, setModalAlta] = useState(false);
+  const [modalImportar, setModalImportar] = useState(false);
   const [productoEdicion, setProductoEdicion] = useState<Producto | null>(null);
 
   const cliente = useQueryClient();
@@ -128,9 +130,14 @@ export function Productos() {
           </p>
         </div>
         {puede('catalogo.gestionar') ? (
-          <Button variante="primario" onClick={() => setModalAlta(true)}>
-            Nuevo producto
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variante="secundario" onClick={() => setModalImportar(true)}>
+              Importar desde Excel
+            </Button>
+            <Button variante="primario" onClick={() => setModalAlta(true)}>
+              Nuevo producto
+            </Button>
+          </div>
         ) : null}
       </header>
 
@@ -245,6 +252,11 @@ export function Productos() {
           </Table>
         )}
       </Card>
+
+      {/* --- Importación desde Excel --- */}
+      {modalImportar ? (
+        <ImportarCatalogo abierto onCerrar={() => setModalImportar(false)} />
+      ) : null}
 
       {/* --- Alta de producto --- */}
       <Modal

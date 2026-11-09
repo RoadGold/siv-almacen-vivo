@@ -31,6 +31,7 @@ const ESTACIONES: Estacion[] = [
 
 const SECUNDARIOS: { ruta: string; titulo: string; permiso?: string }[] = [
   { ruta: '/analizar', titulo: 'Analizar', permiso: 'reportes.ver' },
+  { ruta: '/kardex', titulo: 'Kardex', permiso: 'inventario.ver' },
   { ruta: '/gestionar/productos', titulo: 'Gestionar productos', permiso: 'catalogo.ver' },
   { ruta: '/gestionar/proveedores', titulo: 'Gestionar proveedores', permiso: 'proveedores.ver' },
   { ruta: '/administrar', titulo: 'Administrar', permiso: 'admin.usuarios' },

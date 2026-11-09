@@ -6,6 +6,7 @@ import { Inicio } from '@/features/inicio/Inicio';
 import { Vender } from '@/features/vender/Vender';
 import { Recibir } from '@/features/recibir/Recibir';
 import { Explorar } from '@/features/explorar/Explorar';
+import { Kardex } from '@/features/kardex/Kardex';
 import { Productos } from '@/features/productos/Productos';
 import { Proveedores } from '@/features/proveedores/Proveedores';
 import { Analizar } from '@/features/analizar/Analizar';
@@ -29,6 +30,7 @@ export function Rutas() {
         <Route path="/vender" element={<Vender />} />
         <Route path="/recibir" element={<Recibir />} />
         <Route path="/explorar" element={<Explorar />} />
+        <Route path="/kardex" element={<Kardex />} />
         <Route path="/gestionar/productos" element={<Productos />} />
         <Route path="/gestionar/proveedores" element={<Proveedores />} />
         <Route path="/analizar" element={<Analizar />} />
