@@ -1,0 +1,71 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: siv-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-siv}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-siv}
+      POSTGRES_DB: ${POSTGRES_DB:-siv_almacen_vivo}
+      TZ: America/Lima
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-siv} -d ${POSTGRES_DB:-siv_almacen_vivo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Base de datos exclusiva para pruebas: reside en memoria (tmpfs) porque es
+  # desechable y debe arrancar rápido en equipos de desarrollo lentos.
+  db-test:
+    image: postgres:16-alpine
+    container_name: siv-db-test
+    profiles: ["test"]
+    restart: "no"
+    environment:
+      POSTGRES_USER: siv
+      POSTGRES_PASSWORD: siv
+      POSTGRES_DB: siv_almacen_vivo_test
+      TZ: America/Lima
+    command:
+      - postgres
+      - -c
+      - fsync=off
+      - -c
+      - synchronous_commit=off
+      - -c
+      - full_page_writes=off
+      - -c
+      - max_wal_size=1GB
+    tmpfs:
+      - /var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U siv -d siv_almacen_vivo_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ./backend
+    container_name: siv-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-siv}:${POSTGRES_PASSWORD:-siv}@db:5432/${POSTGRES_DB:-siv_almacen_vivo}
+      SECRET_KEY: ${SECRET_KEY:-cambia-esta-clave-en-produccion-local}
+      ENVIRONMENT: ${ENVIRONMENT:-local}
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./frontend/dist:/app/frontend/dist:ro
+
+volumes:
+  pgdata:

@@ -1,0 +1,36 @@
+# Entornos y secretos
+.env
+.env.local
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+backend/api.log
+backend/api.log.err
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+
+# Datos locales y respaldos
+respaldos/
+datos-ejemplo/*.db
+*.dump
+*.dump.info
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

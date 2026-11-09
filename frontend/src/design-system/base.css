@@ -1,0 +1,89 @@
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  /* Cifras tabulares para cantidades, precios y totales. */
+  .numero,
+  table,
+  input[type='number'],
+  input[type='text'].numero {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply text-ink;
+    text-wrap: balance;
+  }
+
+  /* Foco visible y consistente en toda la aplicación. */
+  :focus-visible {
+    outline: 3px solid var(--brand);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--ink);
+  }
+
+  /* Contenedores de scroll discretos. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--linea-fuerte) transparent;
+  }
+}
+
+@layer components {
+  /* Etiqueta comercial: versalitas espaciadas para títulos de sección. */
+  .etiqueta {
+    @apply text-2xs font-semibold uppercase tracking-[0.14em] text-muted;
+  }
+
+  /* Enlace de navegación lateral. */
+  .enlace-estacion {
+    @apply block rounded-tarjeta border border-linea bg-surface px-4 py-3 transition-colors;
+  }
+
+  .enlace-estacion:hover {
+    border-color: var(--linea-fuerte);
+  }
+
+  .enlace-estacion[data-activo='true'] {
+    background: var(--brand-tenue);
+    border-color: var(--brand);
+  }
+
+  /* Panel de la cinta de impacto al pie de las pantallas operativas. */
+  .cinta-impacto {
+    @apply border-t border-linea bg-surface px-5 py-3 text-sm;
+  }
+}
+
+/* Se respeta la preferencia de movimiento reducido del sistema. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

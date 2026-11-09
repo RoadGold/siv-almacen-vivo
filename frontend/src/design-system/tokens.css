@@ -1,0 +1,41 @@
+/*
+ * Tokens visuales de SIV · Almacén Vivo.
+ * Estética «editorial de mercado»: fondo cálido, tinta profunda, panels blancos
+ * y bordes finos. Todos los pares texto/fondo mantienen contraste WCAG AA.
+ */
+:root {
+  /* --- Tokens oficiales (plan §2.2) --- */
+  --canvas: #f7f5f0;
+  --ink: #192a31;
+  --surface: #ffffff;
+  --brand: #146c65;
+  --accent: #e1f29a;
+  --warning: #98630a;
+  --danger: #b63e35;
+  --muted: #617277;
+
+  /* --- Derivados para superficies, bordes y estados --- */
+  --brand-tenue: #e2efee;
+  --brand-hondo: #0e504b;
+  --accent-tenue: #f2f8da;
+  --warning-tenue: #fbf0da;
+  --danger-tenue: #f9e7e5;
+  --muted-tenue: #eef0ef;
+
+  --linea: #e6e2d9;
+  --linea-fuerte: #d2cdc0;
+  --ink-suave: #35474e;
+
+  /* Espaciado y radios usados por los componentes base */
+  --radio-tarjeta: 10px;
+  --radio-control: 6px;
+}
+
+/* Modo de alto contraste opcional para el usuario (accesibilidad). */
+@media (prefers-contrast: more) {
+  :root {
+    --muted: #4b5a5f;
+    --linea: #b9b3a6;
+    --linea-fuerte: #8d8778;
+  }
+}
