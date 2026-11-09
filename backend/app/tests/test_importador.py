@@ -300,7 +300,10 @@ def test_la_importacion_vincula_el_proveedor(cliente, cabeceras_admin, unidades,
     assert productos[0]["habitual"] is True
 
 
-def test_proveedor_desconocido_marca_la_fila_con_error(cliente, cabeceras_admin, unidades):
+def test_proveedor_desconocido_avisa_pero_no_impide_importar(
+    cliente, cabeceras_admin, unidades
+):
+    """El proveedor es opcional: si el código no existe, el producto se importa igual."""
     contenido = _plantilla(
         [["P904", "Producto sin proveedor valido", "Abarrotes", "Genérica", "UND", "0", "unidad", "1", "2.50", "1.90", "", "NO", "", "", "PRV-NO-EXISTE", "SI", ""]]
     )
@@ -309,8 +312,24 @@ def test_proveedor_desconocido_marca_la_fila_con_error(cliente, cabeceras_admin,
         files={"archivo": ("catalogo.xlsx", contenido, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
         headers=cabeceras_admin,
     ).json()
-    assert previa["resumen"]["con_errores"] == 1
-    assert "no está registrado" in previa["filas"][0]["mensajes"][0]
+    assert previa["resumen"]["con_errores"] == 0
+    assert previa["resumen"]["vinculos_proveedor"] == 0
+    avisos = " ".join(previa["filas"][0]["avisos"])
+    assert "no está registrado" in avisos
+
+    resultado = cliente.post(
+        "/api/v1/catalogo/importar/confirmar",
+        files={"archivo": ("catalogo.xlsx", contenido, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=cabeceras_admin,
+    ).json()
+    assert resultado["importadas"] == 1
+    assert resultado["vinculos_proveedor"] == 0
+
+    # El producto se creó igual.
+    productos = cliente.get(
+        "/api/v1/catalogo/productos", params={"q": "P904"}, headers=cabeceras_admin
+    ).json()
+    assert productos["total"] == 1
 
 
 def test_producto_sin_proveedor_se_importa_sin_problemas(cliente, cabeceras_admin, unidades, almacen):

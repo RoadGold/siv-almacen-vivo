@@ -51,7 +51,8 @@ Base: `http://127.0.0.1:8000/api/v1` · Documentación interactiva: `http://127.
 - La vista previa distingue **errores** (la fila no se importa) de **avisos** (la fila se importa,
   pero conviene revisarla: stock repetido, producto con existencias, posible duplicado por nombre).
 - El **proveedor es opcional**: si no se conoce, la celda queda vacía y el vínculo se crea más
-  adelante. Si se indica un código inexistente, la fila se rechaza con un mensaje claro.
+  adelante. Si se indica un código que no existe, la fila **se importa igual** y queda un aviso
+  («el vínculo no se creará»); el contador `vinculos_proveedor` solo cuenta los que sí se crean.
 
 `presentaciones[]` devuelve: `{ id, producto_id, nombre, factor_base, precio_venta, costo_referencia, codigo_barras, es_compra, es_venta, permite_fraccion, activo }`.
 

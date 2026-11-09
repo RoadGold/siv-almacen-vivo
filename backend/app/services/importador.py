@@ -285,9 +285,12 @@ def _validar_fila(db: Session, fila: FilaImportada) -> None:
             )
         ).scalar_one_or_none()
         if proveedor is None:
-            fila.mensajes.append(
-                f"El proveedor «{fila.proveedor_codigo}» no está registrado. "
-                "Créelo antes de importar o deje la celda vacía."
+            # No es un error: el producto se importa igual y el vínculo se
+            # podrá crear más adelante (el proveedor es opcional).
+            fila.avisos.append(
+                f"El proveedor «{fila.proveedor_codigo}» no está registrado: el producto se "
+                "importa, pero el vínculo no se creará. Cree el proveedor y vuelva a "
+                "importar el archivo para vincularlo."
             )
     elif fila.proveedor_habitual:
         fila.avisos.append(
@@ -306,15 +309,20 @@ def _detectar_duplicados_por_nombre(db: Session, filas: list[FilaImportada]) -> 
         if not fila.nombre:
             continue
         nombre = catalogo.normalizar(fila.nombre)
-        existente = db.execute(
+        # Puede haber más de un producto con el mismo nombre: se listan todos.
+        existentes = db.execute(
             select(Producto).where(Producto.nombre_normalizado == nombre)
-        ).scalar_one_or_none()
-        if existente is not None and (
-            not fila.codigo or existente.codigo.lower() != fila.codigo.lower()
-        ):
+        ).scalars().all()
+        otros = [
+            producto
+            for producto in existentes
+            if not fila.codigo or producto.codigo.lower() != fila.codigo.lower()
+        ]
+        if otros:
+            codigos = ", ".join(producto.codigo for producto in otros[:5])
             fila.avisos.append(
                 f"Ya existe un producto con el nombre «{fila.nombre}» "
-                f"(código {existente.codigo}). Revise que no sea el mismo artículo."
+                f"(código {codigos}). Revise que no sea el mismo artículo."
             )
 
     por_nombre: dict[str, list[FilaImportada]] = {}
@@ -443,7 +451,14 @@ def previsualizar(db: Session, contenido: bytes, nombre_archivo: str = "") -> di
         "con_errores": sum(1 for f in validas if not f.valida),
         "con_avisos": sum(1 for f in validas if f.avisos),
         "con_stock_inicial": len(stock_por_producto),
-        "vinculos_proveedor": sum(1 for f in validas if f.proveedor_codigo and f.valida),
+        # Solo se cuentan los vínculos que de verdad se van a crear.
+        "vinculos_proveedor": sum(
+            1
+            for f in validas
+            if f.proveedor_codigo
+            and f.valida
+            and not any("no está registrado" in aviso for aviso in f.avisos)
+        ),
     }
     return {
         "resumen": resumen,
@@ -587,41 +602,42 @@ def confirmar(
                 select(Proveedor).where(
                     func.lower(Proveedor.codigo) == fila.proveedor_codigo.lower()
                 )
-            ).scalar_one()
-            presentacion_compra = None
-            if fila.presentacion_compra:
-                presentacion_compra = db.execute(
-                    select(PresentacionProducto).where(
-                        PresentacionProducto.producto_id == producto.id,
-                        func.lower(PresentacionProducto.nombre)
-                        == fila.presentacion_compra.lower(),
+            ).scalar_one_or_none()
+            if proveedor is not None:
+                presentacion_compra = None
+                if fila.presentacion_compra:
+                    presentacion_compra = db.execute(
+                        select(PresentacionProducto).where(
+                            PresentacionProducto.producto_id == producto.id,
+                            func.lower(PresentacionProducto.nombre)
+                            == fila.presentacion_compra.lower(),
+                        )
+                    ).scalar_one_or_none()
+                    if presentacion_compra is None:
+                        fila.avisos.append(
+                            f"La presentación de compra «{fila.presentacion_compra}» no existe en "
+                            "este producto: el vínculo se guardará sin ella."
+                        )
+                vinculo = db.execute(
+                    select(ProductoProveedor).where(
+                        ProductoProveedor.producto_id == producto.id,
+                        ProductoProveedor.proveedor_id == proveedor.id,
                     )
                 ).scalar_one_or_none()
-                if presentacion_compra is None:
-                    fila.avisos.append(
-                        f"La presentación de compra «{fila.presentacion_compra}» no existe en "
-                        "este producto: el vínculo se guardará sin ella."
+                if vinculo is None:
+                    vinculo = ProductoProveedor(
+                        producto_id=producto.id,
+                        proveedor_id=proveedor.id,
+                        habitual=_es_verdadero(fila.proveedor_habitual),
+                        presentacion_id=presentacion_compra.id if presentacion_compra else None,
                     )
-            vinculo = db.execute(
-                select(ProductoProveedor).where(
-                    ProductoProveedor.producto_id == producto.id,
-                    ProductoProveedor.proveedor_id == proveedor.id,
-                )
-            ).scalar_one_or_none()
-            if vinculo is None:
-                vinculo = ProductoProveedor(
-                    producto_id=producto.id,
-                    proveedor_id=proveedor.id,
-                    habitual=_es_verdadero(fila.proveedor_habitual),
-                    presentacion_id=presentacion_compra.id if presentacion_compra else None,
-                )
-                db.add(vinculo)
-            else:
-                vinculo.habitual = _es_verdadero(fila.proveedor_habitual)
-                if presentacion_compra is not None:
-                    vinculo.presentacion_id = presentacion_compra.id
-            db.flush()
-            vinculos_creados += 1
+                    db.add(vinculo)
+                else:
+                    vinculo.habitual = _es_verdadero(fila.proveedor_habitual)
+                    if presentacion_compra is not None:
+                        vinculo.presentacion_id = presentacion_compra.id
+                db.flush()
+                vinculos_creados += 1
 
         # --- Stock inicial (carga inicial, no es una compra) --------------
         # Se aplica una sola vez por producto y solo si el producto no tiene

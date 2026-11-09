@@ -85,6 +85,8 @@ Copie la plantilla y llene cada fila con **una presentación** del producto.
      Los avisos más habituales son:
      - «El stock inicial se repite en las filas…» → se aplicará una sola vez.
      - «El producto ya tiene existencias registradas» → no se cargará stock inicial.
+     - «El proveedor «X» no está registrado» → el producto se importa, pero el vínculo
+       con el proveedor **no** se creará. Cree el proveedor y vuelva a subir el archivo.
      - «Ya existe un producto con el nombre…» → puede ser el mismo artículo con
        otro código: **revíselo antes de confirmar**.
 
@@ -133,7 +135,7 @@ quedan intactos.
 | «La unidad base «XXX» no está registrada» | Escribió una unidad que el sistema no conoce | Use `UND`, `GR` o `ML` |
 | «El factor de conversión debe ser mayor que cero» | Factor vacío o cero | Para una caja de 24: `24`; para 1 kg de arroz: `1000` |
 | «La presentación no admite fracciones» | Se vendió media unidad de un producto entero | Venda unidades completas |
-| «El proveedor «PRV-00X» no está registrado» | Código de proveedor que no existe | Cree el proveedor en *Gestionar → Proveedores* o deje la celda vacía |
+| «El proveedor «PRV-00X» no está registrado» | Código de proveedor que aún no existe | El producto **igual se importa**: cree el proveedor y vuelva a subir el archivo para vincularlo |
 | El stock aparece duplicado | Se repitió la cantidad en varias filas del mismo producto | Escriba la cantidad **solo en la primera fila** |
 | El stock no se cargó | El producto ya tenía existencias | Use un ajuste de inventario |
 | Faltan productos en la lista | Filas con errores | Corrija el archivo y vuelva a subirlo |
