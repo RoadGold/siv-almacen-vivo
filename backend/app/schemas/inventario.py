@@ -32,7 +32,10 @@ class MovimientoOut(BaseModel):
 
     id: int
     producto_id: int
+    producto_codigo: str | None = None
+    producto_nombre: str | None = None
     almacen_id: int
+    almacen: str | None = None
     tipo: str
     cantidad_base_signed: str
     saldo_base_despues: str

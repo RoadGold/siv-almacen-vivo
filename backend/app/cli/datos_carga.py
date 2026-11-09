@@ -19,10 +19,10 @@ from __future__ import annotations
 import argparse
 import random
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import func, insert, select, text, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import (
@@ -107,10 +107,26 @@ def generar(
     ventas: int = 100_000,
     lineas_por_venta: int = 3,
     semilla: int = 20261109,
+    permitir_mezclar: bool = False,
 ) -> None:
     aleatorio = random.Random(semilla)
     db = SessionLocal()
     try:
+        # Salvaguarda: el conjunto sintético no debe mezclarse con operaciones
+        # reales (destruye las existencias de los productos que toca).
+        reales = db.execute(
+            select(func.count())
+            .select_from(Venta)
+            .where(~Venta.numero.like("CV-%"))
+        ).scalar_one()
+        if reales and not permitir_mezclar:
+            print(
+                "La base de datos ya contiene operaciones reales. "
+                "Ejecute el generador sobre una base DEDICADA de pruebas "
+                "(por ejemplo siv_almacen_vivo_carga) o use --permitir-mezclar."
+            )
+            return
+
         unidades = _unidades(db)
         almacen = db.execute(
             select(Almacen).where(Almacen.es_principal.is_(True))
@@ -295,19 +311,59 @@ def generar(
             _volcar(db, MovimientoInventario, lote_movimientos)
         db.commit()
 
-        # Existencias coherentes con el kardex generado.
-        print("Actualizando existencias...")
-        db.execute(update(Existencia).values(cantidad_base=0, costo_promedio_base=Decimal("2.10")))
+        # La carga usa identificadores explícitos: se adelanta la secuencia para
+        # que la siguiente venta generada por la aplicación no colisione.
+        db.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('ventas', 'id'), "
+                "COALESCE((SELECT MAX(id) FROM ventas), 1))"
+            )
+        )
+        db.commit()
+
+        # Existencias coherentes con el kardex generado: por cada producto se
+        # registra un saldo inicial que compensa las salidas sintéticas, de modo
+        # que la suma del kardex coincida siempre con la existencia.
+        print("Actualizando existencias y saldos iniciales...")
+        saldo_inicial_por_producto: dict[int, Decimal] = {}
         for producto_id, saldo in saldo_por_producto.items():
-            if saldo <= 0:
-                db.execute(
-                    update(Existencia)
-                    .where(
-                        Existencia.producto_id == producto_id,
-                        Existencia.almacen_id == almacen.id,
-                    )
-                    .values(cantidad_base=saldo)
+            saldo_final = saldo if saldo > 0 else Decimal("0")
+            saldo_inicial_por_producto[producto_id] = saldo_final - saldo
+
+        lote_iniciales = [
+            {
+                "producto_id": producto_id,
+                "almacen_id": almacen.id,
+                "tipo": "SALDO_INICIAL",
+                "cantidad_base_signed": q4(cantidad),
+                "saldo_base_despues": q4(cantidad),
+                "costo_unitario_base": Decimal("2.10"),
+                "origen_tipo": "CARGA_PRUEBAS",
+                "origen_id": 0,
+                "referencia": "Carga de pruebas",
+                "usuario_id": usuario.id,
+                "created_at": datetime.combine(
+                    date.today() - timedelta(days=400), datetime.min.time()
+                ),
+            }
+            for producto_id, cantidad in saldo_inicial_por_producto.items()
+            if cantidad > 0
+        ]
+        if lote_iniciales:
+            _volcar(db, MovimientoInventario, lote_iniciales)
+
+        db.execute(update(Existencia).values(cantidad_base=0, costo_promedio_base=Decimal("2.10")))
+        for producto_id, cantidad in saldo_inicial_por_producto.items():
+            if cantidad <= 0:
+                continue
+            db.execute(
+                update(Existencia)
+                .where(
+                    Existencia.producto_id == producto_id,
+                    Existencia.almacen_id == almacen.id,
                 )
+                .values(cantidad_base=q4(cantidad))
+            )
         db.commit()
 
         movimientos = db.execute(
@@ -331,15 +387,22 @@ def main() -> None:
     parser.add_argument("--proveedores", type=int, default=500)
     parser.add_argument("--ventas", type=int, default=100_000)
     parser.add_argument("--semilla", type=int, default=20261109)
+    parser.add_argument(
+        "--permitir-mezclar",
+        action="store_true",
+        help="Permite generar el conjunto sobre una base con operaciones reales (destructivo).",
+    )
     args = parser.parse_args()
     generar(
         productos=args.productos,
         proveedores=args.proveedores,
         ventas=args.ventas,
         semilla=args.semilla,
+        permitir_mezclar=args.permitir_mezclar,
     )
 
 
 if __name__ == "__main__":
     main()
+
 

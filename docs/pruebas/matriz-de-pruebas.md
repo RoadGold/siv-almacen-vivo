@@ -26,7 +26,11 @@
 | T20 | Operar sin Internet | Diseño local (sin CDN ni servicios externos) | ✅ (revisión manual) |
 
 Pruebas adicionales: conversiones y costos (`test_dominio.py`), ajustes administrativos,
-conciliación, carga de inventario inicial y plantilla de importación.
+conciliación, carga de inventario inicial, plantilla de importación (`test_importador.py`) y
+reportes con exportación CSV (`test_reportes.py`).
+
+El frontend incorpora 22 pruebas de Vitest sobre la aritmética decimal y los formateadores
+(`S/ 1 234,50`, `45,500 kg`, porcentajes y fechas).
 
 ## 2. Cómo ejecutar
 

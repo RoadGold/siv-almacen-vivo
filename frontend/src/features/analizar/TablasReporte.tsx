@@ -290,13 +290,11 @@ export function TablaInventarioValorizado({
 export function PanelConsulta({
   cargando,
   error,
-  vacio,
   onReintentar,
   children,
 }: {
   cargando: boolean;
   error: unknown;
-  vacio?: boolean;
   onReintentar?: () => void;
   children: ReactNode;
 }) {
@@ -323,9 +321,6 @@ export function PanelConsulta({
         </Notice>
       </div>
     );
-  }
-  if (vacio) {
-    return <EmptyState titulo="Sin datos en el periodo consultado" />;
   }
   return <>{children}</>;
 }

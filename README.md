@@ -106,10 +106,11 @@ La base de pruebas vive en memoria (`tmpfs`) y se crea sola:
 docker compose --profile test up -d db-test
 ```
 
-Cobertura actual: **37 pruebas** que incluyen conversiones exactas (caja × 24, saco de 50 kg,
-venta fraccionada de 0,750 kg), rechazo de fracciones en productos indivisibles, stock
-insuficiente, idempotencia, concurrencia sobre la última unidad, atomicidad de la transacción,
-reversión por anulación, snapshots históricos, permisos por rol, importación de Excel y reportes.
+Cobertura actual: **38 pruebas** de backend (pytest) y **22** de frontend (Vitest), que incluyen
+conversiones exactas (caja × 24, saco de 50 kg, venta fraccionada de 0,750 kg), rechazo de
+fracciones en productos indivisibles, stock insuficiente, idempotencia, concurrencia sobre la
+última unidad, atomicidad de la transacción, reversión por anulación, snapshots históricos,
+autoridad del precio, permisos por rol, importación de Excel y reportes.
 
 Recorrido de aceptación contra el sistema en marcha:
 

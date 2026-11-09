@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   Badge,
   Button,
@@ -43,8 +43,8 @@ const TIPOS_MOVIMIENTO = [
   { valor: 'SALDO_INICIAL', texto: 'Saldo inicial' },
   { valor: 'ABASTECIMIENTO', texto: 'Ingreso' },
   { valor: 'VENTA', texto: 'Venta' },
-  { valor: 'REVERSO_VENTA', texto: 'Anulación de venta' },
-  { valor: 'REVERSO_ABASTECIMIENTO', texto: 'Anulación de ingreso' },
+  { valor: 'REVERSO_VENTA', texto: 'AnulaciÃ³n de venta' },
+  { valor: 'REVERSO_ABASTECIMIENTO', texto: 'AnulaciÃ³n de ingreso' },
   { valor: 'AJUSTE_ADMINISTRATIVO', texto: 'Ajuste administrativo' },
 ];
 
@@ -58,8 +58,8 @@ const TONO_TIPO: Record<string, 'marca' | 'peligro' | 'aviso' | 'neutro'> = {
 };
 
 /**
- * Pantalla KARDEX: movimiento completo del inventario con filtros y paginación
- * en el servidor (plan §5.5).
+ * Pantalla KARDEX: movimiento completo del inventario con filtros y paginaciÃ³n
+ * en el servidor (plan Â§5.5).
  */
 export function Kardex() {
   const [productoId, setProductoId] = useState<number | null>(null);
@@ -82,28 +82,15 @@ export function Kardex() {
 
   const datos = movimientos.data;
 
-  // Nombre de los productos de la página actual (el kardex solo devuelve el identificador).
-  const idsUnicos = useMemo(
-    () => Array.from(new Set((datos?.items ?? []).map((item) => item.producto_id))),
-    [datos],
-  );
-
-  const consultasProducto = useQueries({
-    queries: idsUnicos.map((id) => ({
-      queryKey: claves.productos.detalle(id),
-      queryFn: () => catalogoApi.obtenerProducto(id),
-      staleTime: 5 * 60_000,
-    })),
-  });
-
+  // El backend devuelve el nombre y el cÃ³digo del producto en cada movimiento,
+  // asÃ­ que no hace falta una consulta por producto.
   const nombrePorProducto = useMemo(() => {
     const mapa = new Map<number, string>();
-    idsUnicos.forEach((id, indice) => {
-      const nombre = consultasProducto[indice]?.data?.nombre;
-      if (nombre) mapa.set(id, nombre);
+    (datos?.items ?? []).forEach((item) => {
+      if (item.producto_nombre) mapa.set(item.producto_id, item.producto_nombre);
     });
     return mapa;
-  }, [idsUnicos, consultasProducto]);
+  }, [datos]);
 
   function cambiarFiltro(fn: () => void) {
     fn();
@@ -113,11 +100,11 @@ export function Kardex() {
   return (
     <div className="flex flex-col gap-4">
       <header>
-        <p className="etiqueta">Explorar · Kardex</p>
+        <p className="etiqueta">Explorar Â· Kardex</p>
         <h1 className="mt-1 text-2xl font-bold text-ink">Kardex de movimientos</h1>
         <p className="mt-1 text-sm text-muted">
-          Cada movimiento deja una traza verificable: tipo, cantidad con signo, saldo después y
-          referencia de la operación que lo originó.
+          Cada movimiento deja una traza verificable: tipo, cantidad con signo, saldo despuÃ©s y
+          referencia de la operaciÃ³n que lo originÃ³.
         </p>
       </header>
 
@@ -195,11 +182,11 @@ export function Kardex() {
             </Notice>
           </div>
         ) : movimientos.isLoading ? (
-          <LoadingBlock etiqueta="Consultando movimientos…" />
+          <LoadingBlock etiqueta="Consultando movimientosâ€¦" />
         ) : (datos?.items.length ?? 0) === 0 ? (
           <EmptyState
             titulo="Sin movimientos en el periodo"
-            descripcion="Amplía el rango de fechas o quita los filtros de producto y tipo."
+            descripcion="AmplÃ­a el rango de fechas o quita los filtros de producto y tipo."
           />
         ) : (
           <Table descripcion="Movimientos de inventario">
@@ -208,7 +195,7 @@ export function Kardex() {
               <TableHeader>Tipo</TableHeader>
               <TableHeader>Producto</TableHeader>
               <TableHeader className="text-right">Cantidad</TableHeader>
-              <TableHeader className="text-right">Saldo después</TableHeader>
+              <TableHeader className="text-right">Saldo despuÃ©s</TableHeader>
               <TableHeader>Referencia</TableHeader>
               <TableHeader>Usuario</TableHeader>
             </TableHead>
@@ -250,16 +237,16 @@ export function Kardex() {
                         {item.referencia}
                       </button>
                     ) : (
-                      <span className="text-xs text-muted">—</span>
+                      <span className="text-xs text-muted">â€”</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-xs">{item.usuario ?? '—'}</TableCell>
+                  <TableCell className="text-xs">{item.usuario ?? 'â€”'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
             <TableFooter>
               <td className="px-3 py-2 text-xs text-muted" colSpan={6}>
-                Página {datos?.pagina} de {datos?.paginas || 1} · {datos?.total ?? 0} movimientos
+                PÃ¡gina {datos?.pagina} de {datos?.paginas || 1} Â· {datos?.total ?? 0} movimientos
               </td>
               <td className="px-3 py-2">
                 <div className="flex justify-end gap-2">
@@ -294,7 +281,7 @@ export function Kardex() {
   );
 }
 
-/** Buscador de producto con sugerencias del catálogo. */
+/** Buscador de producto con sugerencias del catÃ¡logo. */
 function SelectorProducto({
   valor,
   onElegir,
@@ -325,7 +312,7 @@ function SelectorProducto({
           id="kardex-producto"
           value={texto}
           onChange={(evento) => setTexto(evento.target.value)}
-          placeholder={valor || 'Nombre o código…'}
+          placeholder={valor || 'Nombre o cÃ³digoâ€¦'}
           autoComplete="off"
           aria-label="Buscar producto del kardex"
         />
@@ -359,7 +346,7 @@ function SelectorProducto({
   );
 }
 
-/** Modal con el detalle de la operación que originó el movimiento. */
+/** Modal con el detalle de la operaciÃ³n que originÃ³ el movimiento. */
 function ModalDetalleOperacion({
   movimiento,
   onCerrar,
@@ -391,8 +378,8 @@ function ModalDetalleOperacion({
       abierto={movimiento !== null}
       titulo={
         movimiento?.referencia
-          ? `${detalle.data?.tipo ?? 'Operación'} ${movimiento.referencia}`
-          : 'Detalle de la operación'
+          ? `${detalle.data?.tipo ?? 'OperaciÃ³n'} ${movimiento.referencia}`
+          : 'Detalle de la operaciÃ³n'
       }
       descripcion={movimiento ? etiquetaTipoMovimiento(movimiento.tipo) : undefined}
       ancho="lg"
@@ -404,16 +391,16 @@ function ModalDetalleOperacion({
       }
     >
       {detalle.isLoading ? (
-        <LoadingBlock etiqueta="Cargando la operación…" />
+        <LoadingBlock etiqueta="Cargando la operaciÃ³nâ€¦" />
       ) : detalle.isError ? (
-        <Notice tono="error" titulo="No se pudo cargar la operación">
+        <Notice tono="error" titulo="No se pudo cargar la operaciÃ³n">
           {mensajeDeError(detalle.error)}
         </Notice>
       ) : operacion && 'numero' in operacion ? (
         <div className="flex flex-col gap-3">
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <p className="etiqueta">Número</p>
+              <p className="etiqueta">NÃºmero</p>
               <p className="text-sm font-semibold text-ink">{operacion.numero}</p>
             </div>
             <div>
@@ -426,15 +413,16 @@ function ModalDetalleOperacion({
             </div>
           </div>
           <p className="text-xs text-muted">
-            {operacion.detalles.length} línea(s) · usuario: {operacion.usuario ?? '—'}
+            {operacion.detalles.length} lÃ­nea(s) Â· usuario: {operacion.usuario ?? 'â€”'}
           </p>
         </div>
       ) : (
         <p className="text-sm text-muted">
-          Este movimiento no tiene una operación consultable asociada. Puede corresponder a un saldo
+          Este movimiento no tiene una operaciÃ³n consultable asociada. Puede corresponder a un saldo
           inicial o a un ajuste administrativo.
         </p>
       )}
     </Modal>
   );
 }
+

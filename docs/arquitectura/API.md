@@ -92,7 +92,7 @@ Línea de entrada/salida: `{ producto_id, presentacion_id, cantidad, costo_unita
 |---|---|---|
 | GET | `/inventario/existencias?almacen_id=&q=&categoria_id=&estado=&pagina=&tamano=` | `estado` ∈ `agotado`, `bajo_minimo`, `disponible` |
 | GET | `/inventario/productos/{id}/ficha` | Ficha viva: existencias, proveedores, huella reciente |
-| GET | `/inventario/movimientos?producto_id=&almacen_id=&tipo=&desde=&hasta=&pagina=&tamano=` | Kardex |
+| GET | `/inventario/movimientos?producto_id=&almacen_id=&tipo=&desde=&hasta=&pagina=&tamano=` | Kardex (incluye `producto_codigo`, `producto_nombre` y `almacen`) |
 | GET | `/inventario/radar-reposicion?almacen_id=&limite=` | Prioridad de reposición con proveedor sugerido |
 | POST | `/inventario/ajustes` | `{ almacen_id, producto_id, cantidad_base, motivo }` (signo = suma o resta) |
 | POST | `/inventario/inventario-inicial` | `{ almacen_id?, referencia?, lineas[] }` — carga inicial (no es una compra) |

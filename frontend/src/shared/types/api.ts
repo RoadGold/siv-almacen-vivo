@@ -1,5 +1,5 @@
-/**
- * Tipos del API de SIV · Almacén Vivo.
+﻿/**
+ * Tipos del API de SIV Â· AlmacÃ©n Vivo.
  * Reflejan los esquemas de `backend/app/schemas`.
  * Los importes y cantidades viajan como cadenas decimales.
  */
@@ -43,7 +43,7 @@ export interface Presentacion {
   activo: boolean;
 }
 
-/** Presentación tal como se envía al backend al crear o editar un producto. */
+/** PresentaciÃ³n tal como se envÃ­a al backend al crear o editar un producto. */
 export interface PresentacionIn {
   nombre: string;
   factor_base: string;
@@ -93,6 +93,9 @@ export interface ProveedorProductoResumen {
 
 export interface MovimientoResumen {
   id: number;
+  producto_codigo?: string | null;
+  producto_nombre?: string | null;
+  almacen?: string | null;
   tipo: string;
   cantidad_base_signed: string;
   saldo_base_despues: string;
@@ -193,7 +196,10 @@ export interface Existencia {
 export interface Movimiento {
   id: number;
   producto_id: number;
+  producto_codigo?: string | null;
+  producto_nombre?: string | null;
   almacen_id: number;
+  almacen?: string | null;
   tipo: string;
   cantidad_base_signed: string;
   saldo_base_despues: string;
@@ -473,7 +479,7 @@ export interface MargenBruto {
   nota: string;
 }
 
-/* --- Importación de catálogo ---------------------------------------- */
+/* --- ImportaciÃ³n de catÃ¡logo ---------------------------------------- */
 
 export interface ResumenImportacion {
   filas: number;
@@ -527,7 +533,7 @@ export interface ResultadoInventarioInicial {
   }[];
 }
 
-/* --- Administración -------------------------------------------------- */
+/* --- AdministraciÃ³n -------------------------------------------------- */
 
 export interface RegistroAuditoria {
   id: number;
@@ -538,3 +544,4 @@ export interface RegistroAuditoria {
   detalle?: Record<string, unknown> | null;
   created_at?: string | null;
 }
+

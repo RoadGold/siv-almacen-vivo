@@ -95,10 +95,11 @@ npm run typecheck  # comprobación de tipos sin generar la compilación
 | `/vender` | Vender | Buscador + carrito editable, cinta de impacto, previsualización y confirmación idempotente |
 | `/recibir` | Recibir | Ingreso en tres pasos: proveedor → productos → revisar y confirmar |
 | `/explorar` | Explorar | Existencias con filtros, ficha viva del producto y radar de reposición |
-| `/gestionar/productos` | Productos | Catálogo paginado, alta con presentaciones y ejemplo de conversión en vivo, edición |
+| `/kardex` | Kardex | Movimiento completo con filtros (producto, tipo, fechas) y paginación en el servidor |
+| `/gestionar/productos` | Productos | Catálogo paginado, alta con presentaciones, edición e **importación desde Excel** |
 | `/gestionar/proveedores` | Proveedores | Directorio paginado, alta, edición y vinculación de productos |
-| `/analizar` | Analizar | Marcador de posición (reportes en fase posterior) |
-| `/administrar` | Administrar | Marcador de posición (usuarios y respaldos en fase posterior) |
+| `/analizar` | Analizar | Reportes del periodo, margen bruto estimado, inventario valorizado y exportación CSV |
+| `/administrar` | Administrar | Usuarios y roles, auditoría y diagnóstico del servidor local |
 
 ### Atajos de teclado
 
@@ -142,6 +143,19 @@ separador de miles con espacio fino, fechas `dd/mm/aaaa` y expresiones legibles 
 El token y los datos del usuario se guardan en `localStorage` (`siv.token`, `siv.usuario`).
 La interfaz oculta lo que el usuario no tiene permitido, pero **el servidor es la
 autoridad**: un `403` se muestra como estado «sin permisos» aunque el botón se muestre.
+La banda secundaria se arma con los permisos del usuario: «Analizar» requiere
+`reportes.ver`, «Kardex» `inventario.ver` y «Administrar» cualquiera de `admin.usuarios`
+o `admin.auditoria`.
+
+### Descargas e importaciones
+
+- `src/shared/api/client.ts` incorpora dos funciones que el cliente JSON no cubre:
+  `descargar()` (respuesta binaria) y `enviarFormulario()` (`multipart/form-data`).
+- `src/shared/utils/descargas.ts` guarda el `Blob` en disco con un nombre de archivo
+  derivado del periodo, sin CDN ni dependencias externas.
+- La importación de catálogo **nunca** se aplica sin una confirmación explícita: primero
+  se previsualiza el archivo (resumen y errores por fila) y solo después el usuario
+  decide confirmar. La opción de aplicar el stock inicial viene desmarcada por defecto.
 
 ### Idempotencia
 
@@ -168,17 +182,20 @@ frontend/src/
 │   ├── vender/             # punto de venta
 │   ├── recibir/            # ingreso de mercadería en tres pasos
 │   ├── explorar/           # existencias, ficha viva y radar de reposición
-│   ├── productos/          # catálogo
+│   ├── kardex/             # movimiento completo del inventario
+│   ├── productos/          # catálogo e importación desde Excel
 │   ├── proveedores/        # directorio de proveedores
-│   ├── analizar/           # marcador de posición
-│   ├── administracion/     # marcador de posición
+│   ├── analizar/           # reportes del periodo
+│   ├── administracion/     # usuarios, auditoría y diagnóstico
 │   └── comunes/            # pantalla de ruta inexistente
 └── shared/
     ├── api/                # cliente HTTP, endpoints y claves de caché
     ├── auth/               # almacén de sesión y proveedor de autenticación
     ├── estado/             # registro de la última operación
     ├── format/             # decimal.ts y formato.ts (+ pruebas)
-    └── hooks/              # utilidades de consulta y errores
+    ├── hooks/              # utilidades de consulta y errores
+    ├── types/              # contratos del API
+    └── utils/              # descargas de archivos (+ pruebas)
 ```
 
 ## 8. Limitaciones conocidas
@@ -187,12 +204,14 @@ frontend/src/
    búsqueda exacta recorre las páginas del catálogo activo
    (`src/features/vender/buscarCodigoBarras.ts`). Con el catálogo previsto (1 000–10 000
    productos) es rápido, pero un endpoint dedicado sería mejor.
-2. **Huella del producto:** la ficha viva muestra los 20 movimientos más recientes que
-   devuelve `/inventario/productos/{id}/ficha`; el kardex completo está disponible en
-   `/inventario/movimientos` pero no se ha conectado a una pantalla propia.
-3. **Analizar y Administrar:** son marcadores de posición navegables; sus endpoints ya
-   existen en el backend pero no se han expuesto todavía.
-4. **Sin conexión a internet:** si la API no responde, la barra de pulso muestra
+2. **Nombres en el kardex:** `/inventario/movimientos` solo devuelve `producto_id`; la
+   interfaz resuelve el nombre con una consulta por producto (cacheada por TanStack Query).
+3. **Histórico de costos:** `/reportes/costos` no admite paginación (el servidor limita a
+   500 filas); la tabla se muestra con desplazamiento vertical.
+4. **Inventario inicial:** el backend ya expone `POST /inventario/inventario-inicial`, pero
+   la interfaz no tiene todavía una pantalla de carga inicial: hoy se hace con el
+   «stock inicial» de la importación de catálogo o con ajustes administrativos.
+5. **Sin conexión a internet:** si la API no responde, la barra de pulso muestra
    «Servidor local sin conexión» y cada pantalla explica qué ocurrió.
 
 ## 9. Qué debe revisar el responsable del proyecto
@@ -201,5 +220,9 @@ frontend/src/
   estación «EXPLORAR».
 - Decidir si se mantiene `HashRouter` o se añade el «fallback» de SPA al backend y se
   cambia a `BrowserRouter`.
-- Indicar si el radar de reposición debe empezar a agrupar por proveedor.
-- Revisar el copy de los estados vacíos y de los mensajes de error de negocio.
+- Revisar si el CSV de ventas necesita más columnas (cliente, estado de anulación) o un
+  formato distinto al separador `;`.
+- Validar el copy de los estados vacíos y de los mensajes de error de negocio.
+- Decidir si la exportación CSV debe ofrecer también un Excel (`.xlsx`) del reporte.
+- Revisar quién puede ver «Administrar → Diagnóstico»: hoy lo ven los usuarios con
+  `admin.usuarios` o `admin.auditoria`.
