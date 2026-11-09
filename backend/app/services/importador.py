@@ -19,7 +19,17 @@ from openpyxl import Workbook, load_workbook
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Almacen, Categoria, Marca, PresentacionProducto, Producto, UnidadMedida
+from app.db.models import (
+    Almacen,
+    Categoria,
+    Existencia,
+    Marca,
+    PresentacionProducto,
+    Producto,
+    ProductoProveedor,
+    Proveedor,
+    UnidadMedida,
+)
 from app.domain.unidades import ErrorNegocio, dec, num
 from app.services import catalogo
 
@@ -38,6 +48,9 @@ COLUMNAS = [
     "permite_fraccion",
     "stock_inicial",
     "costo_inicial",
+    "proveedor_codigo",
+    "proveedor_habitual",
+    "presentacion_compra",
 ]
 
 TITULOS = {
@@ -55,6 +68,9 @@ TITULOS = {
     "permite_fraccion": "¿Admite fracción? (SI/NO)",
     "stock_inicial": "Stock inicial (opcional)",
     "costo_inicial": "Costo unitario inicial (opcional)",
+    "proveedor_codigo": "Código del proveedor (opcional)",
+    "proveedor_habitual": "¿Proveedor habitual? (SI/NO)",
+    "presentacion_compra": "Presentación de compra (opcional)",
 }
 
 
@@ -75,8 +91,12 @@ class FilaImportada:
     permite_fraccion: str = ""
     stock_inicial: str = ""
     costo_inicial: str = ""
+    proveedor_codigo: str = ""
+    proveedor_habitual: str = ""
+    presentacion_compra: str = ""
     estado: str = "nuevo"
     mensajes: list[str] = field(default_factory=list)
+    avisos: list[str] = field(default_factory=list)
 
     @property
     def valida(self) -> bool:
@@ -92,8 +112,10 @@ class FilaImportada:
             "factor_base": self.factor_base,
             "precio_venta": self.precio_venta,
             "stock_inicial": self.stock_inicial,
+            "proveedor_codigo": self.proveedor_codigo,
             "estado": self.estado,
             "mensajes": self.mensajes,
+            "avisos": self.avisos,
         }
 
 
@@ -131,7 +153,6 @@ ALIAS_COLUMNAS = {
     "minimo": "stock_minimo",
     "presentacion": "presentacion",
     "presentacion de venta": "presentacion",
-    "presentacion de compra": "presentacion",
     "factor": "factor_base",
     "factor de conversion": "factor_base",
     "precio": "precio_venta",
@@ -146,19 +167,31 @@ ALIAS_COLUMNAS = {
     "stock inicial": "stock_inicial",
     "costo inicial": "costo_inicial",
     "costo unitario inicial": "costo_inicial",
+    "proveedor": "proveedor_codigo",
+    "codigo del proveedor": "proveedor_codigo",
+    "proveedor codigo": "proveedor_codigo",
+    "proveedor habitual": "proveedor_habitual",
+    "habitual": "proveedor_habitual",
+    "presentacion de compra": "presentacion_compra",
+    "compra": "presentacion_compra",
 }
 
 
 def _resolver_columna(encabezado: str) -> str | None:
-    """Traduce el encabezado del archivo al nombre interno de la columna."""
+    """Traduce el encabezado del archivo al nombre interno de la columna.
+
+    Primero busca una coincidencia exacta y, si no hay, un prefijo. Los alias
+    se prueban **del más largo al más corto** para que «Código del proveedor» no
+    se confunda con «Código».
+    """
     normalizado = _normalizar_encabezado(encabezado)
     if not normalizado:
         return None
     if normalizado in ALIAS_COLUMNAS:
         return ALIAS_COLUMNAS[normalizado]
-    for alias, columna in ALIAS_COLUMNAS.items():
+    for alias in sorted(ALIAS_COLUMNAS, key=len, reverse=True):
         if normalizado.startswith(alias):
-            return columna
+            return ALIAS_COLUMNAS[alias]
     return None
 
 
@@ -244,6 +277,129 @@ def _validar_fila(db: Session, fila: FilaImportada) -> None:
         ).scalar_one_or_none()
         fila.estado = "actualizar" if existente is not None else "nuevo"
 
+    # --- Proveedor (opcional) --------------------------------------------
+    if fila.proveedor_codigo:
+        proveedor = db.execute(
+            select(Proveedor).where(
+                func.lower(Proveedor.codigo) == fila.proveedor_codigo.lower()
+            )
+        ).scalar_one_or_none()
+        if proveedor is None:
+            fila.mensajes.append(
+                f"El proveedor «{fila.proveedor_codigo}» no está registrado. "
+                "Créelo antes de importar o deje la celda vacía."
+            )
+    elif fila.proveedor_habitual:
+        fila.avisos.append(
+            "Se marcó como proveedor habitual pero no se indicó el código del proveedor: se ignorará."
+        )
+
+    if fila.presentacion_compra and not fila.proveedor_codigo:
+        fila.avisos.append(
+            "Se indicó presentación de compra sin proveedor: se ignorará."
+        )
+
+
+def _detectar_duplicados_por_nombre(db: Session, filas: list[FilaImportada]) -> None:
+    """Avisa de posibles productos gemelos: mismo nombre, distinto código."""
+    for fila in filas:
+        if not fila.nombre:
+            continue
+        nombre = catalogo.normalizar(fila.nombre)
+        existente = db.execute(
+            select(Producto).where(Producto.nombre_normalizado == nombre)
+        ).scalar_one_or_none()
+        if existente is not None and (
+            not fila.codigo or existente.codigo.lower() != fila.codigo.lower()
+        ):
+            fila.avisos.append(
+                f"Ya existe un producto con el nombre «{fila.nombre}» "
+                f"(código {existente.codigo}). Revise que no sea el mismo artículo."
+            )
+
+    por_nombre: dict[str, list[FilaImportada]] = {}
+    for fila in filas:
+        if fila.nombre:
+            por_nombre.setdefault(catalogo.normalizar(fila.nombre), []).append(fila)
+
+    for grupo in por_nombre.values():
+        codigos = {f.codigo.lower() for f in grupo if f.codigo}
+        if len(codigos) <= 1:
+            continue
+        for fila in grupo:
+            otros = [
+                g
+                for g in grupo
+                if g is not fila and g.codigo and g.codigo.lower() != fila.codigo.lower()
+            ]
+            if otros:
+                filas_otras = ", ".join(str(g.numero) for g in otros)
+                fila.avisos.append(
+                    f"En el archivo hay otro producto con el mismo nombre (fila {filas_otras})."
+                )
+
+
+def _analizar_stock_inicial(
+    db: Session, filas: list[FilaImportada]
+) -> dict[str, str]:
+    """Decide el stock inicial que se aplicará a cada producto.
+
+    Reglas:
+    - Se aplica **una sola vez por producto**, aunque el producto tenga varias
+      filas (una por presentación).
+    - Si el producto ya tiene existencias registradas, **no** se aplica: se
+      avisa para que el usuario use un ajuste si necesita corregirlo.
+
+    Devuelve el mapa código de producto -> cantidad a aplicar.
+    """
+    grupos: dict[str, list[FilaImportada]] = {}
+    for fila in filas:
+        if fila.codigo:
+            grupos.setdefault(fila.codigo.lower(), []).append(fila)
+
+    por_aplicar: dict[str, str] = {}
+
+    for clave, grupo in grupos.items():
+        con_stock = [f for f in grupo if f.stock_inicial]
+        if not con_stock:
+            continue
+        primera = con_stock[0]
+        por_aplicar[clave] = primera.stock_inicial
+
+        if len(con_stock) > 1:
+            numeros = ", ".join(str(f.numero) for f in con_stock)
+            valores = {f.stock_inicial for f in con_stock}
+            if len(valores) == 1:
+                aviso = (
+                    f"El stock inicial se repite en las filas {numeros}: "
+                    f"se aplicará una sola vez ({primera.stock_inicial} en unidad base)."
+                )
+            else:
+                aviso = (
+                    f"Las filas {numeros} tienen valores de stock inicial distintos: "
+                    f"se aplicará el de la fila {primera.numero} ({primera.stock_inicial})."
+                )
+            for fila in grupo:
+                fila.avisos.append(aviso)
+
+        producto = db.execute(
+            select(Producto).where(func.lower(Producto.codigo) == primera.codigo.lower())
+        ).scalar_one_or_none()
+        if producto is not None:
+            existencia = db.execute(
+                select(Existencia).where(Existencia.producto_id == producto.id)
+            ).scalar_one_or_none()
+            if existencia is not None:
+                por_aplicar.pop(clave, None)
+                aviso = (
+                    "El producto ya tiene existencias registradas: no se aplicará el stock "
+                    "inicial del archivo. Si necesita corregirlo, use un ajuste de inventario."
+                )
+                for fila in grupo:
+                    fila.avisos.append(aviso)
+
+    return por_aplicar
+
 
 def previsualizar(db: Session, contenido: bytes, nombre_archivo: str = "") -> dict[str, Any]:
     """Analiza el archivo sin escribir nada en la base de datos."""
@@ -276,16 +432,24 @@ def previsualizar(db: Session, contenido: bytes, nombre_archivo: str = "") -> di
                     )
 
     validas = [f for f in filas if f.codigo or f.nombre or f.presentacion]
+
+    _detectar_duplicados_por_nombre(db, validas)
+    stock_por_producto = _analizar_stock_inicial(db, validas)
+
     resumen = {
         "filas": len(validas),
         "nuevos": sum(1 for f in validas if f.estado == "nuevo" and f.valida),
         "actualizar": sum(1 for f in validas if f.estado == "actualizar" and f.valida),
         "con_errores": sum(1 for f in validas if not f.valida),
+        "con_avisos": sum(1 for f in validas if f.avisos),
+        "con_stock_inicial": len(stock_por_producto),
+        "vinculos_proveedor": sum(1 for f in validas if f.proveedor_codigo and f.valida),
     }
     return {
         "resumen": resumen,
         "filas": [f.a_dict() for f in validas],
         "detalle": filas,
+        "stock_por_producto": stock_por_producto,
     }
 
 
@@ -322,11 +486,17 @@ def confirmar(
     importadas = 0
     productos_creados: set[int] = set()
     productos_tocados: set[int] = set()
+    productos_con_stock: set[int] = set()
+    vinculos_creados = 0
+    stock_inicial_aplicado = 0
 
     # Productos que ya existían antes de la importación (para reportarlos aparte).
     preexistentes = set(db.execute(select(Producto.id)).scalars().all())
 
     from app.services import inventario
+
+    # Stock inicial que se aplicará, ya depurado por el análisis previo.
+    stock_por_producto: dict[str, str] = analisis["stock_por_producto"]
 
     for fila in filas:
         if not any(
@@ -411,9 +581,58 @@ def confirmar(
                     },
                 )
 
+        # --- Vínculo con el proveedor (opcional) --------------------------
+        if fila.proveedor_codigo:
+            proveedor = db.execute(
+                select(Proveedor).where(
+                    func.lower(Proveedor.codigo) == fila.proveedor_codigo.lower()
+                )
+            ).scalar_one()
+            presentacion_compra = None
+            if fila.presentacion_compra:
+                presentacion_compra = db.execute(
+                    select(PresentacionProducto).where(
+                        PresentacionProducto.producto_id == producto.id,
+                        func.lower(PresentacionProducto.nombre)
+                        == fila.presentacion_compra.lower(),
+                    )
+                ).scalar_one_or_none()
+                if presentacion_compra is None:
+                    fila.avisos.append(
+                        f"La presentación de compra «{fila.presentacion_compra}» no existe en "
+                        "este producto: el vínculo se guardará sin ella."
+                    )
+            vinculo = db.execute(
+                select(ProductoProveedor).where(
+                    ProductoProveedor.producto_id == producto.id,
+                    ProductoProveedor.proveedor_id == proveedor.id,
+                )
+            ).scalar_one_or_none()
+            if vinculo is None:
+                vinculo = ProductoProveedor(
+                    producto_id=producto.id,
+                    proveedor_id=proveedor.id,
+                    habitual=_es_verdadero(fila.proveedor_habitual),
+                    presentacion_id=presentacion_compra.id if presentacion_compra else None,
+                )
+                db.add(vinculo)
+            else:
+                vinculo.habitual = _es_verdadero(fila.proveedor_habitual)
+                if presentacion_compra is not None:
+                    vinculo.presentacion_id = presentacion_compra.id
+            db.flush()
+            vinculos_creados += 1
+
         # --- Stock inicial (carga inicial, no es una compra) --------------
-        if aplicar_stock_inicial and fila.stock_inicial:
-            cantidad_base = dec(fila.stock_inicial)
+        # Se aplica una sola vez por producto y solo si el producto no tiene
+        # existencias registradas (ver _analizar_stock_inicial).
+        stock_a_aplicar = stock_por_producto.get(fila.codigo.lower())
+        es_la_primera_fila_del_producto = (
+            stock_a_aplicar is not None and producto.id not in productos_con_stock
+        )
+        if aplicar_stock_inicial and stock_a_aplicar and es_la_primera_fila_del_producto:
+            productos_con_stock.add(producto.id)
+            cantidad_base = dec(stock_a_aplicar)
             if cantidad_base > 0:
                 if almacen_id is None:
                     almacen = db.execute(
@@ -438,6 +657,7 @@ def confirmar(
                     usuario_id=usuario_id,
                     referencia="Importación de catálogo",
                 )
+                stock_inicial_aplicado += 1
 
         importadas += 1
         aplicadas.append(fila.a_dict())
@@ -447,6 +667,8 @@ def confirmar(
         "productos_creados": len(productos_creados),
         "productos_actualizados": len(productos_tocados & preexistentes),
         "rechazadas": len(rechazadas),
+        "vinculos_proveedor": vinculos_creados,
+        "stock_inicial_aplicado": stock_inicial_aplicado,
         "aplicadas": aplicadas,
         "errores": rechazadas,
     }
@@ -458,6 +680,8 @@ def plantilla_excel() -> bytes:
     hoja = libro.active
     hoja.title = "Catalogo"
     hoja.append([TITULOS[columna] for columna in COLUMNAS])
+
+    # Ejemplo 1: producto con proveedor conocido.
     hoja.append(
         [
             "P0001",
@@ -474,8 +698,13 @@ def plantilla_excel() -> bytes:
             "SI",
             "50000",
             "0.0034",
+            "PRV-001",
+            "SI",
+            "saco 50 kg",
         ]
     )
+    # Ejemplo 2: segunda presentación del mismo producto (el stock inicial se
+    # escribe solo en la primera fila: se aplica una vez por producto).
     hoja.append(
         [
             "P0001",
@@ -492,11 +721,73 @@ def plantilla_excel() -> bytes:
             "NO",
             "",
             "",
+            "PRV-001",
+            "SI",
+            "saco 50 kg",
         ]
     )
+    # Ejemplo 3: producto del que todavía no se conoce el proveedor.
+    hoja.append(
+        [
+            "P0002",
+            "Gaseosa 500 ml",
+            "Bebidas",
+            "Genérica",
+            "UND",
+            "48",
+            "botella",
+            "1",
+            "2.50",
+            "1.90",
+            "7750885000018",
+            "NO",
+            "72",
+            "1.90",
+            "",
+            "",
+            "",
+        ]
+    )
+
     hoja.freeze_panes = "A2"
     for indice, columna in enumerate(COLUMNAS, start=1):
         hoja.column_dimensions[hoja.cell(row=1, column=indice).column_letter].width = 24
+
+    # Hoja de ayuda: qué significa cada columna.
+    ayuda = libro.create_sheet("Ayuda")
+    ayuda.append(["Columna", "Qué escribir"])
+    instrucciones = [
+        ("Código", "Código interno del producto. No puede repetirse."),
+        ("Nombre del producto", "Nombre comercial."),
+        ("Categoría", "Se crea si no existe."),
+        ("Marca", "Se crea si no existe."),
+        ("Unidad base (UND/GR/ML)", "Unidad en la que se acumula el stock: UND, GR o ML."),
+        ("Stock mínimo (unidad base)", "Aviso de reposición, en unidad base."),
+        ("Presentación de venta", "Una fila por presentación (botella, caja x24, kilo…)."),
+        ("Factor de conversión", "Cuántas unidades base tiene la presentación (caja x24 = 24)."),
+        ("Precio de venta", "Precio de esa presentación."),
+        ("Costo de referencia", "Costo aproximado de compra."),
+        ("Código de barras", "Opcional. No puede repetirse."),
+        ("¿Admite fracción? (SI/NO)", "SI si el producto se puede vender a medias."),
+        (
+            "Stock inicial (opcional)",
+            "Cantidad inicial EN UNIDAD BASE (no en cajas). Se aplica una sola vez por "
+            "producto y solo si el producto todavía no tiene existencias.",
+        ),
+        (
+            "Costo unitario inicial (opcional)",
+            "Costo por unidad base del stock inicial (por ejemplo 0.0034 por gramo).",
+        ),
+        ("Código del proveedor (opcional)", "Puede quedar vacío si todavía no conoce el proveedor."),
+        ("¿Proveedor habitual? (SI/NO)", "Si el producto se pide normalmente a ese proveedor."),
+        ("Presentación de compra (opcional)", "Presentación con la que compra ese proveedor."),
+    ]
+    for columna, texto in instrucciones:
+        ayuda.append([columna, texto])
+    ayuda.column_dimensions["A"].width = 38
+    ayuda.column_dimensions["B"].width = 90
+    ayuda.freeze_panes = "A2"
+
     buffer = io.BytesIO()
     libro.save(buffer)
     return buffer.getvalue()

@@ -301,6 +301,8 @@ async def confirmar_importacion(
         productos_creados=resultado["productos_creados"],
         productos_actualizados=resultado["productos_actualizados"],
         rechazadas=resultado["rechazadas"],
+        vinculos_proveedor=resultado["vinculos_proveedor"],
+        stock_inicial_aplicado=resultado["stock_inicial_aplicado"],
         aplicadas=[FilaImportadaOut(**f) for f in resultado["aplicadas"]],
         errores=[FilaImportadaOut(**f) for f in resultado["errores"]],
     )

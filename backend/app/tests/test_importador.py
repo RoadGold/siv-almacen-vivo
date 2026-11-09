@@ -5,6 +5,21 @@ from __future__ import annotations
 import io
 
 from openpyxl import Workbook
+from sqlalchemy import select
+
+
+def _plantilla(filas: list[list]) -> bytes:
+    """Arma un archivo con los encabezados de la plantilla real del sistema."""
+    from app.services import importador
+
+    libro = Workbook()
+    hoja = libro.active
+    hoja.append([importador.TITULOS[columna] for columna in importador.COLUMNAS])
+    for fila in filas:
+        hoja.append(fila)
+    buffer = io.BytesIO()
+    libro.save(buffer)
+    return buffer.getvalue()
 
 
 def _archivo_excel(filas: list[list]) -> bytes:
@@ -26,6 +41,9 @@ def _archivo_excel(filas: list[list]) -> bytes:
             "¿Admite fracción? (SI/NO)",
             "Stock inicial (opcional)",
             "Costo unitario inicial (opcional)",
+            "Código del proveedor (opcional)",
+            "¿Proveedor habitual? (SI/NO)",
+            "Presentación de compra (opcional)",
         ]
     )
     for fila in filas:
@@ -171,3 +189,170 @@ def test_carga_inventario_inicial_por_api(cliente, cabeceras_admin, unidades, al
         headers=cabeceras_admin,
     )
     assert repetida.status_code == 400
+
+
+# --- Carga inicial: reglas de seguridad --------------------------------------
+def test_stock_inicial_se_aplica_una_sola_vez_por_producto(
+    cliente, cabeceras_admin, unidades, almacen
+):
+    """Un producto con varias presentaciones recibe el stock inicial una vez."""
+    contenido = _plantilla(
+        [
+            ["P900", "Producto de prueba", "Abarrotes", "Genérica", "UND", "0", "botella", "1", "2.50", "1.90", "", "NO", "10", "1.90"],
+            ["P900", "Producto de prueba", "Abarrotes", "Genérica", "UND", "0", "caja x24", "24", "48.00", "45.60", "", "NO", "10", "1.90"],
+        ]
+    )
+    resultado = cliente.post(
+        "/api/v1/catalogo/importar/confirmar",
+        files={"archivo": ("catalogo.xlsx", contenido, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        params={"aplicar_stock_inicial": "true", "almacen_id": almacen.id},
+        headers=cabeceras_admin,
+    )
+    assert resultado.status_code == 200, resultado.text
+    cuerpo = resultado.json()
+    assert cuerpo["stock_inicial_aplicado"] == 1
+
+    existencias = cliente.get(
+        "/api/v1/inventario/existencias",
+        params={"almacen_id": almacen.id, "q": "P900"},
+        headers=cabeceras_admin,
+    ).json()
+    assert existencias["total"] == 1
+    assert existencias["items"][0]["cantidad_base"] == "10"
+
+
+def test_reimportar_no_vuelve_a_sumar_el_stock(cliente, cabeceras_admin, unidades, almacen):
+    """Subir dos veces el mismo archivo no duplica las existencias."""
+    contenido = _plantilla(
+        [["P901", "Producto idempotente", "Abarrotes", "Genérica", "UND", "0", "unidad", "1", "2.50", "1.90", "", "NO", "25", "1.90"]]
+    )
+    archivos = {"archivo": ("catalogo.xlsx", contenido, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+
+    primera = cliente.post(
+        "/api/v1/catalogo/importar/confirmar",
+        files=archivos,
+        params={"aplicar_stock_inicial": "true", "almacen_id": almacen.id},
+        headers=cabeceras_admin,
+    ).json()
+    assert primera["stock_inicial_aplicado"] == 1
+
+    segunda = cliente.post(
+        "/api/v1/catalogo/importar/confirmar",
+        files=archivos,
+        params={"aplicar_stock_inicial": "true", "almacen_id": almacen.id},
+        headers=cabeceras_admin,
+    ).json()
+    assert segunda["stock_inicial_aplicado"] == 0
+
+    existencias = cliente.get(
+        "/api/v1/inventario/existencias",
+        params={"almacen_id": almacen.id, "q": "P901"},
+        headers=cabeceras_admin,
+    ).json()
+    assert existencias["items"][0]["cantidad_base"] == "25"
+
+
+def test_vista_previa_avisa_del_stock_repetido_y_del_stock_ya_cargado(
+    cliente, cabeceras_admin, unidades, almacen
+):
+    contenido = _plantilla(
+        [
+            ["P902", "Producto con aviso", "Abarrotes", "Genérica", "UND", "0", "unidad", "1", "2.50", "1.90", "", "NO", "10", "1.90"],
+            ["P902", "Producto con aviso", "Abarrotes", "Genérica", "UND", "0", "caja x24", "24", "48.00", "45.60", "", "NO", "10", "1.90"],
+        ]
+    )
+    previa = cliente.post(
+        "/api/v1/catalogo/importar/previsualizar",
+        files={"archivo": ("catalogo.xlsx", contenido, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=cabeceras_admin,
+    ).json()
+    avisos = " ".join(aviso for fila in previa["filas"] for aviso in fila["avisos"])
+    assert "una sola vez" in avisos
+    assert previa["resumen"]["con_avisos"] >= 1
+    assert previa["resumen"]["con_stock_inicial"] == 1
+
+
+# --- Proveedor dentro de la importación -------------------------------------
+def test_la_importacion_vincula_el_proveedor(cliente, cabeceras_admin, unidades, almacen):
+    proveedor = cliente.post(
+        "/api/v1/proveedores",
+        json={"codigo": "PRV-IMP", "razon_social": "Distribuidora Importada SAC"},
+        headers=cabeceras_admin,
+    ).json()
+
+    contenido = _plantilla(
+        [["P903", "Producto con proveedor", "Abarrotes", "Genérica", "UND", "0", "unidad", "1", "2.50", "1.90", "", "NO", "", "", "PRV-IMP", "SI", "unidad"]]
+    )
+    resultado = cliente.post(
+        "/api/v1/catalogo/importar/confirmar",
+        files={"archivo": ("catalogo.xlsx", contenido, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=cabeceras_admin,
+    )
+    assert resultado.status_code == 200, resultado.text
+    cuerpo = resultado.json()
+    assert cuerpo["vinculos_proveedor"] == 1
+
+    productos = cliente.get(
+        "/api/v1/proveedores/{}/productos".format(proveedor["id"]), headers=cabeceras_admin
+    ).json()
+    assert len(productos) == 1
+    assert productos[0]["codigo"] == "P903"
+    assert productos[0]["habitual"] is True
+
+
+def test_proveedor_desconocido_marca_la_fila_con_error(cliente, cabeceras_admin, unidades):
+    contenido = _plantilla(
+        [["P904", "Producto sin proveedor valido", "Abarrotes", "Genérica", "UND", "0", "unidad", "1", "2.50", "1.90", "", "NO", "", "", "PRV-NO-EXISTE", "SI", ""]]
+    )
+    previa = cliente.post(
+        "/api/v1/catalogo/importar/previsualizar",
+        files={"archivo": ("catalogo.xlsx", contenido, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=cabeceras_admin,
+    ).json()
+    assert previa["resumen"]["con_errores"] == 1
+    assert "no está registrado" in previa["filas"][0]["mensajes"][0]
+
+
+def test_producto_sin_proveedor_se_importa_sin_problemas(cliente, cabeceras_admin, unidades, almacen):
+    """El escenario del cliente: productos que aún no tienen proveedor conocido."""
+    contenido = _plantilla(
+        [["P905", "Producto sin proveedor", "Abarrotes", "Genérica", "UND", "0", "unidad", "1", "2.50", "1.90", "", "NO", "12", "1.90", "", "", ""]]
+    )
+    previa = cliente.post(
+        "/api/v1/catalogo/importar/previsualizar",
+        files={"archivo": ("catalogo.xlsx", contenido, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=cabeceras_admin,
+    ).json()
+    assert previa["resumen"]["con_errores"] == 0
+
+    resultado = cliente.post(
+        "/api/v1/catalogo/importar/confirmar",
+        files={"archivo": ("catalogo.xlsx", contenido, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        params={"aplicar_stock_inicial": "true", "almacen_id": almacen.id},
+        headers=cabeceras_admin,
+    ).json()
+    assert resultado["importadas"] == 1
+    assert resultado["stock_inicial_aplicado"] == 1
+
+
+def test_avisa_de_posibles_duplicados_por_nombre(cliente, cabeceras_admin, unidades):
+    cliente.post(
+        "/api/v1/catalogo/productos",
+        json={
+            "codigo": "P906",
+            "nombre": "Arroz a granel",
+            "unidad_base_id": unidades["GR"].id,
+            "presentaciones": [{"nombre": "1 kg", "factor_base": "1000"}],
+        },
+        headers=cabeceras_admin,
+    )
+    contenido = _plantilla(
+        [["P907", "Arroz a granel", "Abarrotes", "Genérica", "GR", "0", "1 kg", "1000", "5.00", "3.40", "", "SI", "", "", "", "", ""]]
+    )
+    previa = cliente.post(
+        "/api/v1/catalogo/importar/previsualizar",
+        files={"archivo": ("catalogo.xlsx", contenido, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=cabeceras_admin,
+    ).json()
+    avisos = " ".join(aviso for fila in previa["filas"] for aviso in fila["avisos"])
+    assert "mismo nombre" in avisos or "Ya existe un producto con el nombre" in avisos

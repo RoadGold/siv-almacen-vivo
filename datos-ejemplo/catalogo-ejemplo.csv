@@ -1,14 +1,14 @@
-Código,Nombre del producto,Categoría,Marca,Unidad base (UND/GR/ML),Stock mínimo (unidad base),Presentación de venta,Factor de conversión,Precio de venta,Costo de referencia,Código de barras,¿Admite fracción? (SI/NO),Stock inicial (opcional),Costo unitario inicial (opcional)
-P0001,Arroz a granel,Granos y menestras,Genérica,GR,10000,1 kg,1000,5.00,3.40,7750885000001,SI,50000,0.0034
-P0001,Arroz a granel,Granos y menestras,Genérica,GR,10000,saco 50 kg,50000,180.00,170.00,,NO,,
-P0002,Gaseosa 500 ml,Bebidas,Genérica,UND,48,botella,1,2.50,1.90,7750885000018,NO,24,1.90
-P0002,Gaseosa 500 ml,Bebidas,Genérica,UND,48,paquete x6,6,13.50,11.40,,NO,,
-P0002,Gaseosa 500 ml,Bebidas,Genérica,UND,48,caja x24,24,48.00,45.60,,NO,,
-P0003,Leche entera 400 g,Lácteos,Genérica,UND,24,unidad,1,4.50,3.83,7750885000025,NO,48,3.83
-P0003,Leche entera 400 g,Lácteos,Genérica,UND,24,caja x24,24,98.00,92.00,,NO,,
-P0004,Aceite vegetal 900 ml,Abarrotes,Genérica,UND,12,unidad,1,8.40,7.33,7750885000032,NO,24,7.33
-P0004,Aceite vegetal 900 ml,Abarrotes,Genérica,UND,12,caja x12,12,95.00,88.00,,NO,,
-P0005,Detergente líquido 500 ml,Aseo del hogar,Genérica,UND,12,unidad,1,9.00,7.67,7750885000049,NO,12,7.67
-P0005,Detergente líquido 500 ml,Aseo del hogar,Genérica,UND,12,caja x12,12,99.00,92.00,,NO,,
-P0006,Azúcar rubia,Granos y menestras,Genérica,GR,10000,1 kg,1000,4.20,3.30,,SI,,
-P0007,Café molido 250 g,Bebidas,Genérica,GR,2000,paquete,250,18.00,14.50,,NO,,
+Código,Nombre del producto,Categoría,Marca,Unidad base (UND/GR/ML),Stock mínimo (unidad base),Presentación de venta,Factor de conversión,Precio de venta,Costo de referencia,Código de barras,¿Admite fracción? (SI/NO),Stock inicial (opcional),Costo unitario inicial (opcional),Código del proveedor (opcional),¿Proveedor habitual? (SI/NO),Presentación de compra (opcional)
+P0001,Arroz a granel,Granos y menestras,Genérica,GR,10000,1 kg,1000,5.00,3.40,7750885000001,SI,50000,0.0034,PRV-001,SI,saco 50 kg
+P0001,Arroz a granel,Granos y menestras,Genérica,GR,10000,saco 50 kg,50000,180.00,170.00,,NO,,,PRV-001,SI,saco 50 kg
+P0002,Gaseosa 500 ml,Bebidas,Genérica,UND,48,botella,1,2.50,1.90,7750885000018,NO,72,1.90,PRV-001,SI,caja x24
+P0002,Gaseosa 500 ml,Bebidas,Genérica,UND,48,paquete x6,6,13.50,11.40,,NO,,,PRV-001,SI,caja x24
+P0002,Gaseosa 500 ml,Bebidas,Genérica,UND,48,caja x24,24,48.00,45.60,,NO,,,PRV-001,SI,caja x24
+P0003,Leche entera 400 g,Lácteos,Genérica,UND,24,unidad,1,4.50,3.83,7750885000025,NO,48,3.83,PRV-001,SI,caja x24
+P0003,Leche entera 400 g,Lácteos,Genérica,UND,24,caja x24,24,98.00,92.00,,NO,,,PRV-001,SI,caja x24
+P0004,Aceite vegetal 900 ml,Abarrotes,Genérica,UND,12,unidad,1,8.40,7.33,7750885000032,NO,24,7.33,,,
+P0004,Aceite vegetal 900 ml,Abarrotes,Genérica,UND,12,caja x12,12,95.00,88.00,,NO,,,,,
+P0005,Detergente líquido 500 ml,Aseo del hogar,Genérica,UND,12,unidad,1,9.00,7.67,7750885000049,NO,12,7.67,,,
+P0005,Detergente líquido 500 ml,Aseo del hogar,Genérica,UND,12,caja x12,12,99.00,92.00,,NO,,,,,
+P0006,Azúcar rubia,Granos y menestras,Genérica,GR,10000,1 kg,1000,4.20,3.30,,SI,,,,,
+P0007,Café molido 250 g,Bebidas,Genérica,GR,2000,paquete,250,18.00,14.50,,NO,,,,,

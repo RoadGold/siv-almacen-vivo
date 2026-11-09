@@ -162,13 +162,13 @@ export function ImportarCatalogo({ abierto, onCerrar }: { abierto: boolean; onCe
 
             <div>
               <label htmlFor="archivo-importacion" className="mb-1 block text-sm font-semibold">
-                Archivo Excel (`.xlsx`)
+                Archivo Excel o CSV (`.xlsx`, `.csv`)
               </label>
               <input
                 id="archivo-importacion"
                 ref={referenciaArchivo}
                 type="file"
-                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                accept=".xlsx,.xlsm,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
                 className="block w-full text-sm text-ink file:mr-3 file:rounded-[6px] file:border file:border-linea-fuerte file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink"
                 onChange={(evento) => {
                   const fichero = evento.target.files?.[0] ?? null;
@@ -192,7 +192,8 @@ export function ImportarCatalogo({ abierto, onCerrar }: { abierto: boolean; onCe
               />
               Aplicar también el stock inicial indicado en el archivo
               <span className="text-xs text-muted">
-                (genera movimientos de «saldo inicial»; no es una compra)
+                (genera movimientos de «saldo inicial»; no es una compra). Se aplica una sola vez
+                por producto y solo si el producto todavía no tiene existencias.
               </span>
             </label>
           </CardBody>
@@ -208,6 +209,28 @@ export function ImportarCatalogo({ abierto, onCerrar }: { abierto: boolean; onCe
                 <Contador titulo="A actualizar" valor={previa.resumen.actualizar} tono="aviso" />
                 <Contador titulo="Con errores" valor={previa.resumen.con_errores} tono="peligro" />
               </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Contador titulo="Con avisos" valor={previa.resumen.con_avisos} tono="aviso" />
+                <Contador
+                  titulo="Con stock inicial"
+                  valor={previa.resumen.con_stock_inicial}
+                  tono="marca"
+                />
+                <Contador
+                  titulo="Vínculos de proveedor"
+                  valor={previa.resumen.vinculos_proveedor}
+                  tono="marca"
+                />
+              </div>
+
+              {previa.resumen.con_avisos > 0 ? (
+                <Notice tono="aviso" titulo="Hay avisos que conviene revisar">
+                  Los avisos no impiden la importación, pero indican situaciones que podrían
+                  sorprender: stock inicial repetido entre filas del mismo producto, productos que
+                  ya tienen existencias o posibles artículos duplicados.
+                </Notice>
+              ) : null}
 
               {previa.resumen.con_errores > 0 ? (
                 <Notice tono="aviso" titulo="Algunas filas tienen errores">
@@ -233,8 +256,10 @@ export function ImportarCatalogo({ abierto, onCerrar }: { abierto: boolean; onCe
                       <TableHeader className="text-right">Factor</TableHeader>
                       <TableHeader className="text-right">Precio</TableHeader>
                       <TableHeader className="text-right">Stock inicial</TableHeader>
+                      <TableHeader>Proveedor</TableHeader>
                       <TableHeader>Estado</TableHeader>
-                      <TableHeader>Mensajes</TableHeader>
+                      <TableHeader>Errores</TableHeader>
+                      <TableHeader>Avisos</TableHeader>
                     </TableHead>
                     <TableBody>
                       {previa.filas.map((fila) => (
@@ -253,11 +278,17 @@ export function ImportarCatalogo({ abierto, onCerrar }: { abierto: boolean; onCe
                           <TableCell numerica className="text-xs">
                             {fila.stock_inicial ? formatearCantidad(fila.stock_inicial) : '—'}
                           </TableCell>
+                          <TableCell className="text-xs">
+                            {fila.proveedor_codigo || '—'}
+                          </TableCell>
                           <TableCell>
                             <EtiquetaEstadoImportacion estado={fila.estado} />
                           </TableCell>
                           <TableCell className="text-xs text-danger">
                             {fila.mensajes.length > 0 ? fila.mensajes.join(' · ') : '—'}
+                          </TableCell>
+                          <TableCell className="text-xs text-warning">
+                            {fila.avisos.length > 0 ? fila.avisos.join(' · ') : '—'}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -288,6 +319,26 @@ export function ImportarCatalogo({ abierto, onCerrar }: { abierto: boolean; onCe
                 />
                 <Contador titulo="Rechazadas" valor={resultado.rechazadas} tono="peligro" />
               </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Contador
+                  titulo="Saldos iniciales cargados"
+                  valor={resultado.stock_inicial_aplicado}
+                  tono="marca"
+                />
+                <Contador
+                  titulo="Vínculos de proveedor"
+                  valor={resultado.vinculos_proveedor}
+                  tono="marca"
+                />
+              </div>
+
+              {resultado.stock_inicial_aplicado === 0 && aplicarStockInicial ? (
+                <Notice tono="aviso" titulo="No se cargó ningún saldo inicial">
+                  Ningún producto del archivo recibió saldo inicial: probablemente ya tenían
+                  existencias registradas. Use un ajuste de inventario si necesita corregirlos.
+                </Notice>
+              ) : null}
 
               {resultado.errores.length > 0 ? (
                 <div>

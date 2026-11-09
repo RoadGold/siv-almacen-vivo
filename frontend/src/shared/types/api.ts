@@ -486,6 +486,9 @@ export interface ResumenImportacion {
   nuevos: number;
   actualizar: number;
   con_errores: number;
+  con_avisos: number;
+  con_stock_inicial: number;
+  vinculos_proveedor: number;
 }
 
 export interface FilaImportada {
@@ -497,8 +500,10 @@ export interface FilaImportada {
   factor_base: string;
   precio_venta: string;
   stock_inicial: string;
+  proveedor_codigo: string;
   estado: string;
   mensajes: string[];
+  avisos: string[];
 }
 
 export interface PrevisualizacionImportacion {
@@ -511,6 +516,8 @@ export interface ResultadoImportacion {
   productos_creados: number;
   productos_actualizados: number;
   rechazadas: number;
+  vinculos_proveedor: number;
+  stock_inicial_aplicado: number;
   aplicadas: FilaImportada[];
   errores: FilaImportada[];
 }

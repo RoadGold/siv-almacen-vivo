@@ -31,6 +31,9 @@ class ResumenImportacion(BaseModel):
     nuevos: int = 0
     actualizar: int = 0
     con_errores: int = 0
+    con_avisos: int = 0
+    con_stock_inicial: int = 0
+    vinculos_proveedor: int = 0
 
 
 class FilaImportadaOut(BaseModel):
@@ -42,8 +45,10 @@ class FilaImportadaOut(BaseModel):
     factor_base: str = ""
     precio_venta: str = ""
     stock_inicial: str = ""
+    proveedor_codigo: str = ""
     estado: str = "nuevo"
     mensajes: list[str] = Field(default_factory=list)
+    avisos: list[str] = Field(default_factory=list)
 
 
 class PrevisualizacionImportacion(BaseModel):
@@ -56,5 +61,7 @@ class ResultadoImportacion(BaseModel):
     productos_creados: int = 0
     productos_actualizados: int = 0
     rechazadas: int = 0
+    vinculos_proveedor: int = 0
+    stock_inicial_aplicado: int = 0
     aplicadas: list[FilaImportadaOut] = Field(default_factory=list)
     errores: list[FilaImportadaOut] = Field(default_factory=list)
