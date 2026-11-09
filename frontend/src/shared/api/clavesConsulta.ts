@@ -29,4 +29,15 @@ export const claves = {
   abastecimientos: {
     listado: (filtros: unknown) => ['abastecimientos', 'listado', filtros] as const,
   },
+  reportes: {
+    ventas: (filtros: unknown) => ['reportes', 'ventas', filtros] as const,
+    abastecimientos: (filtros: unknown) => ['reportes', 'abastecimientos', filtros] as const,
+    costos: (filtros: unknown) => ['reportes', 'costos', filtros] as const,
+    inventario: (filtros: unknown) => ['reportes', 'inventario', filtros] as const,
+    margen: (filtros: unknown) => ['reportes', 'margen', filtros] as const,
+  },
+  admin: {
+    usuarios: (filtros: unknown) => ['admin', 'usuarios', filtros] as const,
+    auditoria: (filtros: unknown) => ['admin', 'auditoria', filtros] as const,
+  },
 };

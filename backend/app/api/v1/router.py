@@ -12,6 +12,7 @@ from app.api.v1.routers import (
     dashboard,
     inventario,
     proveedores,
+    reportes,
     ventas,
 )
 
@@ -23,4 +24,5 @@ api_router.include_router(abastecimientos.router)
 api_router.include_router(ventas.router)
 api_router.include_router(inventario.router)
 api_router.include_router(dashboard.router)
+api_router.include_router(reportes.router)
 api_router.include_router(admin.router)

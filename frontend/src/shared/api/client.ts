@@ -168,6 +168,99 @@ export const api = {
     peticion<T>(ruta, { metodo: 'DELETE', signal }),
 };
 
+/**
+ * Descarga un archivo binario (CSV, Excel) usando la sesión vigente.
+ * Devuelve el `Blob` listo para guardarse en disco.
+ */
+export async function descargar(
+  ruta: string,
+  parametros?: OpcionesPeticion['parametros'],
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const url = construirUrl(ruta, parametros);
+  const cabeceras: Record<string, string> = {};
+  const token = obtenerToken();
+  if (token) cabeceras.Authorization = `Bearer ${token}`;
+
+  let respuesta: Response;
+  try {
+    respuesta = await fetch(url, { method: 'GET', headers: cabeceras, signal });
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') throw error;
+    throw new ErrorApi(
+      'sin_conexion',
+      'No se pudo conectar con el servidor local. Verifique que el backend esté encendido.',
+      {},
+      0,
+    );
+  }
+
+  if (!respuesta.ok) {
+    let datos: unknown = null;
+    try {
+      datos = await respuesta.json();
+    } catch {
+      datos = null;
+    }
+    const error = extraerError(datos, respuesta.status);
+    if (respuesta.status === 401 && token) {
+      notificarSesionExpirada();
+    }
+    throw error;
+  }
+
+  return respuesta.blob();
+}
+
+/**
+ * Envía un formulario `multipart/form-data` (importación de catálogo).
+ * No se define `Content-Type`: el navegador añade el límite del archivo.
+ */
+export async function enviarFormulario<T>(
+  ruta: string,
+  datos: FormData,
+  parametros?: OpcionesPeticion['parametros'],
+  signal?: AbortSignal,
+): Promise<T> {
+  const url = construirUrl(ruta, parametros);
+  const cabeceras: Record<string, string> = { Accept: 'application/json' };
+  const token = obtenerToken();
+  if (token) cabeceras.Authorization = `Bearer ${token}`;
+
+  let respuesta: Response;
+  try {
+    respuesta = await fetch(url, { method: 'POST', headers: cabeceras, body: datos, signal });
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') throw error;
+    throw new ErrorApi(
+      'sin_conexion',
+      'No se pudo conectar con el servidor local. Verifique que el backend esté encendido.',
+      {},
+      0,
+    );
+  }
+
+  const texto = await respuesta.text();
+  let datosRespuesta: unknown = null;
+  if (texto) {
+    try {
+      datosRespuesta = JSON.parse(texto);
+    } catch {
+      datosRespuesta = null;
+    }
+  }
+
+  if (!respuesta.ok) {
+    const error = extraerError(datosRespuesta, respuesta.status);
+    if (respuesta.status === 401 && token) {
+      notificarSesionExpirada();
+    }
+    throw error;
+  }
+
+  return datosRespuesta as T;
+}
+
 /** Consulta el estado del servidor (no requiere autenticación). */
 export async function consultarSalud(signal?: AbortSignal): Promise<EstadoServidor> {
   const respuesta = await fetch(URL_SALUD, { signal });

@@ -21,9 +21,9 @@ Funciona sin Internet. Todo el stack se ejecuta en el equipo del negocio.
 | Fase 6 · Abastecimiento desde proveedor | ✅ API completa (previsualización, confirmación, reversión) |
 | Fase 7 · Punto de venta | ✅ API completa (carrito, idempotencia, control de concurrencia) |
 | Fase 8 · Exploración, kardex y radar | ✅ API completa (ficha viva, radar, conciliación) |
-| Fase 9 · Reportes e indicadores | ⏳ Pendiente (dashboard básico ya disponible) |
-| Fase 10 · Seguridad, roles y respaldo | 🔄 Roles y auditoría listos; falta endurecer sesiones y respaldos programados |
-| Fase 11 · Pruebas, empaquetado y puesta en marcha | 🔄 En curso (29 pruebas automatizadas en verde) |
+| Fase 9 · Reportes e indicadores | ✅ API completa (ventas, costos, valorización, margen bruto, exportación CSV) · interfaz en curso |
+| Fase 10 · Seguridad, roles y respaldo | 🔄 Roles, auditoría y scripts de respaldo listos; falta endurecer sesiones y respaldo programado |
+| Fase 11 · Pruebas, empaquetado y puesta en marcha | 🔄 En curso (37 pruebas automatizadas en verde + recorrido de aceptación E2E) |
 
 ---
 
@@ -106,10 +106,19 @@ La base de pruebas vive en memoria (`tmpfs`) y se crea sola:
 docker compose --profile test up -d db-test
 ```
 
-Cobertura actual: **29 pruebas** que incluyen conversiones exactas (caja × 24, saco de 50 kg,
+Cobertura actual: **37 pruebas** que incluyen conversiones exactas (caja × 24, saco de 50 kg,
 venta fraccionada de 0,750 kg), rechazo de fracciones en productos indivisibles, stock
 insuficiente, idempotencia, concurrencia sobre la última unidad, atomicidad de la transacción,
-reversión por anulación, snapshots históricos y permisos por rol.
+reversión por anulación, snapshots históricos, permisos por rol, importación de Excel y reportes.
+
+Recorrido de aceptación contra el sistema en marcha:
+
+```powershell
+& ".\backend\.venv\Scripts\python.exe" "scripts\pruebas\recorrido_aceptacion.py" --usuario admin --password "mi-clave"
+```
+
+Conjunto de datos ficticio para pruebas de rendimiento (10 000 productos · 500 proveedores ·
+100 000 ventas): `backend\.venv\Scripts\python.exe -m app.cli.datos_carga`.
 
 ---
 

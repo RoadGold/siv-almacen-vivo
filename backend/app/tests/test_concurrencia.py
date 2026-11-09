@@ -7,7 +7,7 @@ import uuid
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import sessionmaker
 
 from app.db.models import (
@@ -129,6 +129,40 @@ def _vender_una_unidad(datos: dict, barrera: threading.Barrier, resultado: list)
         db.close()
 
 
+def _limpiar(datos: dict) -> None:
+    """Borra los datos creados por la prueba para no afectar a otras pruebas."""
+    from app.db.models import DetalleVenta, Existencia, MovimientoInventario, PresentacionProducto, Producto, Venta
+
+    db = SesionPruebas()
+    try:
+        producto_id = datos["producto_id"]
+        db.execute(
+            delete(MovimientoInventario).where(
+                MovimientoInventario.producto_id == producto_id
+            )
+        )
+        db.execute(
+            delete(Venta).where(
+                Venta.id.in_(
+                    select(DetalleVenta.venta_id).where(DetalleVenta.producto_id == producto_id)
+                )
+            )
+        )
+        db.execute(
+            delete(DetalleVenta).where(DetalleVenta.producto_id == producto_id)
+        )
+        db.execute(delete(Existencia).where(Existencia.producto_id == producto_id))
+        db.execute(
+            delete(PresentacionProducto).where(
+                PresentacionProducto.producto_id == producto_id
+            )
+        )
+        db.execute(delete(Producto).where(Producto.id == producto_id))
+        db.commit()
+    finally:
+        db.close()
+
+
 def test_t09_dos_vendedores_disputan_la_ultima_unidad():
     datos = _preparar_datos()
 
@@ -182,6 +216,7 @@ def test_t09_dos_vendedores_disputan_la_ultima_unidad():
         assert Decimal(str(saldo.cantidad_base)) == Decimal("0")
     finally:
         db.close()
+    _limpiar(datos)
 
 
 def test_t11_transaccion_se_revierte_si_falla_un_movimiento(monkeypatch):
@@ -258,4 +293,6 @@ def test_t11_transaccion_se_revierte_si_falla_un_movimiento(monkeypatch):
         assert Decimal(str(existencia.cantidad_base)) == Decimal("10")
     finally:
         db.close()
+    _limpiar(datos)
+
 

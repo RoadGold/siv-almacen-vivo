@@ -193,6 +193,27 @@ export function hoyISO(): string {
   return `${ahora.getFullYear()}-${mes}-${dia}`;
 }
 
+/** Primer día del mes actual en ISO (`aaaa-mm-dd`). */
+export function inicioMesISO(): string {
+  const ahora = new Date();
+  const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+  return `${ahora.getFullYear()}-${mes}-01`;
+}
+
+/** Fecha de hace cierta cantidad de días en ISO (`aaaa-mm-dd`). */
+export function haceDiasISO(dias: number): string {
+  const fecha = new Date();
+  fecha.setDate(fecha.getDate() - dias);
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+  const dia = String(fecha.getDate()).padStart(2, '0');
+  return `${fecha.getFullYear()}-${mes}-${dia}`;
+}
+
+/** Formatea un porcentaje: `12,34 %`. */
+export function formatearPorcentaje(valor: EntradaDecimal, decimales = 2): string {
+  return `${formatearNumero(valor, decimales)} %`;
+}
+
 /** Etiqueta legible del estado de existencias (el color nunca va solo). */
 export function etiquetaEstado(estado: string | null | undefined): string {
   switch (estado) {

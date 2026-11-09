@@ -381,3 +381,160 @@ export interface EstadoServidor {
   entorno: string;
   moneda: string;
 }
+
+/* --- Reportes ------------------------------------------------------- */
+
+export interface PeriodoVentas {
+  desde: string;
+  hasta: string;
+  operaciones: number;
+  total: string;
+  costo: string;
+  margen_bruto_estimado: string;
+  por_dia: VentasPorDia[];
+}
+
+export interface VentasPorDia {
+  fecha: string;
+  operaciones: number;
+  total: string;
+  costo: string;
+  margen_bruto_estimado: string;
+}
+
+export interface VentasPorProducto {
+  producto_id: number;
+  codigo: string;
+  producto: string;
+  cantidad_base: string;
+  total: string;
+  costo: string;
+  margen_bruto_estimado: string;
+}
+
+export interface VentasPorCategoria {
+  categoria: string;
+  operaciones: number;
+  total: string;
+  costo: string;
+  margen_bruto_estimado: string;
+}
+
+export interface VentasPorUsuario {
+  usuario: string;
+  operaciones: number;
+  total: string;
+}
+
+export interface ReporteVentas {
+  periodo: PeriodoVentas;
+  por_producto: VentasPorProducto[];
+  por_categoria: VentasPorCategoria[];
+  por_usuario: VentasPorUsuario[];
+}
+
+export interface AbastecimientosPorProveedor {
+  proveedor_id: number;
+  proveedor: string;
+  operaciones: number;
+  total: string;
+  ultimo_ingreso?: string | null;
+}
+
+export interface CostoHistoricoReporte {
+  codigo: string;
+  producto: string;
+  proveedor: string;
+  cantidad: string;
+  costo_unitario: string;
+  factor: string;
+  fecha: string;
+  documento?: string | null;
+}
+
+export interface InventarioValorizado {
+  producto_id: number;
+  codigo: string;
+  producto: string;
+  cantidad_base: string;
+  costo_promedio_base: string;
+  valor_costo: string;
+}
+
+export interface MargenBruto {
+  desde: string;
+  hasta: string;
+  operaciones: number;
+  ventas: string;
+  costo_mercaderia_vendida: string;
+  margen_bruto_estimado: string;
+  margen_bruto_porcentaje: string;
+  /** Nota literal del backend: el margen no es utilidad neta. */
+  nota: string;
+}
+
+/* --- Importación de catálogo ---------------------------------------- */
+
+export interface ResumenImportacion {
+  filas: number;
+  nuevos: number;
+  actualizar: number;
+  con_errores: number;
+}
+
+export interface FilaImportada {
+  numero: number;
+  codigo: string;
+  nombre: string;
+  categoria: string;
+  presentacion: string;
+  factor_base: string;
+  precio_venta: string;
+  stock_inicial: string;
+  estado: string;
+  mensajes: string[];
+}
+
+export interface PrevisualizacionImportacion {
+  resumen: ResumenImportacion;
+  filas: FilaImportada[];
+}
+
+export interface ResultadoImportacion {
+  importadas: number;
+  productos_creados: number;
+  productos_actualizados: number;
+  rechazadas: number;
+  aplicadas: FilaImportada[];
+  errores: FilaImportada[];
+}
+
+/* --- Inventario inicial --------------------------------------------- */
+
+export interface LineaInventarioInicial {
+  producto_id: number;
+  cantidad_base: string;
+  costo_unitario_base: string;
+}
+
+export interface ResultadoInventarioInicial {
+  total_unidades_base: string;
+  lineas: {
+    producto_id: number;
+    producto: string;
+    cantidad_base: string;
+    costo_unitario_base: string;
+  }[];
+}
+
+/* --- Administración -------------------------------------------------- */
+
+export interface RegistroAuditoria {
+  id: number;
+  actor_id?: number | null;
+  accion: string;
+  entidad: string;
+  entidad_id?: number | null;
+  detalle?: Record<string, unknown> | null;
+  created_at?: string | null;
+}

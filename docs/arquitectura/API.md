@@ -96,8 +96,18 @@ Línea de entrada/salida: `{ producto_id, presentacion_id, cantidad, costo_unita
 
 `ExistenciaOut`: `{ producto_id, almacen_id, codigo, producto, categoria, unidad_base, cantidad_base, costo_promedio_base, valor_costo, stock_minimo_base, presentacion_principal, cantidad_presentacion, estado, ubicacion }`.
 
-## Dashboard y administración
+## Reportes
 
+| Método | Ruta | Notas |
+|---|---|---|
+| GET | `/reportes/ventas?desde=&hasta=` | `{ periodo: {operaciones,total,costo,margen_bruto_estimado,por_dia[]}, por_producto[], por_categoria[], por_usuario[] }` |
+| GET | `/reportes/abastecimientos?desde=&hasta=` | Abastecimientos por proveedor |
+| GET | `/reportes/costos?producto_id=&proveedor_id=` | Histórico de costos de compra |
+| GET | `/reportes/inventario?almacen_id=` | Inventario valorizado a costo promedio |
+| GET | `/reportes/margen?desde=&hasta=` | Margen **bruto estimado** + nota de lectura |
+| GET | `/reportes/ventas/exportar?desde=&hasta=` | Descarga CSV (UTF-8 con BOM) |
+
+## Dashboard y administración
 | Método | Ruta | Notas |
 |---|---|---|
 | GET | `/dashboard/resumen` | `{ fecha, ventas_dia, cantidad_ventas_dia, ingresos_dia, productos_agotados, productos_bajo_minimo, valor_inventario_costo, total_productos, ultimo_ingreso, ultima_venta }` |

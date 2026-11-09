@@ -3,16 +3,21 @@
  * Un único lugar donde vive la forma de llamar al backend.
  */
 
-import { api, consultarSalud } from './client';
+import { api, consultarSalud, descargar, enviarFormulario } from './client';
 import type {
   Abastecimiento,
   AbastecimientoIn,
+  AbastecimientosPorProveedor,
   Categoria,
+  CostoHistoricoReporte,
   Existencia,
+  InventarioValorizado,
   Marca,
+  MargenBruto,
   Movimiento,
   Pagina,
   PrevisualizacionAbastecimiento,
+  PrevisualizacionImportacion,
   PrevisualizacionVenta,
   Presentacion,
   PresentacionIn,
@@ -21,7 +26,11 @@ import type {
   ProductoFicha,
   Proveedor,
   RadarReposicion,
+  RegistroAuditoria,
+  ReporteVentas,
   RespuestaLogin,
+  ResultadoImportacion,
+  ResultadoInventarioInicial,
   ResumenDashboard,
   UnidadMedida,
   Usuario,
@@ -181,14 +190,31 @@ export const inventarioApi = {
       tamano: filtros.tamano ?? 25,
     }),
   ficha: (productoId: number) => api.get<ProductoFicha>(`/inventario/productos/${productoId}/ficha`),
-  movimientos: (filtros: { producto_id?: number; tipo?: string; pagina?: number; tamano?: number }) =>
+  movimientos: (filtros: {
+    producto_id?: number | null;
+    almacen_id?: number | null;
+    tipo?: string | null;
+    desde?: string | null;
+    hasta?: string | null;
+    pagina?: number;
+    tamano?: number;
+  }) =>
     api.get<Pagina<Movimiento>>('/inventario/movimientos', {
-      producto_id: filtros.producto_id,
-      tipo: filtros.tipo,
+      producto_id: filtros.producto_id ?? undefined,
+      almacen_id: filtros.almacen_id ?? undefined,
+      tipo: filtros.tipo ?? undefined,
+      desde: filtros.desde ?? undefined,
+      hasta: filtros.hasta ?? undefined,
       pagina: filtros.pagina ?? 1,
       tamano: filtros.tamano ?? 50,
     }),
   radar: (limite = 25) => api.get<RadarReposicion[]>('/inventario/radar-reposicion', { limite }),
+  /** Carga inicial de existencias: es una operación administrativa, no una compra. */
+  inventarioInicial: (cuerpo: {
+    almacen_id?: number | null;
+    referencia?: string;
+    lineas: { producto_id: number; cantidad_base: string; costo_unitario_base: string }[];
+  }) => api.post<ResultadoInventarioInicial>('/inventario/inventario-inicial', cuerpo),
 };
 
 export const ventasApi = {
@@ -221,6 +247,101 @@ export const abastecimientosApi = {
 
 export const dashboardApi = {
   resumen: () => api.get<ResumenDashboard>('/dashboard/resumen'),
+};
+
+/* --- Reportes ------------------------------------------------------- */
+
+export interface FiltroPeriodo {
+  desde?: string | null;
+  hasta?: string | null;
+}
+
+export const reportesApi = {
+  ventas: (filtro: FiltroPeriodo = {}) =>
+    api.get<ReporteVentas>('/reportes/ventas', {
+      desde: filtro.desde ?? undefined,
+      hasta: filtro.hasta ?? undefined,
+    }),
+  abastecimientos: (filtro: FiltroPeriodo = {}) =>
+    api.get<AbastecimientosPorProveedor[]>('/reportes/abastecimientos', {
+      desde: filtro.desde ?? undefined,
+      hasta: filtro.hasta ?? undefined,
+    }),
+  costos: (filtro: { producto_id?: number | null; proveedor_id?: number | null } = {}) =>
+    api.get<CostoHistoricoReporte[]>('/reportes/costos', {
+      producto_id: filtro.producto_id ?? undefined,
+      proveedor_id: filtro.proveedor_id ?? undefined,
+    }),
+  inventario: (almacen_id?: number | null) =>
+    api.get<InventarioValorizado[]>('/reportes/inventario', {
+      almacen_id: almacen_id ?? undefined,
+    }),
+  margen: (filtro: FiltroPeriodo = {}) =>
+    api.get<MargenBruto>('/reportes/margen', {
+      desde: filtro.desde ?? undefined,
+      hasta: filtro.hasta ?? undefined,
+    }),
+  /** Descarga el detalle de ventas del periodo en CSV. */
+  exportarVentasCsv: (filtro: FiltroPeriodo = {}) =>
+    descargar('/reportes/ventas/exportar', {
+      desde: filtro.desde ?? undefined,
+      hasta: filtro.hasta ?? undefined,
+    }),
+};
+
+/* --- Administración -------------------------------------------------- */
+
+export const adminApi = {
+  usuarios: (filtros: { activo?: boolean | null; pagina?: number; tamano?: number } = {}) =>
+    api.get<Pagina<Usuario>>('/admin/usuarios', {
+      activo: filtros.activo === null ? undefined : filtros.activo,
+      pagina: filtros.pagina ?? 1,
+      tamano: filtros.tamano ?? 20,
+    }),
+  crearUsuario: (cuerpo: {
+    nombre: string;
+    usuario: string;
+    password: string;
+    rol: string;
+    activo: boolean;
+  }) => api.post<Usuario>('/admin/usuarios', cuerpo),
+  actualizarUsuario: (
+    id: number,
+    cambios: {
+      nombre?: string;
+      password?: string;
+      activo?: boolean;
+      rol?: string;
+    },
+  ) => api.patch<Usuario>(`/admin/usuarios/${id}`, cambios),
+  auditoria: (filtros: { entidad?: string | null; pagina?: number; tamano?: number } = {}) =>
+    api.get<Pagina<RegistroAuditoria>>('/admin/auditoria', {
+      entidad: filtros.entidad ?? undefined,
+      pagina: filtros.pagina ?? 1,
+      tamano: filtros.tamano ?? 50,
+    }),
+};
+
+/* --- Importación de catálogo ---------------------------------------- */
+
+export const importacionApi = {
+  /** Descarga la plantilla Excel del catálogo. */
+  plantilla: () => descargar('/catalogo/importar/plantilla'),
+  /** Analiza el archivo sin escribir nada en la base de datos. */
+  previsualizar: (archivo: File) => {
+    const datos = new FormData();
+    datos.append('archivo', archivo);
+    return enviarFormulario<PrevisualizacionImportacion>('/catalogo/importar/previsualizar', datos);
+  },
+  /** Aplica las filas válidas del archivo (requiere confirmación del usuario). */
+  confirmar: (archivo: File, opciones: { aplicarStockInicial: boolean; almacenId?: number | null }) => {
+    const datos = new FormData();
+    datos.append('archivo', archivo);
+    return enviarFormulario<ResultadoImportacion>('/catalogo/importar/confirmar', datos, {
+      aplicar_stock_inicial: opciones.aplicarStockInicial,
+      almacen_id: opciones.almacenId ?? undefined,
+    });
+  },
 };
 
 export const sistemaApi = {
