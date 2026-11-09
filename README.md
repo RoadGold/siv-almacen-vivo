@@ -141,7 +141,9 @@ archivo `.info` con fecha y versión del esquema.
 | `docs/requisitos/especificacion-funcional.md` | Glosario, reglas, historias de usuario, casos de borde |
 | `docs/arquitectura/API.md` | Contrato completo de la API |
 | `docs/arquitectura/decisiones.md` | Decisiones técnicas y sus motivos |
-| `docs/manuales/usuario.md` | Manual corto de operación |
+| `docs/manuales/usuario.md` | Manual corto de operación para el personal |
+| `docs/manuales/administrador.md` | Guía técnica: instalación, respaldo, restauración, red local, diagnóstico |
+| `docs/pruebas/matriz-de-pruebas.md` | Estado de los casos T01–T20 y criterios de calidad |
 | `PLAN_DESARROLLO_SIV_ALMACEN_VIVO.md` | Plan maestro del proyecto |
 
 ---
