@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
+  Badge,
   Button,
   Card,
   CardBody,
@@ -20,7 +21,6 @@ import { formatearCantidad, formatearMoneda } from '@/shared/format/formato';
 import { mensajeDeError } from '@/shared/hooks/errores';
 import { registrarOperacion } from '@/shared/estado/operaciones';
 import { guardarArchivo } from '@/shared/utils/descargas';
-import { EtiquetaEstadoImportacion } from '@/features/analizar/TablasReporte';
 import type { PrevisualizacionImportacion, ResultadoImportacion } from '@/shared/types/api';
 
 /**
@@ -311,6 +311,27 @@ export function ImportarCatalogo({ abierto, onCerrar }: { abierto: boolean; onCe
       </div>
     </Modal>
   );
+}
+
+/** Etiqueta del estado de una fila de importación. */
+function EtiquetaEstadoImportacion({ estado }: { estado: string }) {
+  const tono =
+    estado === 'nuevo'
+      ? 'marca'
+      : estado === 'actualizar'
+        ? 'aviso'
+        : estado === 'error'
+          ? 'peligro'
+          : 'neutro';
+  const texto =
+    estado === 'nuevo'
+      ? 'Nuevo'
+      : estado === 'actualizar'
+        ? 'Actualizar'
+        : estado === 'error'
+          ? 'Con error'
+          : estado;
+  return <Badge tono={tono}>{texto}</Badge>;
 }
 
 /** Contador del resumen de la importación. */

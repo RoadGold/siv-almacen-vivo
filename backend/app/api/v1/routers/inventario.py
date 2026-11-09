@@ -26,6 +26,7 @@ from app.schemas.inventario import (
 from app.schemas.importacion import InventarioInicialIn
 from app.domain.unidades import ErrorNegocio, num
 from app.services import existencias as servicio
+from app.services import auditoria
 from app.services import inventario as motor
 
 router = APIRouter(prefix="/inventario", tags=["Inventario"])
@@ -124,6 +125,18 @@ def crear_ajuste(
         cantidad_base=datos.cantidad_base,
         motivo=datos.motivo,
         usuario_id=usuario.id,
+    )
+    auditoria.registrar(
+        db,
+        accion="inventario.ajustar",
+        entidad="ajuste",
+        entidad_id=ajuste.id,
+        actor_id=usuario.id,
+        detalle={
+            "producto_id": datos.producto_id,
+            "cantidad_base": num(datos.cantidad_base),
+            "motivo": datos.motivo,
+        },
     )
     db.commit()
     db.refresh(ajuste)

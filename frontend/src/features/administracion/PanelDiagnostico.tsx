@@ -63,7 +63,12 @@ export function PanelDiagnostico() {
           <DatoDiagnostico etiqueta="Versión" valor={datos?.version ?? '—'} />
           <DatoDiagnostico etiqueta="Entorno" valor={datos?.entorno ?? '—'} />
           <DatoDiagnostico etiqueta="Moneda" valor={datos?.moneda ?? '—'} />
-          <DatoDiagnostico etiqueta="Última consulta" valor={formatearFechaHora(new Date().toISOString())} />
+          <DatoDiagnostico
+            etiqueta="Última consulta"
+            valor={
+              salud.dataUpdatedAt ? formatearFechaHora(new Date(salud.dataUpdatedAt).toISOString()) : '—'
+            }
+          />
         </dl>
 
         <p className="text-xs text-muted">

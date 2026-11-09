@@ -1,7 +1,8 @@
-"""Endpoints de catálogo: productos, presentaciones, unidades, categorías y marcas."""
+﻿"""Endpoints de catÃ¡logo: productos, presentaciones, unidades, categorÃ­as y marcas."""
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
@@ -9,9 +10,10 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, requiere_permiso
 from app.core.permissions import Permiso
-from app.db.models import Usuario
+from app.db.models import PresentacionProducto, Usuario
 from app.db.session import get_db
-from app.domain.unidades import ErrorNegocio
+from app.domain.unidades import ErrorNegocio, dec
+from app.services import auditoria, catalogo, importador
 from app.schemas.catalogo import (
     CategoriaCreate,
     CategoriaOut,
@@ -33,9 +35,8 @@ from app.schemas.importacion import (
     ResultadoImportacion,
     ResumenImportacion as ResultadoResumen,
 )
-from app.services import catalogo, importador
 
-router = APIRouter(prefix="/catalogo", tags=["Catálogo"])
+router = APIRouter(prefix="/catalogo", tags=["CatÃ¡logo"])
 
 
 @router.get("/productos", response_model=Pagina[ProductoOut])
@@ -88,6 +89,14 @@ def crear_producto(
     db: Session = Depends(get_db),
 ) -> ProductoOut:
     producto = catalogo.crear_producto(db, datos.model_dump())
+    auditoria.registrar(
+        db,
+        accion="producto.crear",
+        entidad="producto",
+        entidad_id=producto.id,
+        actor_id=usuario.id,
+        detalle={"codigo": producto.codigo, "nombre": producto.nombre},
+    )
     db.commit()
     producto = catalogo.obtener_producto(db, producto.id)
     return ProductoOut(**catalogo.producto_a_dict(producto))
@@ -97,10 +106,25 @@ def crear_producto(
 def actualizar_producto(
     producto_id: int,
     cambios: ProductoUpdate,
-    _: Usuario = Depends(requiere_permiso(Permiso.CATALOGO_GESTIONAR)),
+    usuario: Usuario = Depends(requiere_permiso(Permiso.CATALOGO_GESTIONAR)),
     db: Session = Depends(get_db),
 ) -> ProductoOut:
-    producto = catalogo.actualizar_producto(db, producto_id, cambios.model_dump(exclude_unset=True))
+    antes = catalogo.obtener_producto(db, producto_id)
+    datos = cambios.model_dump(exclude_unset=True)
+    producto = catalogo.actualizar_producto(db, producto_id, datos)
+    auditoria.registrar(
+        db,
+        accion="producto.actualizar",
+        entidad="producto",
+        entidad_id=producto_id,
+        actor_id=usuario.id,
+        detalle={
+            "codigo": producto.codigo,
+            "campos": list(datos.keys()),
+            "stock_minimo_anterior": str(dec(antes.stock_minimo_base)),
+            "stock_minimo_nuevo": str(dec(producto.stock_minimo_base)),
+        },
+    )
     db.commit()
     producto = catalogo.obtener_producto(db, producto.id)
     return ProductoOut(**catalogo.producto_a_dict(producto))
@@ -126,12 +150,27 @@ def crear_presentacion(
 def actualizar_presentacion(
     presentacion_id: int,
     cambios: PresentacionUpdate,
-    _: Usuario = Depends(requiere_permiso(Permiso.CATALOGO_GESTIONAR)),
+    usuario: Usuario = Depends(requiere_permiso(Permiso.CATALOGO_GESTIONAR)),
     db: Session = Depends(get_db),
 ) -> PresentacionOut:
-    presentacion = catalogo.actualizar_presentacion(
-        db, presentacion_id, cambios.model_dump(exclude_unset=True)
-    )
+    datos = cambios.model_dump(exclude_unset=True)
+    anterior = db.get(PresentacionProducto, presentacion_id)
+    precio_anterior = dec(anterior.precio_venta) if anterior else Decimal("0")
+    presentacion = catalogo.actualizar_presentacion(db, presentacion_id, datos)
+    if "precio_venta" in datos:
+        auditoria.registrar(
+            db,
+            accion="precio.actualizar",
+            entidad="presentacion",
+            entidad_id=presentacion_id,
+            actor_id=usuario.id,
+            detalle={
+                "producto_id": presentacion.producto_id,
+                "presentacion": presentacion.nombre,
+                "precio_anterior": str(precio_anterior),
+                "precio_nuevo": str(dec(presentacion.precio_venta)),
+            },
+        )
     db.commit()
     return PresentacionOut(**catalogo.presentacion_a_dict(presentacion))
 
@@ -212,7 +251,7 @@ def crear_marca(
 def plantilla_importacion(
     _: Usuario = Depends(requiere_permiso(Permiso.CATALOGO_GESTIONAR)),
 ) -> Response:
-    """Plantilla Excel para la importación del catálogo."""
+    """Plantilla Excel para la importaciÃ³n del catÃ¡logo."""
     contenido = importador.plantilla_excel()
     return Response(
         content=contenido,
@@ -246,7 +285,7 @@ async def confirmar_importacion(
     usuario: Usuario = Depends(requiere_permiso(Permiso.CATALOGO_GESTIONAR)),
     db: Session = Depends(get_db),
 ) -> ResultadoImportacion:
-    """Aplica las filas válidas del archivo."""
+    """Aplica las filas vÃ¡lidas del archivo."""
     contenido = await archivo.read()
     resultado = importador.confirmar(
         db,
@@ -274,7 +313,7 @@ def busqueda_universal(
     _: Usuario = Depends(requiere_permiso(Permiso.CATALOGO_VER)),
     db: Session = Depends(get_db),
 ) -> list[dict[str, Any]]:
-    """Buscador universal: agrupa resultados por tipo (plan §3)."""
+    """Buscador universal: agrupa resultados por tipo (plan Â§3)."""
     from app.services.proveedores import listar_proveedores
 
     productos, _ = catalogo.listar_productos(db, q=q, pagina=1, tamano=limite)
@@ -296,3 +335,4 @@ def busqueda_universal(
         }
         for pr in proveedores
     ]
+

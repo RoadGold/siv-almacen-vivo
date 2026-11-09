@@ -18,13 +18,19 @@ const SECCIONES: { id: Seccion; titulo: string }[] = [
  */
 export function Administrar() {
   const { usuario, puede } = useAutenticacion();
-  const [seccion, setSeccion] = useState<Seccion>('usuarios');
+  const [seccionElegida, setSeccionElegida] = useState<Seccion | null>(null);
 
   const seccionesVisibles = SECCIONES.filter((item) => {
     if (item.id === 'usuarios') return puede('admin.usuarios');
     if (item.id === 'auditoria') return puede('admin.auditoria');
     return true;
   });
+
+  // Si el usuario no puede ver la sección elegida, se muestra la primera disponible.
+  const seccion =
+    seccionElegida && seccionesVisibles.some((item) => item.id === seccionElegida)
+      ? seccionElegida
+      : (seccionesVisibles[0]?.id ?? 'diagnostico');
 
   return (
     <div className="flex flex-col gap-4">
@@ -53,7 +59,7 @@ export function Administrar() {
             type="button"
             role="tab"
             aria-selected={seccion === item.id}
-            onClick={() => setSeccion(item.id)}
+            onClick={() => setSeccionElegida(item.id)}
             className={[
               'rounded-[4px] px-4 py-1.5 text-sm font-semibold transition-colors',
               seccion === item.id ? 'bg-brand text-white' : 'text-muted hover:text-brand',

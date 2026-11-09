@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import {
-  Badge,
   EmptyState,
   LoadingBlock,
   Notice,
@@ -329,19 +328,4 @@ export function PanelConsulta({
     return <EmptyState titulo="Sin datos en el periodo consultado" />;
   }
   return <>{children}</>;
-}
-
-/** Etiqueta del estado de una fila de importación. */
-export function EtiquetaEstadoImportacion({ estado }: { estado: string }) {
-  const tono =
-    estado === 'nuevo' ? 'marca' : estado === 'actualizar' ? 'aviso' : estado === 'error' ? 'peligro' : 'neutro';
-  const texto =
-    estado === 'nuevo'
-      ? 'Nuevo'
-      : estado === 'actualizar'
-        ? 'Actualizar'
-        : estado === 'error'
-          ? 'Con error'
-          : estado;
-  return <Badge tono={tono}>{texto}</Badge>;
 }

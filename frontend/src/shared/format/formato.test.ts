@@ -9,6 +9,10 @@ import {
   formatearFecha,
   formatearMoneda,
   formatearNumero,
+  formatearPorcentaje,
+  haceDiasISO,
+  hoyISO,
+  inicioMesISO,
 } from './formato';
 
 describe('formatos locales peruanos', () => {
@@ -58,5 +62,17 @@ describe('formatos locales peruanos', () => {
 
   it('muestra las fechas en formato local', () => {
     expect(formatearFecha('2026-11-08')).toBe('08/11/2026');
+  });
+
+  it('formatea porcentajes con coma decimal', () => {
+    expect(formatearPorcentaje('12.345')).toBe('12,35 %');
+    expect(formatearPorcentaje('0')).toBe('0,00 %');
+  });
+
+  it('calcula las fechas de los atajos de periodo', () => {
+    expect(hoyISO()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(inicioMesISO().endsWith('-01')).toBe(true);
+    expect(haceDiasISO(0)).toBe(hoyISO());
+    expect(haceDiasISO(29) < hoyISO()).toBe(true);
   });
 });
