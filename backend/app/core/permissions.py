@@ -16,6 +16,7 @@ class Permiso(StrEnum):
     VENTAS_VER = "ventas.ver"
     VENTAS_CREAR = "ventas.crear"
     VENTAS_ANULAR = "ventas.anular"
+    VENTAS_EDITAR_PRECIO = "ventas.editar_precio"
     INVENTARIO_VER = "inventario.ver"
     INVENTARIO_AJUSTAR = "inventario.ajustar"
     PRECIOS_GESTIONAR = "precios.gestionar"
@@ -34,6 +35,7 @@ PERMISOS_VENDEDOR = {
     Permiso.ABASTECIMIENTOS_VER.value,
     Permiso.VENTAS_VER.value,
     Permiso.VENTAS_CREAR.value,
+    Permiso.VENTAS_EDITAR_PRECIO.value,
     Permiso.INVENTARIO_VER.value,
     Permiso.REPORTES_VER.value,
 }

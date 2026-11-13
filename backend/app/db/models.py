@@ -116,7 +116,7 @@ class Secuencia(Base):
     __tablename__ = "secuencias"
 
     tipo: Mapped[str] = mapped_column(String(20), primary_key=True)
-    almacen_id: Mapped[int | None] = mapped_column(
+    almacen_id: Mapped[int] = mapped_column(
         ForeignKey("almacenes.id", ondelete="CASCADE"), primary_key=True
     )
     valor: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -325,16 +325,48 @@ class Venta(Base, TimestampMixin):
     costo_total: Mapped[int] = mapped_column(MONEDA, default=0, nullable=False)
     idempotency_key: Mapped[str | None] = mapped_column(String(80), unique=True)
     cliente: Mapped[str | None] = mapped_column(String(160))
+    forma_pago: Mapped[str | None] = mapped_column(String(30))
+    monto_recibido: Mapped[int | None] = mapped_column(MONEDA)
+    vuelto: Mapped[int | None] = mapped_column(MONEDA)
     observaciones: Mapped[str | None] = mapped_column(Text)
     anulado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     anulado_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     motivo_anulacion: Mapped[str | None] = mapped_column(Text)
+
+    # --- Impresión del ticket -------------------------------------------
+    ticket_impreso: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    impreso_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    impresion_error: Mapped[str | None] = mapped_column(Text)
 
     almacen: Mapped[Almacen] = relationship()
     usuario: Mapped[Usuario] = relationship(foreign_keys=[usuario_id])
     detalles: Mapped[list[DetalleVenta]] = relationship(
         back_populates="venta", cascade="all, delete-orphan"
     )
+    impresiones: Mapped[list["ImpresionVenta"]] = relationship(
+        back_populates="venta", cascade="all, delete-orphan"
+    )
+
+
+class ImpresionVenta(Base):
+    """Registro de cada impresión del ticket de una venta (auditoría de impresión)."""
+
+    __tablename__ = "impresiones_venta"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    venta_id: Mapped[int] = mapped_column(
+        ForeignKey("ventas.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    fecha: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+    resultado: Mapped[str] = mapped_column(String(20), nullable=False)  # OK | ERROR
+    mensaje: Mapped[str | None] = mapped_column(Text)
+    reimpresion: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    duracion_ms: Mapped[int | None] = mapped_column(Integer)
+
+    venta: Mapped[Venta] = relationship(back_populates="impresiones")
 
 
 class DetalleVenta(Base):
@@ -354,6 +386,8 @@ class DetalleVenta(Base):
     factor_snapshot: Mapped[int] = mapped_column(FACTOR, nullable=False)
     cantidad_base: Mapped[int] = mapped_column(CANT, nullable=False)
     precio_unitario: Mapped[int] = mapped_column(MONEDA, nullable=False)
+    precio_original: Mapped[int | None] = mapped_column(MONEDA)
+    motivo_precio: Mapped[str | None] = mapped_column(String(120))
     costo_base_snapshot: Mapped[int] = mapped_column(COSTO_UNIT, nullable=False)
     subtotal: Mapped[int] = mapped_column(MONEDA, nullable=False)
     costo_total_linea: Mapped[int] = mapped_column(MONEDA, default=0, nullable=False)

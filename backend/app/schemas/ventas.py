@@ -15,6 +15,7 @@ class LineaVentaIn(BaseModel):
     presentacion_id: int
     cantidad: Decimal = Field(gt=0)
     precio_unitario: Decimal | None = Field(default=None, ge=0)
+    motivo_precio: str | None = Field(default=None, max_length=120)
 
     @field_validator("cantidad", mode="before")
     @classmethod
@@ -31,9 +32,16 @@ class VentaIn(BaseModel):
     almacen_id: int | None = None
     fecha: date | None = None
     cliente: str | None = Field(default=None, max_length=160)
+    forma_pago: str | None = Field(default=None, max_length=30)
+    monto_recibido: Decimal | None = Field(default=None, ge=0)
     observaciones: str | None = None
     idempotency_key: str | None = Field(default=None, max_length=80)
     lineas: list[LineaVentaIn] = Field(min_length=1)
+
+    @field_validator("monto_recibido", mode="before")
+    @classmethod
+    def _monto_a_decimal(cls, v):
+        return None if v is None else dec(v)
 
     @field_validator("lineas")
     @classmethod
@@ -54,6 +62,11 @@ class LineaCalculadaVenta(BaseModel):
     cantidad_base: str
     unidad_base: str
     precio_unitario: str
+    precio_original: str = "0"
+    descuento_porcentaje: str = "0"
+    descuento_monto: str = "0"
+    precio_permitido: bool = True
+    motivo_precio: str | None = None
     subtotal: str
     stock_actual_base: str
     stock_resultante_base: str
@@ -78,6 +91,9 @@ class DetalleVentaOut(BaseModel):
     factor_snapshot: str
     cantidad_base: str
     precio_unitario: str
+    precio_original: str = "0"
+    motivo_precio: str | None = None
+    descuento_porcentaje: str = "0"
     subtotal: str
     costo_total_linea: str = "0"
     producto_codigo: str | None = None
@@ -96,8 +112,14 @@ class VentaOut(BaseModel):
     total: str
     costo_total: str = "0"
     cliente: str | None = None
+    forma_pago: str | None = None
+    monto_recibido: str | None = None
+    vuelto: str | None = None
     observaciones: str | None = None
     usuario: str | None = None
+    ticket_impreso: bool = False
+    impreso_at: str | None = None
+    impresion_error: str | None = None
     created_at: datetime | None = None
     detalles: list[DetalleVentaOut] = Field(default_factory=list)
 

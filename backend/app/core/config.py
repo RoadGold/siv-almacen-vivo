@@ -41,6 +41,16 @@ class Settings(BaseSettings):
     nombre_negocio: str = "Almacén Vivo"
     warehouse_name: str = "Almacén principal"
 
+    # --- Impresora de tickets (ESC/POS por red) ---------------------------
+    impresora_activa: bool = False
+    impresora_host: str = "127.0.0.1"
+    impresora_puerto: int = 9100
+    impresora_columnas: int = 48  # 80 mm = 48 columnas, 58 mm = 32
+    impresora_cortar: bool = True
+    impresora_qr: bool = True
+    impresora_pagina_codigo: int = 2  # tabla de caracteres ESC/POS (2 = PC850)
+    impresora_tiempo_limite: float = 8.0
+
     # --- CORS / red local ----------------------------------------------
     allowed_origins: str = "http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173"
 

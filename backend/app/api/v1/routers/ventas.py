@@ -20,9 +20,21 @@ from app.schemas.ventas import (
     VentaOut,
 )
 from app.services import auditoria
+from app.services import tickets as servicio_tickets
 from app.services import ventas as servicio
+from app.services.impresora import ErrorImpresora
 
 router = APIRouter(prefix="/ventas", tags=["Ventas"])
+
+
+def _puede_editar_precio(usuario: Usuario) -> bool:
+    """El vendedor puede ajustar el precio dentro del límite configurado."""
+    return Permiso.VENTAS_EDITAR_PRECIO.value in permisos_usuario(usuario)
+
+
+def _puede_administrar_precios(usuario: Usuario) -> bool:
+    """Solo quien administra precios puede superar el límite de descuento."""
+    return Permiso.PRECIOS_GESTIONAR.value in permisos_usuario(usuario)
 
 
 @router.post("/previsualizar", response_model=PrevisualizacionVentaOut)
@@ -35,14 +47,10 @@ def previsualizar(
         **servicio.previsualizar(
             db,
             datos.model_dump(),
-            puede_cambiar_precio=_puede_cambiar_precio(usuario),
+            puede_editar_precio=_puede_editar_precio(usuario),
+            puede_administrar_precios=_puede_administrar_precios(usuario),
         )
     )
-
-
-def _puede_cambiar_precio(usuario: Usuario) -> bool:
-    """Solo quien administra precios puede fijar un precio distinto al de la presentación."""
-    return Permiso.PRECIOS_GESTIONAR.value in permisos_usuario(usuario)
 
 
 @router.post("", response_model=VentaOut, status_code=status.HTTP_201_CREATED)
@@ -55,7 +63,8 @@ def confirmar(
         db,
         datos.model_dump(),
         usuario.id,
-        puede_cambiar_precio=_puede_cambiar_precio(usuario),
+        puede_editar_precio=_puede_editar_precio(usuario),
+        puede_administrar_precios=_puede_administrar_precios(usuario),
     )
     auditoria.registrar(
         db,
@@ -136,6 +145,29 @@ def obtener(
     db: Session = Depends(get_db),
 ) -> VentaOut:
     return VentaOut(**servicio.venta_a_dict(_cargar(db, venta_id)))
+
+
+@router.post("/{venta_id}/imprimir")
+def imprimir_ticket(
+    venta_id: int,
+    usuario: Usuario = Depends(requiere_permiso(Permiso.VENTAS_CREAR)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Imprime (o reimprime) el ticket de la venta.
+
+    Si la impresora falla, la venta **no** se pierde: queda con el error
+    registrado y se puede reintentar desde el historial de ventas.
+    """
+    venta = _cargar(db, venta_id)
+    try:
+        resultado = servicio_tickets.imprimir_venta(
+            db, venta_id, usuario.id, reimpresion=bool(venta.ticket_impreso)
+        )
+    except ErrorImpresora as error:
+        db.commit()
+        raise error
+    db.commit()
+    return resultado
 
 
 @router.post("/{venta_id}/anular", response_model=VentaOut)

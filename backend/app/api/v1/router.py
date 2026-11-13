@@ -9,7 +9,9 @@ from app.api.v1.routers import (
     admin,
     auth,
     catalogo,
+    configuracion,
     dashboard,
+    impresora,
     inventario,
     proveedores,
     reportes,
@@ -25,4 +27,6 @@ api_router.include_router(ventas.router)
 api_router.include_router(inventario.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(reportes.router)
+api_router.include_router(configuracion.router)
+api_router.include_router(impresora.router)
 api_router.include_router(admin.router)

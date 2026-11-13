@@ -69,3 +69,96 @@ def test_costo_promedio_tras_salida_total():
         Decimal("10"), Decimal("3"), Decimal("10"), Decimal("3")
     )
     assert costo == Decimal("0")
+
+
+# --- Precios variables de la caja -------------------------------------------
+def test_precio_sin_cambio_permite_el_precio_de_lista():
+    from app.domain.precios import evaluar_precio
+
+    resultado = evaluar_precio(
+        "10.00", None, puede_editar_precio=True, puede_administrar_precios=False
+    )
+    assert resultado.permitido is True
+    assert resultado.precio_aplicado == Decimal("10.00")
+    assert resultado.hay_cambio is False
+
+
+def test_descuento_dentro_del_limite_se_permite():
+    from app.domain.precios import evaluar_precio
+
+    resultado = evaluar_precio(
+        "10.00",
+        "8.00",
+        puede_editar_precio=True,
+        puede_administrar_precios=False,
+        limite_porcentaje="20",
+    )
+    assert resultado.permitido is True
+    assert resultado.precio_aplicado == Decimal("8.00")
+    assert resultado.precio_original == Decimal("10.00")
+    assert resultado.descuento_porcentaje == Decimal("20.0000")
+
+
+def test_descuento_fuera_del_limite_se_rechaza():
+    from app.domain.precios import evaluar_precio
+
+    resultado = evaluar_precio(
+        "10.00",
+        "5.00",
+        puede_editar_precio=True,
+        puede_administrar_precios=False,
+        limite_porcentaje="20",
+    )
+    assert resultado.permitido is False
+    assert "límite" in (resultado.motivo or "")
+
+
+def test_el_administrador_puede_superar_el_limite():
+    from app.domain.precios import evaluar_precio
+
+    resultado = evaluar_precio(
+        "10.00",
+        "5.00",
+        puede_editar_precio=True,
+        puede_administrar_precios=True,
+        limite_porcentaje="20",
+    )
+    assert resultado.permitido is True
+    assert resultado.precio_aplicado == Decimal("5.00")
+
+
+def test_quien_no_puede_editar_mantiene_el_precio_de_lista():
+    from app.domain.precios import evaluar_precio
+
+    resultado = evaluar_precio(
+        "10.00",
+        "5.00",
+        puede_editar_precio=False,
+        puede_administrar_precios=False,
+        limite_porcentaje="20",
+    )
+    assert resultado.permitido is True
+    assert resultado.precio_aplicado == Decimal("10.00")
+
+
+def test_subir_el_precio_requiere_administrador():
+    from app.domain.precios import evaluar_precio
+
+    vendedor = evaluar_precio(
+        "10.00",
+        "12.00",
+        puede_editar_precio=True,
+        puede_administrar_precios=False,
+        limite_porcentaje="20",
+    )
+    assert vendedor.permitido is False
+
+    administrador = evaluar_precio(
+        "10.00",
+        "12.00",
+        puede_editar_precio=True,
+        puede_administrar_precios=True,
+        limite_porcentaje="20",
+    )
+    assert administrador.permitido is True
+    assert administrador.precio_aplicado == Decimal("12.00")

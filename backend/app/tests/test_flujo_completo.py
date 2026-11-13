@@ -470,10 +470,10 @@ def test_t15_cambiar_factor_no_altera_historial(cliente, cabeceras_admin, unidad
     assert historial["detalles"][0]["factor_snapshot"] == "10"
 
 
-def test_t16_vendedor_no_puede_fijar_precio_propio(
+def test_t16_vendedor_puede_ajustar_precio_dentro_del_limite(
     cliente, cabeceras_admin, cabeceras_vendedor, unidades, almacen
 ):
-    """El precio lo define la presentación; solo el administrador puede cambiarlo."""
+    """El precio lo ajusta quien vende, dentro del límite configurado."""
     producto = crear_producto(
         cliente,
         cabeceras_admin,
@@ -493,7 +493,32 @@ def test_t16_vendedor_no_puede_fijar_precio_propio(
         [{"producto_id": producto["id"], "presentacion_id": ids["botella"], "cantidad": "10", "costo_unitario": "2.00"}],
     )
 
+    # El vendedor puede ajustar el precio dentro del límite (20 %).
     venta_vendedor = cliente.post(
+        "/api/v1/ventas",
+        json={
+            "almacen_id": almacen.id,
+            "lineas": [
+                {
+                    "producto_id": producto["id"],
+                    "presentacion_id": ids["botella"],
+                    "cantidad": "1",
+                    "precio_unitario": "2.00",
+                    "motivo_precio": "Promoción",
+                }
+            ],
+        },
+        headers=cabeceras_vendedor,
+    )
+    assert venta_vendedor.status_code == 201, venta_vendedor.text
+    cuerpo = venta_vendedor.json()
+    assert cuerpo["detalles"][0]["precio_unitario"] == "2"
+    assert cuerpo["detalles"][0]["precio_original"] == "2.5"
+    assert cuerpo["detalles"][0]["motivo_precio"] == "Promoción"
+    assert cuerpo["total"] == "2"
+
+    # Por encima del límite, el vendedor no puede: la venta se rechaza.
+    venta_excesiva = cliente.post(
         "/api/v1/ventas",
         json={
             "almacen_id": almacen.id,
@@ -508,11 +533,10 @@ def test_t16_vendedor_no_puede_fijar_precio_propio(
         },
         headers=cabeceras_vendedor,
     )
-    assert venta_vendedor.status_code == 201, venta_vendedor.text
-    assert venta_vendedor.json()["detalles"][0]["precio_unitario"] == "2.5"
-    assert venta_vendedor.json()["total"] == "2.5"
+    assert venta_excesiva.status_code == 409, venta_excesiva.text
+    assert venta_excesiva.json()["error"]["codigo"] == "precio_fuera_de_limite"
 
-    # El administrador sí puede fijar un precio distinto.
+    # El administrador sí puede superarlo.
     venta_admin = cliente.post(
         "/api/v1/ventas",
         json={
@@ -522,15 +546,15 @@ def test_t16_vendedor_no_puede_fijar_precio_propio(
                     "producto_id": producto["id"],
                     "presentacion_id": ids["botella"],
                     "cantidad": "1",
-                    "precio_unitario": "2.00",
+                    "precio_unitario": "1.00",
                 }
             ],
         },
         headers=cabeceras_admin,
     )
     assert venta_admin.status_code == 201, venta_admin.text
-    assert venta_admin.json()["detalles"][0]["precio_unitario"] == "2"
-    assert venta_admin.json()["total"] == "2"
+    assert venta_admin.json()["detalles"][0]["precio_unitario"] == "1"
+    assert venta_admin.json()["total"] == "1"
 
 
 def test_t16_vendedor_no_puede_crear_productos(cliente, cabeceras_vendedor, unidades):
