@@ -142,20 +142,32 @@ La pantalla tiene dos paneles: a la izquierda el **buscador**, a la derecha **TU
 - **Quitar una línea**: pulse **Quitar** en esa línea.
 - **Empezar de nuevo**: pulse **Nueva venta** en el encabezado; el carrito se vacía.
 
-### 3.4 Cambiar el precio de una línea (precios variables)
+### 3.4 Ajustar el total de una línea (precios variables)
 
-En la línea del carrito, el **precio unitario es editable**: escriba el nuevo importe y el total se
-recalcula al instante.
+En la línea del carrito, el campo editable es **el total que se cobra por esa línea**, no el
+precio unitario. Es lo natural en la caja: si el cliente compra 4 botellas y se pacta cobrarlas
+todo junto por S/ 8,00, se escribe 8,00 y el sistema deduce el unitario.
 
-- Si el precio **no cambia**, no aparece nada más.
-- Si **cambia**, la línea se marca con «Precio modificado», se muestra el precio de lista tachado y
+```
+Gaseosa 500 ml (botella)                        S/ 2,50 c/u (precio de lista)
+[ 4 ]  botella     [ 8,00 ]  total
+4 x S/ 2,00 = S/ 8,00
+Total modificado · de S/ 10,00   [Motivo (opcional) ▾]
+```
+
+- Si el total **no cambia**, se cobra el precio de lista de la presentación.
+- Si **cambia**, la línea se marca con «Total modificado», se muestra el total de lista tachado y
   aparece un selector de **motivo** (opcional): Promoción, Cliente especial, Error de captura,
   Precio de lista o Descuento comercial.
-- **Límite**: el descuento no puede pasar del **20 %** sobre el precio de lista (el administrador
+- El **precio unitario se deriva** del total (total ÷ cantidad) y se muestra debajo, para que
+  quede claro a cuánto sale cada unidad.
+- El total puede no ser múltiplo de la cantidad (3 unidades por S/ 7,00 → S/ 2,33 cada una): el
+  importe cobrado es **exactamente** el que se escribió.
+- **Límite**: el descuento no puede pasar del **20 %** sobre el total de lista (el administrador
   puede cambiar ese límite en *Administrar → Configuración*). Si lo supera, el sistema **rechaza
   la venta** y explica qué línea lo causa; solo un administrador puede aplicarlo.
-- Cada cambio de precio queda **anotado en la auditoría** con el precio de lista, el cobrado, el
-  descuento y el motivo.
+- Cada cambio queda **anotado en la auditoría** con el total de lista, el cobrado, el descuento y
+  el motivo.
 
 > El servidor recalcula siempre: lo que se ve en pantalla es una ayuda, la verdad es lo que
 > responde el servidor.

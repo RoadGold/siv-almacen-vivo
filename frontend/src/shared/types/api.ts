@@ -245,6 +245,7 @@ export interface LineaVentaIn {
   presentacion_id: number;
   cantidad: string;
   precio_unitario?: string | null;
+  precio_total?: string | null;
   motivo_precio?: string | null;
 }
 
@@ -271,6 +272,8 @@ export interface LineaCalculadaVenta {
   unidad_base?: string | null;
   precio_unitario: string;
   precio_original: string;
+  precio_total: string;
+  precio_total_original: string;
   descuento_porcentaje: string;
   descuento_monto: string;
   precio_permitido: boolean;

@@ -23,7 +23,7 @@ from app.db.models import (
     TipoMovimiento,
     Venta,
 )
-from app.domain.precios import ResultadoPrecio, evaluar_precio
+from app.domain.precios import ResultadoPrecioLinea, evaluar_precio_linea
 from app.domain.unidades import ErrorNegocio, ErrorStockInsuficiente, convertir_a_base, dec, num, q2, q4
 from app.services import configuracion, inventario
 from app.services.secuencias import siguiente_numero
@@ -88,11 +88,17 @@ def _evaluar_linea(
     *,
     puede_editar_precio: bool,
     puede_administrar_precios: bool,
-) -> ResultadoPrecio:
-    """Aplica la regla de precio variable a una línea de la venta."""
-    return evaluar_precio(
+) -> ResultadoPrecioLinea:
+    """Aplica la regla de precio a una línea de la venta.
+
+    Lo que el vendedor ajusta es el **total de la línea**; el precio unitario
+    se deriva de él.
+    """
+    return evaluar_precio_linea(
         presentacion.precio_venta,
-        linea.get("precio_unitario"),
+        linea.get("cantidad") or 1,
+        precio_unitario_solicitado=linea.get("precio_unitario"),
+        precio_total_solicitado=linea.get("precio_total"),
         puede_editar_precio=puede_editar_precio,
         puede_administrar_precios=puede_administrar_precios,
         limite_porcentaje=configuracion.decimal(
@@ -134,7 +140,7 @@ def previsualizar(
             puede_editar_precio=puede_editar_precio,
             puede_administrar_precios=puede_administrar_precios,
         )
-        subtotal = q2(cantidad * precio.precio_aplicado)
+        subtotal = q2(precio.precio_total)
 
         existencia = inventario.existencia_actual(db, almacen.id, producto.id)
         stock_actual = dec(existencia.cantidad_base) if existencia else Decimal("0")
@@ -168,8 +174,10 @@ def previsualizar(
                 "factor_snapshot": num(presentacion.factor_base),
                 "cantidad_base": num(q4(conversion.cantidad_base)),
                 "unidad_base": producto.unidad_base.nombre if producto.unidad_base else None,
-                "precio_unitario": num(q2(precio.precio_aplicado)),
-                "precio_original": num(q2(precio.precio_original)),
+                "precio_unitario": num(q2(precio.precio_unitario)),
+                "precio_original": num(q2(precio.precio_original_unitario)),
+                "precio_total": num(q2(precio.precio_total)),
+                "precio_total_original": num(q2(precio.total_original)),
                 "descuento_porcentaje": num(q4(precio.descuento_porcentaje)),
                 "descuento_monto": num(q2(precio.descuento_monto)),
                 "precio_permitido": precio.permitido,
@@ -232,8 +240,11 @@ def _auditar_precio(
             "venta": venta.numero,
             "producto": producto.nombre,
             "presentacion": presentacion.nombre,
-            "precio_original": str(q2(precio.precio_original)),
-            "precio_aplicado": str(q2(precio.precio_aplicado)),
+            "cantidad": str(q4(precio.cantidad)),
+            "precio_original": str(q2(precio.precio_original_unitario)),
+            "precio_aplicado": str(q2(precio.precio_unitario)),
+            "total_original": str(q2(precio.total_original)),
+            "total_aplicado": str(q2(precio.precio_total)),
             "descuento_porcentaje": str(q4(precio.descuento_porcentaje)),
             "motivo": (linea.get("motivo_precio") or "").strip() or None,
         },
@@ -305,7 +316,7 @@ def confirmar(
             bloqueos.append(
                 f"{producto.nombre} ({presentacion.nombre}): {precio.motivo or 'precio no permitido'}"
             )
-        subtotal = q2(cantidad * precio.precio_aplicado)
+        subtotal = q2(precio.precio_total)
 
         existencia = inventario.bloquear_existencia(db, almacen.id, producto.id)
         stock_actual = dec(existencia.cantidad_base)
@@ -344,8 +355,8 @@ def confirmar(
                 cantidad=q4(cantidad),
                 factor_snapshot=dec(presentacion.factor_base),
                 cantidad_base=q4(conversion.cantidad_base),
-                precio_unitario=q2(precio.precio_aplicado),
-                precio_original=q2(precio.precio_original),
+                precio_unitario=q2(precio.precio_unitario),
+                precio_original=q2(precio.precio_original_unitario),
                 motivo_precio=(linea.get("motivo_precio") or "").strip() or None,
                 costo_base_snapshot=costo_base,
                 subtotal=subtotal,

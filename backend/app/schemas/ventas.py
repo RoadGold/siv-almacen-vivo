@@ -15,6 +15,11 @@ class LineaVentaIn(BaseModel):
     presentacion_id: int
     cantidad: Decimal = Field(gt=0)
     precio_unitario: Decimal | None = Field(default=None, ge=0)
+    precio_total: Decimal | None = Field(
+        default=None,
+        ge=0,
+        description="Total a cobrar por la línea; el precio unitario se deriva de él.",
+    )
     motivo_precio: str | None = Field(default=None, max_length=120)
 
     @field_validator("cantidad", mode="before")
@@ -22,7 +27,7 @@ class LineaVentaIn(BaseModel):
     def _a_decimal(cls, v):
         return dec(v)
 
-    @field_validator("precio_unitario", mode="before")
+    @field_validator("precio_unitario", "precio_total", mode="before")
     @classmethod
     def _precio_a_decimal(cls, v):
         return None if v is None else dec(v)
@@ -63,6 +68,8 @@ class LineaCalculadaVenta(BaseModel):
     unidad_base: str
     precio_unitario: str
     precio_original: str = "0"
+    precio_total: str = "0"
+    precio_total_original: str = "0"
     descuento_porcentaje: str = "0"
     descuento_monto: str = "0"
     precio_permitido: bool = True

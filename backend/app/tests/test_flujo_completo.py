@@ -557,6 +557,95 @@ def test_t16_vendedor_puede_ajustar_precio_dentro_del_limite(
     assert venta_admin.json()["total"] == "1"
 
 
+def test_t16b_se_ajusta_el_total_de_la_linea_no_el_unitario(
+    cliente, cabeceras_admin, cabeceras_vendedor, unidades, almacen
+):
+    """Quien cobra ajusta el importe total de la línea; el unitario se deriva."""
+    producto = crear_producto(
+        cliente,
+        cabeceras_admin,
+        unidades,
+        codigo="TOTAL-LINEA",
+        nombre="Gaseosa 500 ml",
+        unidad="UND",
+        presentaciones=[{"nombre": "botella", "factor_base": "1", "precio_venta": "2.50"}],
+    )
+    ids = abbreviaturas_presentaciones(producto)
+    proveedor = crear_proveedor(cliente, cabeceras_admin, "PRV-TOTAL")
+    ingresar(
+        cliente,
+        cabeceras_admin,
+        proveedor["id"],
+        almacen.id,
+        [{"producto_id": producto["id"], "presentacion_id": ids["botella"], "cantidad": "20", "costo_unitario": "2.00"}],
+    )
+
+    # 4 botellas a S/ 2.50 = S/ 10.00; se cobra S/ 8.00 por la línea.
+    venta = cliente.post(
+        "/api/v1/ventas",
+        json={
+            "almacen_id": almacen.id,
+            "lineas": [
+                {
+                    "producto_id": producto["id"],
+                    "presentacion_id": ids["botella"],
+                    "cantidad": "4",
+                    "precio_total": "8.00",
+                    "motivo_precio": "Cliente especial",
+                }
+            ],
+        },
+        headers=cabeceras_vendedor,
+    )
+    assert venta.status_code == 201, venta.text
+    cuerpo = venta.json()
+    detalle = cuerpo["detalles"][0]
+    assert detalle["precio_unitario"] == "2"
+    assert detalle["precio_original"] == "2.5"
+    assert detalle["subtotal"] == "8"
+    assert cuerpo["total"] == "8"
+
+    # El descuento se mide sobre el total de la línea (20 %).
+    previa = cliente.post(
+        "/api/v1/ventas/previsualizar",
+        json={
+            "lineas": [
+                {
+                    "producto_id": producto["id"],
+                    "presentacion_id": ids["botella"],
+                    "cantidad": "4",
+                    "precio_total": "8.00",
+                }
+            ]
+        },
+        headers=cabeceras_vendedor,
+    )
+    assert previa.status_code == 200
+    linea_previa = previa.json()["lineas"][0]
+    assert linea_previa["precio_total"] == "8"
+    assert linea_previa["precio_total_original"] == "10"
+    assert linea_previa["descuento_porcentaje"] == "20"
+
+    # Muy por debajo del límite: el vendedor no puede.
+    excessive = cliente.post(
+        "/api/v1/ventas",
+        json={
+            "almacen_id": almacen.id,
+            "lineas": [
+                {
+                    "producto_id": producto["id"],
+                    "presentacion_id": ids["botella"],
+                    "cantidad": "4",
+                    "precio_total": "4.00",
+                }
+            ],
+        },
+        headers=cabeceras_vendedor,
+    )
+    assert excessive.status_code == 409, excessive.text
+    assert excessive.json()["error"]["codigo"] == "precio_fuera_de_limite"
+
+
 def test_t16_vendedor_no_puede_crear_productos(cliente, cabeceras_vendedor, unidades):
     respuesta = cliente.post(
         "/api/v1/catalogo/productos",

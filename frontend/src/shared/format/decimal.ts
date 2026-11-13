@@ -74,6 +74,29 @@ export class Decimal {
     return new Decimal(this.unidades * b.unidades, this.escala + b.escala);
   }
 
+  /**
+   * División exacta con la escala indicada (redondeo «half up»).
+   *
+   * this / b = (this.unidades / b.unidades) · 10^(b.escala − this.escala)
+   * Para expresar el resultado con `decimales` decimales:
+   *   numerador   = this.unidades · 10^(b.escala + decimales)
+   *   denominador = b.unidades   · 10^this.escala
+   * Si el divisor es cero, devuelve cero en la escala pedida.
+   */
+  divide(otro: EntradaDecimal, decimales = 6): Decimal {
+    const b = Decimal.desde(otro);
+    if (b.unidades === 0n) return new Decimal(0n, decimales);
+    const numerador = this.unidades * 10n ** BigInt(b.escala + decimales);
+    const denominador = b.unidades * 10n ** BigInt(this.escala);
+    const negativo = (numerador < 0n) !== (denominador < 0n);
+    const absoluto = numerador < 0n ? -numerador : numerador;
+    const divisor = denominador < 0n ? -denominador : denominador;
+    const entero = absoluto / divisor;
+    const resto = absoluto % divisor;
+    const redondeado = resto * 2n >= divisor ? entero + 1n : entero;
+    return new Decimal(negativo ? -redondeado : redondeado, decimales);
+  }
+
   /** Redondeo «half up» (mitad hacia arriba) a la cantidad de decimales indicada. */
   redondear(decimales: number): Decimal {
     if (decimales < 0) decimales = 0;

@@ -138,11 +138,14 @@ Línea de entrada/salida: `{ producto_id, presentacion_id, cantidad, costo_unita
 | GET | `/impresora/ticket/{venta_id}` | Vista en texto del ticket (sin imprimir) |
 | POST | `/ventas/{id}/imprimir` | Imprime o reimprime el ticket de una venta |
 
-**Precios variables en la caja**: la venta acepta `precio_unitario` y `motivo_precio` por línea. El
-servidor lo revalida: si el descuento supera el límite configurado (`venta_descuento_maximo_porcentaje`)
-y quien opera no tiene `precios.gestionar`, la venta se rechaza con `409 precio_fuera_de_limite`.
-Cada cambio aplicado queda en la auditoría (`venta.precio_modificado`) y en el detalle
-(`precio_original`, `motivo_precio`, `descuento_porcentaje`).
+**Precios variables en la caja**: la venta acepta, por línea, `precio_total` (el importe que se
+cobra por esa línea) o `precio_unitario`, más `motivo_precio`. El servidor revalida: si el
+descuento del total de la línea supera el límite configurado
+(`venta_descuento_maximo_porcentaje`) y quien opera no tiene `precios.gestionar`, la venta se
+rechaza con `409 precio_fuera_de_limite`. El precio unitario se deriva del total
+(`total ÷ cantidad`) y el subtotal cobrado es **exactamente** el total indicado. Cada cambio
+aplicado queda en la auditoría (`venta.precio_modificado`) y en el detalle (`precio_original`,
+`precio_total`, `motivo_precio`, `descuento_porcentaje`).
 
 **Impresión**: la venta se registra **antes** de imprimir. Si la impresora falla, la venta se
 conserva con `ticket_impreso = false` y `impresion_error`, y cada intento queda en la tabla

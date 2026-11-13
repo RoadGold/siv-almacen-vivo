@@ -23,6 +23,16 @@ def _dinero(valor: Decimal | str | None) -> str:
     return f"S/ {q2(dec(valor)):,.2f}".replace(",", " ").replace(".", ",")
 
 
+def _cantidad(valor: Decimal | str | None) -> str:
+    """Cantidad sin ceros sobrantes: 4.0000 -> 4 · 0.7500 -> 0.75."""
+    if valor is None:
+        return ""
+    texto = f"{dec(valor):f}"
+    if "." in texto:
+        texto = texto.rstrip("0").rstrip(".")
+    return texto or "0"
+
+
 def _truncar(texto: str, largo: int) -> str:
     if len(texto) <= largo:
         return texto
@@ -80,7 +90,7 @@ def construir_ticket(
         nombre_presentacion = presentacion.nombre if presentacion else ""
         descripcion = f"{nombre_producto} ({nombre_presentacion})" if nombre_presentacion else nombre_producto
 
-        cantidad = dec(detalle.cantidad)
+        cantidad = _cantidad(detalle.cantidad)
         precio = dec(detalle.precio_unitario)
         subtotal = dec(detalle.subtotal)
 
@@ -148,7 +158,7 @@ def contenido_texto_ticket(db, venta: Any) -> str:
         nombre_p = presentacion.nombre if presentacion else ""
         lineas.append(f"{nombre} ({nombre_p})" if nombre_p else nombre)
         lineas.append(
-            f"  {dec(detalle.cantidad)} x {_dinero(detalle.precio_unitario)}"
+            f"  {_cantidad(detalle.cantidad)} x {_dinero(detalle.precio_unitario)}"
             f"   {_dinero(detalle.subtotal)}"
         )
         original = (

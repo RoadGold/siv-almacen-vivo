@@ -47,8 +47,15 @@ export function FilaResultado({ resultado, onAgregar }: Propiedades) {
       presentacion_nombre: presentacion.nombre,
       unidad_base: resultado.unidad_base,
       factor_base: presentacion.factor_base,
-      precio_unitario: presentacion.precio_venta,
       precio_original: presentacion.precio_venta,
+      precio_total: Decimal.desde(presentacion.precio_venta)
+        .multiplica(cantidadDecimal)
+        .redondear(2)
+        .aTexto(),
+      precio_total_original: Decimal.desde(presentacion.precio_venta)
+        .multiplica(cantidadDecimal)
+        .redondear(2)
+        .aTexto(),
       cantidad: cantidadDecimal.aTexto(),
     });
   }

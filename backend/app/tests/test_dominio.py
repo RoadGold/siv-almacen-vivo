@@ -162,3 +162,72 @@ def test_subir_el_precio_requiere_administrador():
     )
     assert administrador.permitido is True
     assert administrador.precio_aplicado == Decimal("12.00")
+
+
+# --- Precio por línea (se edita el TOTAL de la línea) ----------------------
+def test_el_total_de_la_linea_determina_el_precio_unitario():
+    from app.domain.precios import evaluar_precio_linea
+
+    resultado = evaluar_precio_linea(
+        "2.50",
+        "4",
+        precio_total_solicitado="8.00",
+        puede_editar_precio=True,
+        puede_administrar_precios=False,
+        limite_porcentaje="20",
+    )
+    assert resultado.permitido is True
+    assert resultado.precio_total == Decimal("8.00")
+    assert resultado.precio_unitario == Decimal("2.000000")
+    assert resultado.total_original == Decimal("10.00")
+    assert resultado.descuento_porcentaje == Decimal("20.0000")
+
+
+def test_el_total_de_la_linea_no_divisible_entre_la_cantidad():
+    from app.domain.precios import evaluar_precio_linea
+
+    resultado = evaluar_precio_linea(
+        "2.50",
+        "3",
+        precio_total_solicitado="7.00",
+        puede_editar_precio=True,
+        puede_administrar_precios=False,
+        limite_porcentaje="20",
+    )
+    assert resultado.permitido is True
+    # El total cobrado es exactamente el indicado.
+    assert resultado.precio_total == Decimal("7.00")
+    # El unitario es la división exacta.
+    assert resultado.precio_unitario == Decimal("2.333333")
+    assert resultado.total_original == Decimal("7.50")
+
+
+def test_el_total_de_la_linea_fuera_del_limite_se_rechaza():
+    from app.domain.precios import evaluar_precio_linea
+
+    resultado = evaluar_precio_linea(
+        "2.50",
+        "4",
+        precio_total_solicitado="4.00",
+        puede_editar_precio=True,
+        puede_administrar_precios=False,
+        limite_porcentaje="20",
+    )
+    assert resultado.permitido is False
+    assert "límite" in (resultado.motivo or "")
+    # El total aplicado vuelve a ser el de lista.
+    assert resultado.precio_total == Decimal("10.00")
+
+
+def test_sin_cambiar_el_total_se_cobra_el_precio_de_lista():
+    from app.domain.precios import evaluar_precio_linea
+
+    resultado = evaluar_precio_linea(
+        "2.50",
+        "4",
+        puede_editar_precio=True,
+        puede_administrar_precios=False,
+    )
+    assert resultado.precio_total == Decimal("10.00")
+    assert resultado.precio_unitario == Decimal("2.500000")
+    assert resultado.hay_cambio is False

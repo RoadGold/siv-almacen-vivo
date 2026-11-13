@@ -18,8 +18,17 @@ export function useCarritoVenta() {
       );
       if (!existente) return [...actuales, linea];
       const cantidadTotal = Decimal.desde(existente.cantidad).suma(linea.cantidad);
+      // Al unir dos líneas, el total vuelve al de lista (la cantidad cambió).
+      const totalDeLista = cantidadTotal.multiplica(linea.precio_original);
       return actuales.map((item) =>
-        item.id === existente.id ? { ...item, cantidad: cantidadTotal.aTexto() } : item,
+        item.id === existente.id
+          ? {
+              ...item,
+              cantidad: cantidadTotal.aTexto(),
+              precio_total: totalDeLista.redondear(2).aTexto(),
+              precio_total_original: totalDeLista.redondear(2).aTexto(),
+            }
+          : item,
       );
     });
   }, []);
@@ -34,10 +43,10 @@ export function useCarritoVenta() {
     );
   }, []);
 
-  /** Cambia el precio de una línea (el servidor valida el límite de descuento). */
-  const cambiarPrecio = useCallback((id: string, precio: string) => {
+  /** Cambia el TOTAL de la línea (lo que se edita en la caja). */
+  const cambiarPrecio = useCallback((id: string, precioTotal: string) => {
     setLineas((actuales) =>
-      actuales.map((item) => (item.id === id ? { ...item, precio_unitario: precio } : item)),
+      actuales.map((item) => (item.id === id ? { ...item, precio_total: precioTotal } : item)),
     );
   }, []);
 
@@ -48,27 +57,26 @@ export function useCarritoVenta() {
     );
   }, []);
 
-  /** Líneas cuyo precio difiere del precio de lista. */
+  /** Líneas cuyo total difiere del total de lista. */
   const lineasConDescuento = useMemo(
     () =>
       lineas.filter(
-        (linea) =>
-          Decimal.desde(linea.precio_unitario).comparar(linea.precio_original) !== 0,
+        (linea) => Decimal.desde(linea.precio_total).comparar(linea.precio_total_original) !== 0,
+      ),
+    [lineas],
+  );
+
+  /** Total a cobrar: suma de los totales de las líneas. */
+  const total = useMemo(
+    () =>
+      lineas.reduce(
+        (acumulado, linea) => acumulado.suma(Decimal.desde(linea.precio_total)),
+        Decimal.cero(),
       ),
     [lineas],
   );
 
   const limpiar = useCallback(() => setLineas([]), []);
-
-  const total = useMemo(
-    () =>
-      lineas.reduce(
-        (acumulado, linea) =>
-          acumulado.suma(Decimal.desde(linea.cantidad).multiplica(linea.precio_unitario)),
-        Decimal.cero(),
-      ),
-    [lineas],
-  );
 
   const cantidadPiezas = useMemo(
     () => lineas.reduce((acumulado, linea) => acumulado.suma(linea.cantidad), Decimal.cero()),

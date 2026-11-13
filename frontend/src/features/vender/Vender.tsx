@@ -138,8 +138,9 @@ export function Vender() {
           presentacion_nombre: presentacion.nombre,
           unidad_base: exacto.unidad_base,
           factor_base: presentacion.factor_base,
-          precio_unitario: presentacion.precio_venta,
           precio_original: presentacion.precio_venta,
+          precio_total: presentacion.precio_venta,
+          precio_total_original: presentacion.precio_venta,
           cantidad: '1',
         });
         setBusqueda('');
@@ -162,8 +163,9 @@ export function Vender() {
           presentacion_nombre: coincidencia.presentacion.nombre,
           unidad_base: coincidencia.producto.unidad_base ?? null,
           factor_base: coincidencia.presentacion.factor_base,
-          precio_unitario: coincidencia.presentacion.precio_venta,
           precio_original: coincidencia.presentacion.precio_venta,
+          precio_total: coincidencia.presentacion.precio_venta,
+          precio_total_original: coincidencia.presentacion.precio_venta,
           cantidad: '1',
         });
         setBusqueda('');
@@ -192,7 +194,7 @@ export function Vender() {
           producto_id: linea.producto_id,
           presentacion_id: linea.presentacion_id,
           cantidad: linea.cantidad,
-          precio_unitario: linea.precio_unitario,
+          precio_total: linea.precio_total,
           motivo_precio: linea.motivo_precio ?? null,
         })),
       }),
@@ -217,7 +219,7 @@ export function Vender() {
           producto_id: linea.producto_id,
           presentacion_id: linea.presentacion_id,
           cantidad: linea.cantidad,
-          precio_unitario: linea.precio_unitario,
+          precio_total: linea.precio_total,
           motivo_precio: linea.motivo_precio ?? null,
         })),
       }),
@@ -432,7 +434,8 @@ export function Vender() {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-ink">{linea.producto_nombre}</p>
                       <p className="text-xs text-muted">
-                        {linea.presentacion_nombre} · {formatearMoneda(linea.precio_unitario)} c/u
+                        {linea.presentacion_nombre} ·{' '}
+                        {formatearMoneda(linea.precio_original)} c/u (precio de lista)
                       </p>
                     </div>
                     <Button
@@ -459,32 +462,38 @@ export function Vender() {
                     </div>
                     <span className="text-xs text-muted">{linea.presentacion_nombre}</span>
                     <div className="ml-auto flex items-center gap-2">
-                      <div className="w-[104px]">
+                      <div className="w-[120px]">
                         <label htmlFor={`precio-${linea.id}`} className="sr-only">
-                          Precio unitario de {linea.producto_nombre}
+                          Total a cobrar por {linea.producto_nombre}
                         </label>
                         <Input
                           id={`precio-${linea.id}`}
                           className="numero"
                           inputMode="decimal"
-                          value={linea.precio_unitario}
+                          value={linea.precio_total}
                           onChange={(evento) =>
                             carrito.cambiarPrecio(linea.id, evento.target.value)
                           }
                         />
                       </div>
-                      <span className="text-sm font-semibold numero text-ink">
-                        {formatearMoneda(
-                          Decimal.desde(linea.cantidad).multiplica(linea.precio_unitario),
-                        )}
-                      </span>
+                      <span className="text-xs text-muted">total</span>
                     </div>
                   </div>
-                  {Decimal.desde(linea.precio_unitario).comparar(linea.precio_original) !== 0 ? (
+                  <p className="mt-1 text-xs text-muted">
+                    {formatearCantidad(linea.cantidad)} x{' '}
+                    {formatearMoneda(
+                      Decimal.desde(linea.precio_total)
+                        .divide(linea.cantidad, 4)
+                        .redondear(2)
+                        .aTexto(),
+                    )}{' '}
+                    = <span className="font-semibold text-ink">{formatearMoneda(linea.precio_total)}</span>
+                  </p>
+                  {Decimal.desde(linea.precio_total).comparar(linea.precio_total_original) !== 0 ? (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <Badge tono="aviso">Precio modificado</Badge>
+                      <Badge tono="aviso">Total modificado</Badge>
                       <span className="text-xs text-muted">
-                        de {formatearMoneda(linea.precio_original)} c/u
+                        de {formatearMoneda(linea.precio_total_original)}
                       </span>
                       <select
                         aria-label={`Motivo del cambio de precio de ${linea.producto_nombre}`}
@@ -686,7 +695,7 @@ export function Vender() {
                 <TableHeader>Producto</TableHeader>
                 <TableHeader>Presentación</TableHeader>
                 <TableHeader className="text-right">Cantidad</TableHeader>
-                <TableHeader className="text-right">Precio</TableHeader>
+                <TableHeader className="text-right">Total</TableHeader>
                 <TableHeader className="text-right">Stock actual</TableHeader>
                 <TableHeader className="text-right">Saldo final</TableHeader>
               </TableHead>
@@ -699,10 +708,15 @@ export function Vender() {
                       {formatearCantidad(linea.cantidad)} {linea.presentacion_nombre}
                     </TableCell>
                     <TableCell numerica>
-                      {formatearMoneda(linea.precio_unitario)}
-                      {linea.precio_original !== linea.precio_unitario ? (
+                      {formatearMoneda(linea.precio_total)}
+                      {linea.precio_total_original !== linea.precio_total ? (
                         <span className="ml-1 text-xs text-muted line-through">
-                          {formatearMoneda(linea.precio_original)}
+                          {formatearMoneda(linea.precio_total_original)}
+                        </span>
+                      ) : null}
+                      {linea.descuento_porcentaje !== '0' ? (
+                        <span className="ml-1 text-xs text-warning">
+                          −{formatearCantidad(linea.descuento_porcentaje)}%
                         </span>
                       ) : null}
                     </TableCell>
