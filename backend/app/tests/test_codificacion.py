@@ -21,6 +21,7 @@ RAIZ = Path(__file__).resolve().parents[3]
 INDICADORES = re.compile(r"[\u00c2\u00c3][\u0080-\u00bf]|[\u00e2]\u20ac|[\u00ef]\u00bb\u00bf|\ufffd")
 
 CARPETAS = ["backend/app", "backend/alembic", "frontend/src", "docs", "scripts"]
+ARCHIVOS_SUELTOS = [".env", ".env.example"]
 EXTENSIONES = {".py", ".ts", ".tsx", ".md", ".css", ".js", ".json", ".ps1", ".sh", ".html"}
 
 
@@ -38,6 +39,10 @@ def _archivos() -> list[Path]:
             if ruta.name == Path(__file__).name:
                 continue
             encontrados.append(ruta)
+    for nombre in ARCHIVOS_SUELTOS:
+        ruta = RAIZ / nombre
+        if ruta.is_file():
+            encontrados.append(ruta)
     return sorted(encontrados)
 
 
@@ -52,13 +57,27 @@ def test_archivo_sin_doble_codificacion(ruta: Path) -> None:
 
 
 def test_archivos_sin_bom() -> None:
-    """Python y Node leen el BOM, pero rompe algunas herramientas: no debe haberlo."""
+    """Python y Node leen el BOM, pero rompe algunas herramientas: no debe haberlo.
+
+    Excepción: los scripts de PowerShell (`.ps1`) sí llevan BOM a propósito, porque
+    Windows PowerShell 5.1 los lee como ANSI sin él y los acentos se verían rotos.
+    """
     con_bom = [
         ruta.relative_to(RAIZ).as_posix()
         for ruta in _archivos()
-        if ruta.read_bytes().startswith(b"\xef\xbb\xbf")
+        if ruta.suffix != ".ps1" and ruta.read_bytes().startswith(b"\xef\xbb\xbf")
     ]
     assert not con_bom, f"Archivos con BOM: {con_bom}"
+
+
+def test_los_scripts_de_powershell_llevan_bom() -> None:
+    """Sin BOM, Windows PowerShell muestra los acentos rotos en la consola."""
+    sin_bom = [
+        ruta.relative_to(RAIZ).as_posix()
+        for ruta in _archivos()
+        if ruta.suffix == ".ps1" and not ruta.read_bytes().startswith(b"\xef\xbb\xbf")
+    ]
+    assert not sin_bom, f"Scripts .ps1 sin BOM: {sin_bom}"
 
 
 def test_plantilla_de_importacion_reconocible() -> None:

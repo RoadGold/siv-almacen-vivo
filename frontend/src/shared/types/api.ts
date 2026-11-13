@@ -245,12 +245,15 @@ export interface LineaVentaIn {
   presentacion_id: number;
   cantidad: string;
   precio_unitario?: string | null;
+  motivo_precio?: string | null;
 }
 
 export interface VentaIn {
   almacen_id?: number | null;
   fecha?: string | null;
   cliente?: string | null;
+  forma_pago?: string | null;
+  monto_recibido?: string | null;
   observaciones?: string | null;
   idempotency_key?: string | null;
   lineas: LineaVentaIn[];
@@ -267,6 +270,11 @@ export interface LineaCalculadaVenta {
   cantidad_base: string;
   unidad_base?: string | null;
   precio_unitario: string;
+  precio_original: string;
+  descuento_porcentaje: string;
+  descuento_monto: string;
+  precio_permitido: boolean;
+  motivo_precio?: string | null;
   subtotal: string;
   stock_actual_base: string;
   stock_resultante_base: string;
@@ -289,6 +297,9 @@ export interface DetalleVenta {
   factor_snapshot: string;
   cantidad_base: string;
   precio_unitario: string;
+  precio_original: string;
+  motivo_precio?: string | null;
+  descuento_porcentaje: string;
   subtotal: string;
   costo_total_linea: string;
   producto_codigo?: string | null;
@@ -305,8 +316,14 @@ export interface Venta {
   total: string;
   costo_total: string;
   cliente?: string | null;
+  forma_pago?: string | null;
+  monto_recibido?: string | null;
+  vuelto?: string | null;
   observaciones?: string | null;
   usuario?: string | null;
+  ticket_impreso: boolean;
+  impreso_at?: string | null;
+  impresion_error?: string | null;
   created_at?: string | null;
   detalles: DetalleVenta[];
 }
@@ -477,6 +494,33 @@ export interface MargenBruto {
   margen_bruto_porcentaje: string;
   /** Nota literal del backend: el margen no es utilidad neta. */
   nota: string;
+}
+
+/* --- Configuración del negocio e impresora ------------------------------- */
+
+export interface ConfiguracionNegocio {
+  valores: Record<string, string>;
+  descripciones: Record<string, string>;
+}
+
+export interface EstadoImpresora {
+  activa: boolean;
+  host: string;
+  puerto: number;
+  columnas: number;
+  cortar: boolean;
+  qr: boolean;
+  pagina_codigo: number;
+  conectada: boolean;
+  mensaje: string;
+}
+
+export interface ResultadoImpresion {
+  ok: boolean;
+  mensaje: string;
+  numero?: string;
+  duracion_ms?: number;
+  reimpresion?: boolean;
 }
 
 /* --- Importación de catálogo ---------------------------------------- */

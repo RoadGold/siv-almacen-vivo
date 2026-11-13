@@ -142,7 +142,25 @@ La pantalla tiene dos paneles: a la izquierda el **buscador**, a la derecha **TU
 - **Quitar una línea**: pulse **Quitar** en esa línea.
 - **Empezar de nuevo**: pulse **Nueva venta** en el encabezado; el carrito se vacía.
 
-### 3.4 La cinta de impacto (lo que cambia el stock)
+### 3.4 Cambiar el precio de una línea (precios variables)
+
+En la línea del carrito, el **precio unitario es editable**: escriba el nuevo importe y el total se
+recalcula al instante.
+
+- Si el precio **no cambia**, no aparece nada más.
+- Si **cambia**, la línea se marca con «Precio modificado», se muestra el precio de lista tachado y
+  aparece un selector de **motivo** (opcional): Promoción, Cliente especial, Error de captura,
+  Precio de lista o Descuento comercial.
+- **Límite**: el descuento no puede pasar del **20 %** sobre el precio de lista (el administrador
+  puede cambiar ese límite en *Administrar → Configuración*). Si lo supera, el sistema **rechaza
+  la venta** y explica qué línea lo causa; solo un administrador puede aplicarlo.
+- Cada cambio de precio queda **anotado en la auditoría** con el precio de lista, el cobrado, el
+  descuento y el motivo.
+
+> El servidor recalcula siempre: lo que se ve en pantalla es una ayuda, la verdad es lo que
+> responde el servidor.
+
+### 3.5 La cinta de impacto (lo que cambia el stock)
 
 Al pie del panel derecho se lee, en lenguaje llano, lo que pasará al confirmar:
 
@@ -390,6 +408,47 @@ La carga del inventario con el que arranca el negocio no es una compra. Se puede
 importación de Excel (marcando **Aplicar stock inicial**) o, producto a producto, desde
 **EXPLORAR → Cargar saldo inicial**. Ambas formas registran el movimiento `SALDO_INICIAL`, que
 queda diferenciado de los ingresos de proveedor en el Kardex y en la auditoría. Ver el capítulo 11.
+
+---
+
+## 7 bis. VENTAS · Historial de ventas
+
+La pantalla **Ventas** (en la banda secundaria) permite consultar, reimprimir y anular.
+
+| Elemento | Para qué |
+|---|---|
+| Filtros (desde, hasta, estado) | Buscar ventas de un periodo o solo las anuladas |
+| Columna **Ticket** | Indica si el ticket salió: «Impreso», «Pendiente» o «—» |
+| **Ver** | Abre el detalle: líneas, precios, pago, vuelto y estado del ticket |
+| **Imprimir / Reimprimir** | Vuelve a sacar el ticket de esa venta |
+| **Anular** | Anula la venta con motivo (ver capítulo 3.6) |
+
+En el detalle se ve, línea a línea, el **precio cobrado** y, tachado, el **precio de lista** cuando
+se modificó, con su motivo.
+
+> **Importante:** una venta **nunca se pierde** porque la impresora falle. Si el papel no sale, la
+> venta queda registrada con el estado «Pendiente» y se puede reintentar la impresión.
+
+---
+
+## 7 ter. ADMINISTRAR · Configuración e impresora
+
+### Configuración del negocio
+
+*Administrar → Configuración del negocio*:
+
+- **Datos del negocio**: nombre comercial, RUC, dirección y teléfono (aparecen en el ticket).
+- **Formato del ticket**: ancho (58 o 80 mm), mostrar el precio de lista cuando cambió, incluir QR.
+- **Reglas de la caja**: descuento máximo que puede aplicar el vendedor (20 % por defecto) y, si
+  quiere, un tope en soles.
+
+### Impresora de tickets
+
+*Administrar → Impresora de tickets* muestra si la impresora está **activada** y **conectada**, y
+permite enviar un **ticket de prueba**.
+
+Para activarla hay que editar el archivo `.env` y reiniciar el servidor (ver la
+[guía de prueba de la impresora](prueba-impresora.md)).
 
 ---
 

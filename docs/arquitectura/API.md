@@ -127,6 +127,28 @@ Línea de entrada/salida: `{ producto_id, presentacion_id, cantidad, costo_unita
 | GET | `/reportes/margen?desde=&hasta=` | Margen **bruto estimado** + nota de lectura |
 | GET | `/reportes/ventas/exportar?desde=&hasta=` | Descarga CSV (UTF-8 con BOM) |
 
+## Configuración e impresión
+
+| Método | Ruta | Notas |
+|---|---|---|
+| GET | `/configuracion` | Valores y descripciones (datos del negocio, formato del ticket, límites de la caja) |
+| PUT | `/configuracion` | Guarda la configuración (solo administrador) |
+| GET | `/impresora/estado` | Activada/conectada, host, puerto, columnas, QR y corte |
+| POST | `/impresora/prueba` | Imprime un ticket de prueba |
+| GET | `/impresora/ticket/{venta_id}` | Vista en texto del ticket (sin imprimir) |
+| POST | `/ventas/{id}/imprimir` | Imprime o reimprime el ticket de una venta |
+
+**Precios variables en la caja**: la venta acepta `precio_unitario` y `motivo_precio` por línea. El
+servidor lo revalida: si el descuento supera el límite configurado (`venta_descuento_maximo_porcentaje`)
+y quien opera no tiene `precios.gestionar`, la venta se rechaza con `409 precio_fuera_de_limite`.
+Cada cambio aplicado queda en la auditoría (`venta.precio_modificado`) y en el detalle
+(`precio_original`, `motivo_precio`, `descuento_porcentaje`).
+
+**Impresión**: la venta se registra **antes** de imprimir. Si la impresora falla, la venta se
+conserva con `ticket_impreso = false` y `impresion_error`, y cada intento queda en la tabla
+`impresiones_venta`. Los parámetros de la impresora (`IMPRESORA_HOST`, `IMPRESORA_PUERTO`,
+`IMPRESORA_PAGINA_CODIGO`, `IMPRESORA_CORTAR`, `IMPRESORA_QR`) se leen del `.env`.
+
 ## Dashboard y administración
 | Método | Ruta | Notas |
 |---|---|---|

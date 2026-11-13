@@ -2,21 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button, Input, Select } from '@/design-system';
 import { Decimal } from '@/shared/format/decimal';
 import { etiquetaEstado, formatearCantidad, formatearMoneda } from '@/shared/format/formato';
-import type { ResultadoBusqueda } from './tipos';
+import type { LineaCarrito, ResultadoBusqueda } from './tipos';
 
 interface Propiedades {
   resultado: ResultadoBusqueda;
-  onAgregar: (linea: {
-    producto_id: number;
-    presentacion_id: number;
-    producto_nombre: string;
-    producto_codigo: string;
-    presentacion_nombre: string;
-    unidad_base: string | null;
-    factor_base: string;
-    precio_unitario: string;
-    cantidad: string;
-  }) => void;
+  onAgregar: (linea: Omit<LineaCarrito, 'id'>) => void;
 }
 
 const TONO_ESTADO = {
@@ -58,6 +48,7 @@ export function FilaResultado({ resultado, onAgregar }: Propiedades) {
       unidad_base: resultado.unidad_base,
       factor_base: presentacion.factor_base,
       precio_unitario: presentacion.precio_venta,
+      precio_original: presentacion.precio_venta,
       cantidad: cantidadDecimal.aTexto(),
     });
   }

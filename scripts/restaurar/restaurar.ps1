@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Restaura un respaldo de SIV en una base de datos.
 
@@ -16,6 +16,14 @@ param(
     [string]$Usuario = "siv",
     [switch]$ConfirmarSobreescribir
 )
+# La consola de Windows usa una paged de codigos antigua: forzamos UTF-8 para
+# que los acentos se vean bien.
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {
+}
+
 
 $ErrorActionPreference = "Stop"
 

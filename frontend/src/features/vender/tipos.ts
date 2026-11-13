@@ -10,7 +10,12 @@ export interface LineaCarrito {
   presentacion_nombre: string;
   unidad_base: string | null;
   factor_base: string;
+  /** Precio que se cobrará (editable dentro del límite permitido). */
   precio_unitario: string;
+  /** Precio de lista de la presentación, para mostrar el descuento. */
+  precio_original: string;
+  /** Motivo opcional del cambio de precio. */
+  motivo_precio?: string | null;
   /** Cantidad en la presentación elegida, como texto decimal. */
   cantidad: string;
 }

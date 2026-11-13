@@ -34,6 +34,30 @@ export function useCarritoVenta() {
     );
   }, []);
 
+  /** Cambia el precio de una línea (el servidor valida el límite de descuento). */
+  const cambiarPrecio = useCallback((id: string, precio: string) => {
+    setLineas((actuales) =>
+      actuales.map((item) => (item.id === id ? { ...item, precio_unitario: precio } : item)),
+    );
+  }, []);
+
+  /** Guarda el motivo del cambio de precio (opcional). */
+  const cambiarMotivo = useCallback((id: string, motivo: string) => {
+    setLineas((actuales) =>
+      actuales.map((item) => (item.id === id ? { ...item, motivo_precio: motivo } : item)),
+    );
+  }, []);
+
+  /** Líneas cuyo precio difiere del precio de lista. */
+  const lineasConDescuento = useMemo(
+    () =>
+      lineas.filter(
+        (linea) =>
+          Decimal.desde(linea.precio_unitario).comparar(linea.precio_original) !== 0,
+      ),
+    [lineas],
+  );
+
   const limpiar = useCallback(() => setLineas([]), []);
 
   const total = useMemo(
@@ -56,9 +80,12 @@ export function useCarritoVenta() {
     agregar,
     quitar,
     cambiarCantidad,
+    cambiarPrecio,
+    cambiarMotivo,
     limpiar,
     total,
     cantidadPiezas,
+    lineasConDescuento,
     vacia: lineas.length === 0,
   };
 }

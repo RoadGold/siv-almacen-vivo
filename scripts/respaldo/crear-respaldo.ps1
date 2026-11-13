@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Crea un respaldo consistente de la base de datos de SIV.
 
@@ -15,6 +15,14 @@ param(
     [string]$Usuario = "siv",
     [string]$Base = "siv_almacen_vivo"
 )
+# La consola de Windows usa una paged de codigos antigua: forzamos UTF-8 para
+# que los acentos se vean bien.
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {
+}
+
 
 $ErrorActionPreference = "Stop"
 $Raiz = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path

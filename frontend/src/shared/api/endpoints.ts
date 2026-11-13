@@ -30,6 +30,9 @@ import type {
   ReporteVentas,
   RespuestaLogin,
   ResultadoImportacion,
+  ConfiguracionNegocio,
+  EstadoImpresora,
+  ResultadoImpresion,
   ResultadoInventarioInicial,
   AjusteInventario,
   ResumenDashboard,
@@ -238,6 +241,27 @@ export const ventasApi = {
       tamano: filtros.tamano ?? 5,
     }),
   obtener: (id: number) => api.get<Venta>(`/ventas/${id}`),
+  /** Imprime (o reimprime) el ticket de la venta. */
+  imprimir: (id: number) => api.post<ResultadoImpresion>(`/ventas/${id}/imprimir`),
+  anular: (id: number, motivo: string) =>
+    api.post<Venta>(`/ventas/${id}/anular`, { motivo }),
+};
+
+/* --- Configuración del negocio ------------------------------------------ */
+
+export const configuracionApi = {
+  leer: () => api.get<ConfiguracionNegocio>('/configuracion'),
+  guardar: (valores: Record<string, string>) =>
+    api.put<ConfiguracionNegocio>('/configuracion', valores),
+};
+
+/* --- Impresora de tickets ----------------------------------------------- */
+
+export const impresoraApi = {
+  estado: () => api.get<EstadoImpresora>('/impresora/estado'),
+  prueba: () => api.post<{ ok: boolean; mensaje: string }>('/impresora/prueba'),
+  verTicket: (ventaId: number) =>
+    api.get<{ texto: string }>(`/impresora/ticket/${ventaId}`),
 };
 
 export const abastecimientosApi = {

@@ -16,14 +16,14 @@ Funciona sin Internet. Todo el stack se ejecuta en el equipo del negocio.
 | Fase 1 · Diseño UX/UI | 🔄 En curso (prototipo navegable en `frontend/`) |
 | Fase 2 · Fundación técnica | ✅ Completada (FastAPI + React + PostgreSQL + Docker + pruebas) |
 | Fase 3 · Modelo de datos y motor de inventario | ✅ Completada (migraciones, existencias, kardex, costo promedio, conciliación) |
-| Fase 4 · Productos, unidades y presentaciones | ✅ API completa · interfaz en curso |
-| Fase 5 · Proveedores | ✅ API completa · interfaz en curso |
-| Fase 6 · Abastecimiento desde proveedor | ✅ API completa (previsualización, confirmación, reversión) |
-| Fase 7 · Punto de venta | ✅ API completa (carrito, idempotencia, control de concurrencia) |
-| Fase 8 · Exploración, kardex y radar | ✅ API completa (ficha viva, radar, conciliación) |
-| Fase 9 · Reportes e indicadores | ✅ API completa (ventas, costos, valorización, margen bruto, exportación CSV) · interfaz en curso |
-| Fase 10 · Seguridad, roles y respaldo | 🔄 Roles, auditoría y scripts de respaldo listos; falta endurecer sesiones y respaldo programado |
-| Fase 11 · Pruebas, empaquetado y puesta en marcha | 🔄 En curso (37 pruebas automatizadas en verde + recorrido de aceptación E2E) |
+| Fase 4 · Productos, unidades y presentaciones | ✅ Catálogo, presentaciones, importación Excel con vista previa |
+| Fase 5 · Proveedores | ✅ Alta, productos habituales, costos e historial |
+| Fase 6 · Abastecimiento desde proveedor | ✅ Flujo de 3 pasos, previsualización, confirmación y reversión |
+| Fase 7 · Punto de venta | ✅ Carrito, cinta de impacto, idempotencia, concurrencia, **precios variables con límite de descuento**, **cobro** (forma de pago, recibido, vuelto) e **impresión del ticket** |
+| Fase 8 · Exploración, kardex y radar | ✅ Ficha viva, radar, conciliación y **pantalla de kardex** |
+| Fase 9 · Reportes e indicadores | ✅ Ventas, costos, valorización, margen bruto, exportación CSV y **pantalla Analizar** |
+| Fase 10 · Seguridad, roles y respaldo | ✅ Roles, auditoría (incluidos los cambios de precio), **configuración del negocio**, respaldo y restauración |
+| Fase 11 · Pruebas, empaquetado y puesta en marcha | 🔄 En curso (233 pruebas de backend y 66 de frontend en verde + recorrido de aceptación E2E). **Pendiente**: empaquetador para Windows y prueba física de la impresora |
 
 ---
 
@@ -106,12 +106,13 @@ La base de pruebas vive en memoria (`tmpfs`) y se crea sola:
 docker compose --profile test up -d db-test
 ```
 
-Cobertura actual: **38 pruebas** de backend (pytest) y **64** de frontend (Vitest), que incluyen
+Cobertura actual: **233 pruebas** de backend (pytest) y **66** de frontend (Vitest), que incluyen
 conversiones exactas (caja × 24, saco de 50 kg, venta fraccionada de 0,750 kg), rechazo de
 fracciones en productos indivisibles, stock insuficiente, idempotencia, concurrencia sobre la
 última unidad, atomicidad de la transacción, reversión por anulación, snapshots históricos,
-autoridad del precio, permisos por rol, importación de Excel, reportes y **contraste WCAG AA de
-las paletas clara y oscura**.
+**precios variables y su límite de descuento**, **impresión del ticket y su falla sin pérdida de
+la venta**, permisos por rol, importación de Excel, reportes y **contraste WCAG AA de las paletas
+clara y oscura**.
 
 Recorrido de aceptación contra el sistema en marcha:
 
@@ -146,6 +147,7 @@ archivo `.info` con fecha y versión del esquema.
 | `docs/manuales/usuario.md` | Manual corto de operación para el personal |
 | `docs/manuales/guia-usuario.md` | **Guía de usuario completa**: todas las pantallas, paso a paso |
 | `docs/manuales/carga-inicial-catalogo.md` | **Carga inicial del catálogo** (productos que aún no tienen proveedor) |
+| `docs/manuales/prueba-impresora.md` | **Prueba física de la impresora** (CBX-POS88E, ESC/POS) |
 | `docs/manuales/administrador.md` | Guía técnica: instalación, respaldo, restauración, red local, diagnóstico |
 | `docs/pruebas/matriz-de-pruebas.md` | Estado de los casos T01–T20 y criterios de calidad |
 | `PLAN_DESARROLLO_SIV_ALMACEN_VIVO.md` | Plan maestro del proyecto |

@@ -167,6 +167,8 @@ export const api = {
     peticion<T>(ruta, { metodo: 'POST', cuerpo, signal }),
   patch: <T>(ruta: string, cuerpo?: unknown, signal?: AbortSignal) =>
     peticion<T>(ruta, { metodo: 'PATCH', cuerpo, signal }),
+  put: <T>(ruta: string, cuerpo?: unknown, signal?: AbortSignal) =>
+    peticion<T>(ruta, { metodo: 'PUT', cuerpo, signal }),
   delete: <T>(ruta: string, signal?: AbortSignal) =>
     peticion<T>(ruta, { metodo: 'DELETE', signal }),
 };

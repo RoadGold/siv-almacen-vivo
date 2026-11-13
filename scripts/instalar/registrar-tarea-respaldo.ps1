@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Registra una tarea programada de Windows para el respaldo automático.
 
@@ -14,6 +14,14 @@ param(
     [int]$Minuto = 0,
     [string]$Destino = ""
 )
+# La consola de Windows usa una paged de codigos antigua: forzamos UTF-8 para
+# que los acentos se vean bien.
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {
+}
+
 
 $ErrorActionPreference = "Stop"
 $Raiz = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path

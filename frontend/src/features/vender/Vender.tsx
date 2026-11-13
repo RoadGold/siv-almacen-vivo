@@ -50,6 +50,13 @@ export function Vender() {
   const [modalImpacto, setModalImpacto] = useState(false);
   const [modalDetalle, setModalDetalle] = useState(false);
   const [ventaRegistrada, setVentaRegistrada] = useState<Venta | null>(null);
+  const [formaPago, setFormaPago] = useState('efectivo');
+  const [montoRecibido, setMontoRecibido] = useState('');
+  const [imprimirTicket, setImprimirTicket] = useState(true);
+  const [estadoImpresion, setEstadoImpresion] = useState<{
+    ok: boolean;
+    mensaje: string;
+  } | null>(null);
 
   // --- Atajos de teclado: F3 enfoca el buscador, Esc limpia la búsqueda ---
   useEffect(() => {
@@ -132,6 +139,7 @@ export function Vender() {
           unidad_base: exacto.unidad_base,
           factor_base: presentacion.factor_base,
           precio_unitario: presentacion.precio_venta,
+          precio_original: presentacion.precio_venta,
           cantidad: '1',
         });
         setBusqueda('');
@@ -155,6 +163,7 @@ export function Vender() {
           unidad_base: coincidencia.producto.unidad_base ?? null,
           factor_base: coincidencia.presentacion.factor_base,
           precio_unitario: coincidencia.presentacion.precio_venta,
+          precio_original: coincidencia.presentacion.precio_venta,
           cantidad: '1',
         });
         setBusqueda('');
@@ -183,6 +192,8 @@ export function Vender() {
           producto_id: linea.producto_id,
           presentacion_id: linea.presentacion_id,
           cantidad: linea.cantidad,
+          precio_unitario: linea.precio_unitario,
+          motivo_precio: linea.motivo_precio ?? null,
         })),
       }),
     onSuccess: (respuesta) => {
@@ -200,10 +211,14 @@ export function Vender() {
     mutationFn: (clave: string) =>
       ventasApi.confirmar({
         idempotency_key: clave,
+        forma_pago: formaPago,
+        monto_recibido: montoRecibido.trim() === '' ? null : montoRecibido,
         lineas: carrito.lineas.map((linea) => ({
           producto_id: linea.producto_id,
           presentacion_id: linea.presentacion_id,
           cantidad: linea.cantidad,
+          precio_unitario: linea.precio_unitario,
+          motivo_precio: linea.motivo_precio ?? null,
         })),
       }),
     onSuccess: (venta) => {
@@ -212,11 +227,30 @@ export function Vender() {
       setPresentacionPrevia(null);
       carrito.limpiar();
       setClaveIdempotencia(generarClaveIdempotencia());
+      setMontoRecibido('');
       registrarOperacion(`Venta ${venta.numero}`);
       notificar(`Venta ${venta.numero} registrada correctamente.`, 'exito');
       cliente.invalidateQueries({ queryKey: ['dashboard'] });
       cliente.invalidateQueries({ queryKey: ['inventario'] });
       cliente.invalidateQueries({ queryKey: ['ventas'] });
+
+      // Impresión del ticket: la venta ya está registrada; si el papel falla,
+      // el ticket queda pendiente y se puede reintentar.
+      if (imprimirTicket) {
+        ventasApi
+          .imprimir(venta.id)
+          .then((resultado) => {
+            setEstadoImpresion({ ok: resultado.ok, mensaje: resultado.mensaje });
+          })
+          .catch((error) => {
+            setEstadoImpresion({
+              ok: false,
+              mensaje: `La venta se registró, pero el ticket no salió: ${mensajeDeError(error)}`,
+            });
+          });
+      } else {
+        setEstadoImpresion(null);
+      }
     },
     onError: (error) => {
       notificar(mensajeDeError(error), 'error');
@@ -236,6 +270,16 @@ export function Vender() {
   );
 
   const hayAlertas = (presentacionPrevia?.alertas.length ?? 0) > 0;
+
+  const vuelto = useMemo(() => {
+    if (formaPago !== 'efectivo') return null;
+    if (!presentacionPrevia) return null;
+    if (montoRecibido.trim() === '') return null;
+    const recibido = Decimal.desde(montoRecibido);
+    const total = Decimal.desde(presentacionPrevia.total);
+    if (recibido.comparar(total) < 0) return null;
+    return recibido.resta(total);
+  }, [formaPago, montoRecibido, presentacionPrevia]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -260,6 +304,43 @@ export function Vender() {
           </div>
         ) : null}
       </header>
+
+      {estadoImpresion ? (
+        <Notice
+          tono={estadoImpresion.ok ? 'exito' : 'error'}
+          titulo={
+            estadoImpresion.ok
+              ? 'Ticket impreso'
+              : 'Venta registrada, pero el ticket no salió'
+          }
+          acciones={
+            estadoImpresion.ok ? undefined : (
+              <Button
+                variante="secundario"
+                tamano="sm"
+                onClick={() => {
+                  if (!ventaRegistrada) return;
+                  ventasApi
+                    .imprimir(ventaRegistrada.id)
+                    .then((resultado) =>
+                      setEstadoImpresion({ ok: resultado.ok, mensaje: resultado.mensaje }),
+                    )
+                    .catch((error) =>
+                      setEstadoImpresion({
+                        ok: false,
+                        mensaje: mensajeDeError(error),
+                      }),
+                    );
+                }}
+              >
+                Reintentar impresión
+              </Button>
+            )
+          }
+        >
+          {estadoImpresion.mensaje} Puedes reimprimir el ticket desde el historial de ventas.
+        </Notice>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         {/* --- Panel izquierdo: buscador y resultados --- */}
@@ -363,8 +444,8 @@ export function Vender() {
                       Quitar
                     </Button>
                   </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="w-[100px]">
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="w-[92px]">
                       <label htmlFor={`linea-${linea.id}`} className="sr-only">
                         Cantidad de {linea.producto_nombre}
                       </label>
@@ -377,12 +458,51 @@ export function Vender() {
                       />
                     </div>
                     <span className="text-xs text-muted">{linea.presentacion_nombre}</span>
-                    <span className="ml-auto text-sm font-semibold numero text-ink">
-                      {formatearMoneda(
-                        Decimal.desde(linea.cantidad).multiplica(linea.precio_unitario),
-                      )}
-                    </span>
+                    <div className="ml-auto flex items-center gap-2">
+                      <div className="w-[104px]">
+                        <label htmlFor={`precio-${linea.id}`} className="sr-only">
+                          Precio unitario de {linea.producto_nombre}
+                        </label>
+                        <Input
+                          id={`precio-${linea.id}`}
+                          className="numero"
+                          inputMode="decimal"
+                          value={linea.precio_unitario}
+                          onChange={(evento) =>
+                            carrito.cambiarPrecio(linea.id, evento.target.value)
+                          }
+                        />
+                      </div>
+                      <span className="text-sm font-semibold numero text-ink">
+                        {formatearMoneda(
+                          Decimal.desde(linea.cantidad).multiplica(linea.precio_unitario),
+                        )}
+                      </span>
+                    </div>
                   </div>
+                  {Decimal.desde(linea.precio_unitario).comparar(linea.precio_original) !== 0 ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Badge tono="aviso">Precio modificado</Badge>
+                      <span className="text-xs text-muted">
+                        de {formatearMoneda(linea.precio_original)} c/u
+                      </span>
+                      <select
+                        aria-label={`Motivo del cambio de precio de ${linea.producto_nombre}`}
+                        value={linea.motivo_precio ?? ''}
+                        onChange={(evento) =>
+                          carrito.cambiarMotivo(linea.id, evento.target.value)
+                        }
+                        className="rounded-[6px] border border-linea bg-surface px-2 py-1 text-xs text-ink"
+                      >
+                        <option value="">Motivo (opcional)</option>
+                        <option value="Promoción">Promoción</option>
+                        <option value="Cliente especial">Cliente especial</option>
+                        <option value="Error de captura">Error de captura</option>
+                        <option value="Precio de lista">Precio de lista</option>
+                        <option value="Descuento comercial">Descuento comercial</option>
+                      </select>
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -499,11 +619,74 @@ export function Vender() {
               </div>
             </div>
 
+            {/* --- Cobro --- */}
+            <fieldset className="rounded-[6px] border border-linea px-4 py-3">
+              <legend className="px-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+                Cobro
+              </legend>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="w-[170px]">
+                  <label
+                    htmlFor="forma-pago"
+                    className="mb-1 block text-xs font-semibold text-ink"
+                  >
+                    Forma de pago
+                  </label>
+                  <select
+                    id="forma-pago"
+                    value={formaPago}
+                    onChange={(evento) => setFormaPago(evento.target.value)}
+                    className="w-full rounded-[6px] border border-linea bg-surface px-2 py-1.5 text-sm text-ink"
+                  >
+                    <option value="efectivo">Efectivo</option>
+                    <option value="tarjeta">Tarjeta</option>
+                    <option value="voucher">Voucher</option>
+                    <option value="yape">Yape / Plin</option>
+                  </select>
+                </div>
+                {formaPago === 'efectivo' ? (
+                  <div className="w-[150px]">
+                    <label
+                      htmlFor="monto-recibido"
+                      className="mb-1 block text-xs font-semibold text-ink"
+                    >
+                      Recibido
+                    </label>
+                    <Input
+                      id="monto-recibido"
+                      className="numero"
+                      inputMode="decimal"
+                      value={montoRecibido}
+                      onChange={(evento) => setMontoRecibido(evento.target.value)}
+                      placeholder={presentacionPrevia.total}
+                    />
+                  </div>
+                ) : null}
+                {vuelto ? (
+                  <div>
+                    <p className="etiqueta">Vuelto</p>
+                    <p className="text-lg font-bold numero text-ink">
+                      {formatearMoneda(vuelto.aTexto())}
+                    </p>
+                  </div>
+                ) : null}
+                <label className="flex items-center gap-2 pb-1 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    checked={imprimirTicket}
+                    onChange={(evento) => setImprimirTicket(evento.target.checked)}
+                  />
+                  Imprimir ticket
+                </label>
+              </div>
+            </fieldset>
+
             <Table descripcion="Detalle del impacto de la venta">
               <TableHead>
                 <TableHeader>Producto</TableHeader>
                 <TableHeader>Presentación</TableHeader>
                 <TableHeader className="text-right">Cantidad</TableHeader>
+                <TableHeader className="text-right">Precio</TableHeader>
                 <TableHeader className="text-right">Stock actual</TableHeader>
                 <TableHeader className="text-right">Saldo final</TableHeader>
               </TableHead>
@@ -514,6 +697,14 @@ export function Vender() {
                     <TableCell>{linea.presentacion_nombre}</TableCell>
                     <TableCell numerica>
                       {formatearCantidad(linea.cantidad)} {linea.presentacion_nombre}
+                    </TableCell>
+                    <TableCell numerica>
+                      {formatearMoneda(linea.precio_unitario)}
+                      {linea.precio_original !== linea.precio_unitario ? (
+                        <span className="ml-1 text-xs text-muted line-through">
+                          {formatearMoneda(linea.precio_original)}
+                        </span>
+                      ) : null}
                     </TableCell>
                     <TableCell numerica>
                       {formatearEnUnidadLegible(linea.stock_actual_base, linea.unidad_base)}
@@ -528,7 +719,9 @@ export function Vender() {
                       </span>
                       {linea.alerta ? (
                         <Badge tono="peligro" className="ml-2">
-                          Sin stock
+                          {linea.alerta === 'precio_fuera_de_limite'
+                            ? 'Precio fuera de límite'
+                            : 'Sin stock'}
                         </Badge>
                       ) : null}
                     </TableCell>

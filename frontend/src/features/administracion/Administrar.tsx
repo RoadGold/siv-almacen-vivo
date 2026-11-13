@@ -2,13 +2,17 @@ import { useState } from 'react';
 import { Card, CardBody, Notice } from '@/design-system';
 import { useAutenticacion } from '@/shared/auth/ProveedorAutenticacion';
 import { PanelAuditoria } from './PanelAuditoria';
+import { PanelConfiguracion } from './PanelConfiguracion';
 import { PanelDiagnostico } from './PanelDiagnostico';
+import { PanelImpresora } from './PanelImpresora';
 import { PanelUsuarios } from './PanelUsuarios';
 
-type Seccion = 'usuarios' | 'auditoria' | 'diagnostico';
+type Seccion = 'usuarios' | 'configuracion' | 'impresora' | 'auditoria' | 'diagnostico';
 
 const SECCIONES: { id: Seccion; titulo: string }[] = [
   { id: 'usuarios', titulo: 'Usuarios y roles' },
+  { id: 'configuracion', titulo: 'Configuración del negocio' },
+  { id: 'impresora', titulo: 'Impresora de tickets' },
   { id: 'auditoria', titulo: 'Auditoría' },
   { id: 'diagnostico', titulo: 'Diagnóstico del servidor' },
 ];
@@ -23,6 +27,7 @@ export function Administrar() {
   const seccionesVisibles = SECCIONES.filter((item) => {
     if (item.id === 'usuarios') return puede('admin.usuarios');
     if (item.id === 'auditoria') return puede('admin.auditoria');
+    if (item.id === 'configuracion') return puede('admin.usuarios');
     return true;
   });
 
@@ -38,7 +43,8 @@ export function Administrar() {
         <p className="etiqueta">Administrar</p>
         <h1 className="mt-1 text-2xl font-bold text-ink">Administración del sistema</h1>
         <p className="mt-1 text-sm text-muted">
-          Usuarios y roles, registro de acciones sensibles y estado del servidor local.
+          Usuarios y roles, datos del negocio, impresora de tickets, registro de acciones
+          sensibles y estado del servidor local.
         </p>
       </header>
 
@@ -73,6 +79,10 @@ export function Administrar() {
       {seccion === 'usuarios' && puede('admin.usuarios') ? (
         <PanelUsuarios />
       ) : null}
+      {seccion === 'configuracion' && puede('admin.usuarios') ? (
+        <PanelConfiguracion />
+      ) : null}
+      {seccion === 'impresora' ? <PanelImpresora /> : null}
       {seccion === 'auditoria' && puede('admin.auditoria') ? (
         <PanelAuditoria />
       ) : null}

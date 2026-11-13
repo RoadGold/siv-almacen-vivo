@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Inicia el entorno local de SIV · Almacén Vivo (Windows).
 
@@ -16,6 +16,14 @@ param(
     [switch]$ConFrontend,
     [switch]$RecrearBase
 )
+# La consola de Windows usa una paged de codigos antigua: forzamos UTF-8 para
+# que los acentos se vean bien.
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {
+}
+
 
 $ErrorActionPreference = "Stop"
 $Raiz = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
