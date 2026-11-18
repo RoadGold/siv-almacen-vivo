@@ -33,7 +33,25 @@ import { useRetraso } from '@/shared/hooks/useRetraso';
 import { esSinPermisos, mensajeDeError } from '@/shared/hooks/errores';
 import { registrarOperacion } from '@/shared/estado/operaciones';
 import { FilaIngreso, type DatosLineaIngreso } from './FilaIngreso';
-import type { Abastecimiento, PrevisualizacionAbastecimiento, Proveedor } from '@/shared/types/api';
+import type {
+  Abastecimiento,
+  DetalleAbastecimiento,
+  PrevisualizacionAbastecimiento,
+  Proveedor,
+} from '@/shared/types/api';
+
+/**
+ * Detalle de una línea de abastecimiento con el lote que generó.
+ * El backend añade `lote_id` y `lote_codigo` a cada detalle del ingreso.
+ */
+interface DetalleAbastecimientoConLote extends DetalleAbastecimiento {
+  lote_id?: number | null;
+  lote_codigo?: string | null;
+}
+
+type AbastecimientoConLote = Omit<Abastecimiento, 'detalles'> & {
+  detalles: DetalleAbastecimientoConLote[];
+};
 
 const PASOS = [
   { numero: 1, titulo: 'Proveedor' },
@@ -58,7 +76,7 @@ export function Recibir() {
 
   const [previa, setPrevia] = useState<PrevisualizacionAbastecimiento | null>(null);
   const [modalImpacto, setModalImpacto] = useState(false);
-  const [ingresoRegistrado, setIngresoRegistrado] = useState<Abastecimiento | null>(null);
+  const [ingresoRegistrado, setIngresoRegistrado] = useState<AbastecimientoConLote | null>(null);
 
   const cliente = useQueryClient();
   const { notificar } = useToast();
@@ -114,7 +132,12 @@ export function Recibir() {
       if (!existente) return [...actuales, datos];
       return actuales.map((item) =>
         item === existente
-          ? { ...item, cantidad: datos.cantidad, costo_unitario: datos.costo_unitario }
+          ? {
+              ...item,
+              cantidad: datos.cantidad,
+              costo_unitario: datos.costo_unitario,
+              precio_venta: datos.precio_venta,
+            }
           : item,
       );
     });
@@ -126,7 +149,7 @@ export function Recibir() {
 
   function cambiarCampoLinea(
     indice: number,
-    campo: 'cantidad' | 'costo_unitario',
+    campo: 'cantidad' | 'costo_unitario' | 'precio_venta',
     valor: string,
   ) {
     setLineas((actuales) =>
@@ -166,6 +189,7 @@ export function Recibir() {
         presentacion_id: linea.presentacion_id,
         cantidad: linea.cantidad,
         costo_unitario: linea.costo_unitario,
+        precio_venta: linea.precio_venta,
       })),
     };
   }
@@ -182,7 +206,7 @@ export function Recibir() {
   const confirmar = useMutation({
     mutationFn: () => abastecimientosApi.confirmar(cuerpoIngreso()),
     onSuccess: (ingreso) => {
-      setIngresoRegistrado(ingreso);
+      setIngresoRegistrado(ingreso as AbastecimientoConLote);
       setModalImpacto(false);
       setPrevia(null);
       setLineas([]);
@@ -224,6 +248,50 @@ export function Recibir() {
           </div>
         ) : null}
       </header>
+
+      {/* --- Detalle del ingreso confirmado (con el lote de cada línea) --- */}
+      {ingresoRegistrado ? (
+        <Card
+          titulo={`Detalle del ingreso ${ingresoRegistrado.numero}`}
+          subtitulo="Cada línea quedó registrada en su propio lote, con su precio y su costo"
+        >
+          <Table descripcion="Líneas del ingreso confirmado con su lote">
+            <TableHead>
+              <TableHeader>Producto</TableHeader>
+              <TableHeader>Presentación</TableHeader>
+              <TableHeader className="text-right">Cantidad</TableHeader>
+              <TableHeader className="text-right">Costo unitario</TableHeader>
+              <TableHeader className="text-right">Subtotal</TableHeader>
+              <TableHeader>Lote</TableHeader>
+            </TableHead>
+            <TableBody>
+              {ingresoRegistrado.detalles.map((detalle) => (
+                <TableRow key={detalle.id}>
+                  <TableCell>
+                    <span className="font-semibold text-ink">{detalle.producto_nombre}</span>
+                    {detalle.producto_codigo ? (
+                      <span className="ml-2 text-xs text-muted">{detalle.producto_codigo}</span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell>{detalle.presentacion_nombre ?? '—'}</TableCell>
+                  <TableCell numerica>{formatearCantidad(detalle.cantidad)}</TableCell>
+                  <TableCell numerica>{formatearMoneda(detalle.costo_unitario)}</TableCell>
+                  <TableCell numerica>{formatearMoneda(detalle.subtotal)}</TableCell>
+                  <TableCell>
+                    {detalle.lote_codigo ? (
+                      <span className="numero text-xs font-semibold text-ink">
+                        {detalle.lote_codigo}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted">—</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      ) : null}
 
       {/* --- Pasos visibles --- */}
       <ol className="flex flex-wrap items-center gap-2" aria-label="Pasos del ingreso">
@@ -537,6 +605,29 @@ export function Recibir() {
                           )}
                         </span>
                       </div>
+                      <div className="mt-2 flex items-end gap-2">
+                        <div className="w-[110px]">
+                          <label
+                            htmlFor={`precio-venta-linea-${indice}`}
+                            className="mb-1 block text-xs text-muted"
+                          >
+                            Precio de venta
+                          </label>
+                          <Input
+                            id={`precio-venta-linea-${indice}`}
+                            className="numero"
+                            inputMode="decimal"
+                            prefijo="S/"
+                            value={linea.precio_venta}
+                            onChange={(evento) =>
+                              cambiarCampoLinea(indice, 'precio_venta', evento.target.value)
+                            }
+                          />
+                        </div>
+                        <p className="pb-2 text-xs text-muted">
+                          Precio del lote que crea esta línea.
+                        </p>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -549,6 +640,10 @@ export function Recibir() {
                 </div>
                 <p className="mt-2 text-xs text-muted">
                   Impacto: {impacto.length > 0 ? impacto.map((item) => item.texto).join(' · ') : '—'}
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  Cada línea de ingreso crea un lote con su propio precio y costo; los lotes
+                  anteriores no cambian.
                 </p>
                 <Button
                   variante="primario"
@@ -585,12 +680,18 @@ export function Recibir() {
               </div>
             </div>
 
+            <Notice tono="info" titulo="Cada línea crea su propio lote">
+              Cada línea de ingreso crea un lote con su propio precio y costo; los lotes anteriores
+              no cambian.
+            </Notice>
+
             <Table descripcion="Líneas del ingreso en revisión">
               <TableHead>
                 <TableHeader>Producto</TableHeader>
                 <TableHeader>Presentación</TableHeader>
                 <TableHeader className="text-right">Cantidad</TableHeader>
                 <TableHeader className="text-right">Costo unitario</TableHeader>
+                <TableHeader className="text-right">Precio de venta</TableHeader>
                 <TableHeader className="text-right">Subtotal</TableHeader>
               </TableHead>
               <TableBody>
@@ -608,6 +709,7 @@ export function Recibir() {
                       </span>
                     </TableCell>
                     <TableCell numerica>{formatearMoneda(linea.costo_unitario)}</TableCell>
+                    <TableCell numerica>{formatearMoneda(linea.precio_venta)}</TableCell>
                     <TableCell numerica>
                       {formatearMoneda(
                         Decimal.desde(linea.cantidad).multiplica(linea.costo_unitario),

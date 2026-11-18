@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.db.models import (
     Almacen,
     DetalleVenta,
+    LoteInventario,
     PresentacionProducto,
     Producto,
     TipoMovimiento,
@@ -81,6 +82,38 @@ def _cargar_presentacion(
     return producto, presentacion
 
 
+def _precio_de_lista(
+    db: Session, linea: dict[str, Any], presentacion: PresentacionProducto
+) -> tuple[Decimal, dict[str, Any] | None]:
+    """Precio de lista y lote de la línea.
+
+    Si la línea indica un lote, el precio de lista es **el del lote** (cada
+    temporada tiene su precio). Si no, es el de la presentación (comportamiento
+    histórico).
+    """
+    lote_id = linea.get("lote_id")
+    if lote_id:
+        from app.services import lotes as servicio_lotes
+
+        lote = db.get(LoteInventario, lote_id)
+        if lote is None:
+            raise ErrorNegocio(
+                "El lote indicado en la línea no existe.",
+                detalle={"lote_id": lote_id},
+            )
+        precio = servicio_lotes.precio_del_lote(db, lote.id, presentacion.id)
+        if precio is None:
+            precio = dec(presentacion.precio_venta)
+        return precio, {
+            "id": lote.id,
+            "codigo_lote": lote.codigo_lote,
+            "fecha_ingreso": lote.fecha_ingreso.isoformat() if lote.fecha_ingreso else None,
+            "cantidad_disponible": num(q4(dec(lote.cantidad_disponible))),
+            "costo_base": num(dec(lote.costo_base)),
+        }
+    return dec(presentacion.precio_venta), None
+
+
 def _evaluar_linea(
     db: Session,
     linea: dict[str, Any],
@@ -94,8 +127,9 @@ def _evaluar_linea(
     Lo que el vendedor ajusta es el **total de la línea**; el precio unitario
     se deriva de él.
     """
+    precio_lista, _ = _precio_de_lista(db, linea, presentacion)
     return evaluar_precio_linea(
-        presentacion.precio_venta,
+        precio_lista,
         linea.get("cantidad") or 1,
         precio_unitario_solicitado=linea.get("precio_unitario"),
         precio_total_solicitado=linea.get("precio_total"),
@@ -140,11 +174,14 @@ def previsualizar(
             puede_editar_precio=puede_editar_precio,
             puede_administrar_precios=puede_administrar_precios,
         )
+        _, info_lote = _precio_de_lista(db, linea, presentacion)
         subtotal = q2(precio.precio_total)
 
         existencia = inventario.existencia_actual(db, almacen.id, producto.id)
         stock_actual = dec(existencia.cantidad_base) if existencia else Decimal("0")
         costo_base = dec(existencia.costo_promedio_base) if existencia else Decimal("0")
+        if info_lote:
+            costo_base = dec(info_lote["costo_base"])
         resultado = stock_actual - conversion.cantidad_base
 
         alerta = None
@@ -153,6 +190,12 @@ def previsualizar(
             alertas.append(
                 f"{producto.nombre}: stock insuficiente (disponible {q4(stock_actual)}, "
                 f"solicitado {q4(conversion.cantidad_base)})"
+            )
+        if info_lote and dec(info_lote["cantidad_disponible"]) < conversion.cantidad_base:
+            alerta = "stock_insuficiente"
+            alertas.append(
+                f"{producto.nombre} (lote {info_lote['codigo_lote']}): el lote no tiene "
+                f"{q4(conversion.cantidad_base)} (disponible {info_lote['cantidad_disponible']})"
             )
         if not precio.permitido:
             alerta = "precio_fuera_de_limite"
@@ -182,6 +225,12 @@ def previsualizar(
                 "descuento_monto": num(q2(precio.descuento_monto)),
                 "precio_permitido": precio.permitido,
                 "motivo_precio": linea.get("motivo_precio"),
+                "lote_id": info_lote["id"] if info_lote else None,
+                "lote_codigo": info_lote["codigo_lote"] if info_lote else None,
+                "lote_fecha_ingreso": info_lote["fecha_ingreso"] if info_lote else None,
+                "lote_stock_disponible": (
+                    info_lote["cantidad_disponible"] if info_lote else None
+                ),
                 "subtotal": str(subtotal),
                 "stock_actual_base": num(q4(stock_actual)),
                 "stock_resultante_base": num(q4(resultado)),
@@ -321,6 +370,29 @@ def confirmar(
         existencia = inventario.bloquear_existencia(db, almacen.id, producto.id)
         stock_actual = dec(existencia.cantidad_base)
         costo_base = dec(existencia.costo_promedio_base)
+        lote_id = linea.get("lote_id")
+        lote = None
+        if lote_id:
+            lote = inventario.bloquear_lote(db, lote_id)
+            if lote.producto_id != producto.id:
+                raise ErrorNegocio(
+                    "El lote indicado no corresponde al producto de la línea.",
+                    detalle={"lote_id": lote_id},
+                )
+            disponible_lote = dec(lote.cantidad_disponible)
+            if conversion.cantidad_base > disponible_lote:
+                raise ErrorStockInsuficiente(
+                    f"El lote {lote.codigo_lote} no tiene existencias suficientes.",
+                    detalle={
+                        "producto_id": producto.id,
+                        "lote_id": lote.id,
+                        "codigo_lote": lote.codigo_lote,
+                        "cantidad_solicitada": num(q4(conversion.cantidad_base)),
+                        "saldo_disponible": num(q4(disponible_lote)),
+                    },
+                )
+            # El costo de la venta es el del lote (exacto, no un promedio).
+            costo_base = dec(lote.costo_base)
 
         if conversion.cantidad_base > stock_actual:
             raise ErrorStockInsuficiente(
@@ -344,6 +416,7 @@ def confirmar(
             origen_id=venta.id,
             usuario_id=usuario_id,
             referencia=venta.numero,
+            lote_id=lote.id if lote is not None else None,
         )
 
         costo_linea = q2(conversion.cantidad_base * costo_base)
@@ -358,6 +431,7 @@ def confirmar(
                 precio_unitario=q2(precio.precio_unitario),
                 precio_original=q2(precio.precio_original_unitario),
                 motivo_precio=(linea.get("motivo_precio") or "").strip() or None,
+                lote_id=lote.id if lote is not None else None,
                 costo_base_snapshot=costo_base,
                 subtotal=subtotal,
                 costo_total_linea=costo_linea,
@@ -419,6 +493,7 @@ def anular(db: Session, venta_id: int, motivo: str, usuario_id: int) -> Venta:
             origen_id=venta.id,
             usuario_id=usuario_id,
             referencia=venta.numero,
+            lote_id=detalle.lote_id,
         )
 
     venta.estado = "ANULADO"
@@ -445,6 +520,7 @@ def venta_a_dict(venta: Venta) -> dict[str, Any]:
                 "precio_unitario": num(q2(dec(d.precio_unitario))),
                 "precio_original": num(q2(dec(d.precio_original or d.precio_unitario))),
                 "motivo_precio": d.motivo_precio,
+                "lote_id": d.lote_id,
                 "descuento_porcentaje": num(
                     q4(
                         (

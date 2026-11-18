@@ -3,16 +3,21 @@
  *
  * No existe un botón de «editar stock»: toda corrección se registra como una
  * operación administrativa con motivo, y queda en el Kardex y en la auditoría.
+ *
+ * Cuando el producto tiene varios lotes con existencias, el ajuste debe
+ * indicar a qué lote se aplica: nunca se reparte solo entre lotes.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button, Field, Input, Modal, Notice, useToast } from '@/design-system';
+import { Button, Field, Input, Modal, Notice, Select, useToast } from '@/design-system';
+import { ErrorApi } from '@/shared/api/client';
 import { inventarioApi } from '@/shared/api/endpoints';
-import { abreviarUnidad, formatearCantidad } from '@/shared/format/formato';
+import { abreviarUnidad, formatearCantidad, formatearFecha } from '@/shared/format/formato';
 import { mensajeDeError } from '@/shared/hooks/errores';
 import { registrarOperacion } from '@/shared/estado/operaciones';
 import { Decimal } from '@/shared/format/decimal';
+import type { LoteResumen } from '@/shared/types/api';
 
 export type ModoAjuste = 'ajuste' | 'saldo-inicial';
 
@@ -23,10 +28,40 @@ interface Props {
   producto: { id: number; nombre: string; codigo: string; unidad_base?: string | null } | null;
   almacenId: number | null;
   existenciaBase: string;
+  /** Lotes del producto: se usa para exigir el lote afectado. */
+  lotes: LoteResumen[];
+}
+
+/** Cuerpo del ajuste. `lote_id` forma parte del contrato del API. */
+interface CuerpoAjuste {
+  almacen_id: number;
+  producto_id: number;
+  cantidad_base: string;
+  motivo: string;
+  lote_id?: number;
 }
 
 function decimal(texto: string): Decimal {
   return Decimal.desde((texto || '0').trim() || '0');
+}
+
+/** Lotes con existencias: solo ellos pueden recibir un ajuste. */
+export function lotesConExistencias(lotes: LoteResumen[]): LoteResumen[] {
+  return lotes.filter((lote) => decimal(lote.cantidad_disponible).comparar(0) > 0);
+}
+
+/**
+ * Lote afectado por el ajuste.
+ * Con un único lote con existencias se elige automáticamente (y se muestra su
+ * código); con varios hay que elegirlo y, si no, no se puede registrar.
+ */
+export function loteAfectado(
+  lotesConStock: LoteResumen[],
+  loteId: number | '',
+): LoteResumen | null {
+  if (lotesConStock.length === 1) return lotesConStock[0];
+  if (loteId === '') return null;
+  return lotesConStock.find((lote) => lote.id === loteId) ?? null;
 }
 
 export function PanelAjusteInventario({
@@ -36,13 +71,24 @@ export function PanelAjusteInventario({
   producto,
   almacenId,
   existenciaBase,
+  lotes,
 }: Props) {
   const [cantidad, setCantidad] = useState('');
   const [costo, setCosto] = useState('0');
   const [motivo, setMotivo] = useState('');
+  const [loteId, setLoteId] = useState<number | ''>('');
   const [error, setError] = useState<string | null>(null);
+  const [lotesDelError, setLotesDelError] = useState<{ id: number; codigo_lote: string }[]>([]);
   const cliente = useQueryClient();
   const { notificar } = useToast();
+
+  /** Lotes con existencias: solo ellos pueden recibir un ajuste. */
+  const lotesConStock = useMemo(() => lotesConExistencias(lotes), [lotes]);
+
+  /** Con más de un lote con stock hay que elegir el afectado. */
+  const requiereLote = lotesConStock.length > 1;
+  /** Con un único lote con stock se elige automáticamente. */
+  const loteElegido = loteAfectado(lotesConStock, loteId);
 
   useEffect(() => {
     if (abierto) {
@@ -50,7 +96,10 @@ export function PanelAjusteInventario({
       setCosto('0');
       setMotivo('');
       setError(null);
+      setLotesDelError([]);
+      setLoteId('');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto, producto?.id, modo]);
 
   const esSaldoInicial = modo === 'saldo-inicial';
@@ -82,15 +131,25 @@ export function PanelAjusteInventario({
         throw new Error('Escriba el motivo del ajuste (mínimo 5 caracteres).');
       }
       if (!almacenId) throw new Error('No se pudo determinar el almacén.');
-      return inventarioApi.ajustar({
+      if (requiereLote && !loteElegido) {
+        throw new Error('Seleccione el lote al que se aplica el ajuste.');
+      }
+      // `lote_id` es parte del contrato del API (el backend lo exige cuando el
+      // producto tiene varios lotes con existencias). El cliente compartido
+      // todavía no lo declara en su tipo, así que el cuerpo se arma aquí con
+      // ese campo incluido.
+      const cuerpo: CuerpoAjuste = {
         almacen_id: almacenId,
         producto_id: producto.id,
         cantidad_base: valor.aTexto(),
         motivo: motivo.trim(),
-      });
+      };
+      if (loteElegido) cuerpo.lote_id = loteElegido.id;
+      return inventarioApi.ajustar(cuerpo);
     },
     onSuccess: () => {
       cliente.invalidateQueries({ queryKey: ['inventario'] });
+      cliente.invalidateQueries({ queryKey: ['lotes'] });
       cliente.invalidateQueries({ queryKey: ['dashboard'] });
       registrarOperacion(
         esSaldoInicial ? 'Carga de inventario inicial' : 'Ajuste de inventario',
@@ -103,13 +162,32 @@ export function PanelAjusteInventario({
       );
       onCerrar();
     },
-    onError: (fallo) => setError(mensajeDeError(fallo)),
+    onError: (fallo) => {
+      setError(mensajeDeError(fallo));
+      // El servidor responde 400 con el detalle de los lotes cuando falta elegirlos.
+      if (fallo instanceof ErrorApi) {
+        const detalle = fallo.detalle?.lotes;
+        if (Array.isArray(detalle)) {
+          setLotesDelError(
+            detalle as { id: number; codigo_lote: string }[],
+          );
+        }
+      }
+    },
   });
 
   const cantidadActual = decimal(existenciaBase);
   const cantidadIngresada = decimal(cantidad);
   const resultado = esSaldoInicial ? cantidadIngresada : cantidadActual.suma(cantidadIngresada);
   const unidad = producto?.unidad_base ?? null;
+
+  // Impacto sobre el lote elegido.
+  const stockLoteAntes = loteElegido ? decimal(loteElegido.cantidad_disponible) : null;
+  const stockLoteDespues = stockLoteAntes
+    ? stockLoteAntes.suma(cantidadIngresada)
+    : null;
+
+  const faltaElegirLote = !esSaldoInicial && requiereLote && !loteElegido;
 
   return (
     <Modal
@@ -129,7 +207,7 @@ export function PanelAjusteInventario({
               setError(null);
               registrar.mutate();
             }}
-            disabled={registrar.isPending || !producto}
+            disabled={registrar.isPending || !producto || faltaElegirLote}
           >
             {registrar.isPending
               ? 'Registrando…'
@@ -147,6 +225,28 @@ export function PanelAjusteInventario({
           </Notice>
         ) : null}
 
+        {lotesDelError.length > 0 ? (
+          <Notice tono="aviso" titulo="Elige el lote afectado">
+            <ul className="mt-1 flex flex-wrap gap-2">
+              {lotesDelError.map((lote) => (
+                <li key={lote.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoteId(lote.id);
+                      setLotesDelError([]);
+                      setError(null);
+                    }}
+                    className="rounded-[6px] border border-linea-fuerte px-2 py-1 text-xs font-semibold text-ink hover:border-brand hover:text-brand"
+                  >
+                    {lote.codigo_lote}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Notice>
+        ) : null}
+
         <Notice tono="info" titulo={esSaldoInicial ? 'Carga inicial' : 'Operación administrativa'}>
           {esSaldoInicial
             ? 'El saldo inicial NO es una compra: se registra como SALDO_INICIAL y queda diferenciado de los ingresos de proveedor en el Kardex y en la auditoría.'
@@ -160,6 +260,37 @@ export function PanelAjusteInventario({
               {formatearCantidad(existenciaBase || '0')} {abreviarUnidad(unidad)}
             </p>
           </div>
+        ) : null}
+
+        {/* --- Selección del lote afectado --- */}
+        {!esSaldoInicial && lotesConStock.length > 0 ? (
+          <Field
+            htmlFor="ajuste-lote"
+            etiqueta="Lote afectado"
+            obligatorio={requiereLote}
+            ayuda={
+              requiereLote
+                ? 'Este producto tiene varios lotes con existencias: el ajuste se aplica solo al lote que elijas.'
+                : `El producto tiene un único lote con existencias: el ajuste se aplicará al lote ${lotesConStock[0].codigo_lote}.`
+            }
+            error={faltaElegirLote ? 'Seleccione el lote para poder registrar el ajuste.' : undefined}
+          >
+            <Select
+              id="ajuste-lote"
+              value={loteElegido?.id ?? ''}
+              invalido={faltaElegirLote}
+              onChange={(evento) => setLoteId(Number(evento.target.value))}
+            >
+              <option value="">Selecciona un lote…</option>
+              {lotesConStock.map((lote) => (
+                <option key={lote.id} value={lote.id}>
+                  {lote.codigo_lote} ·{' '}
+                  {lote.fecha_ingreso ? formatearFecha(lote.fecha_ingreso) : 'sin fecha'} ·{' '}
+                  {formatearCantidad(lote.cantidad_disponible)} {abreviarUnidad(unidad)}
+                </option>
+              ))}
+            </Select>
+          </Field>
         ) : null}
 
         <Field
@@ -226,6 +357,12 @@ export function PanelAjusteInventario({
               {formatearCantidad(cantidadActual.aTexto())} → {formatearCantidad(resultado.aTexto())}{' '}
               {abreviarUnidad(unidad)}
             </p>
+            {loteElegido && stockLoteAntes && stockLoteDespues ? (
+              <p className="numero mt-1 text-sm text-ink">
+                Lote {loteElegido.codigo_lote}: {formatearCantidad(stockLoteAntes.aTexto())} →{' '}
+                {formatearCantidad(stockLoteDespues.aTexto())} {abreviarUnidad(unidad)}
+              </p>
+            ) : null}
             {resultado.comparar(Decimal.cero()) < 0 ? (
               <p className="mt-1 text-xs font-semibold text-danger">
                 El resultado sería negativo: el sistema lo rechazará.

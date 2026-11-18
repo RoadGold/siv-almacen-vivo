@@ -18,9 +18,9 @@ Funciona sin Internet. Todo el stack se ejecuta en el equipo del negocio.
 | Fase 3 · Modelo de datos y motor de inventario | ✅ Completada (migraciones, existencias, kardex, costo promedio, conciliación) |
 | Fase 4 · Productos, unidades y presentaciones | ✅ Catálogo, presentaciones, importación Excel con vista previa |
 | Fase 5 · Proveedores | ✅ Alta, productos habituales, costos e historial |
-| Fase 6 · Abastecimiento desde proveedor | ✅ Flujo de 3 pasos, previsualización, confirmación y reversión |
-| Fase 7 · Punto de venta | ✅ Carrito, cinta de impacto, idempotencia, concurrencia, **precios variables con límite de descuento**, **cobro** (forma de pago, recibido, vuelto) e **impresión del ticket** |
-| Fase 8 · Exploración, kardex y radar | ✅ Ficha viva, radar, conciliación y **pantalla de kardex** |
+| Fase 6 · Abastecimiento desde proveedor | ✅ Flujo de 3 pasos, previsualización, confirmación y reversión. **Cada línea crea un lote con su precio de venta** |
+| Fase 7 · Punto de venta | ✅ Carrito, cinta de impacto, idempotencia, concurrencia, **precios variables con límite de descuento**, **selección de lote (PEPS)**, **cobro** (forma de pago, recibido, vuelto) e **impresión del ticket** |
+| Fase 8 · Exploración, kardex y radar | ✅ Ficha viva con **panel de lotes**, radar, conciliación y **pantalla de kardex** |
 | Fase 9 · Reportes e indicadores | ✅ Ventas, costos, valorización, margen bruto, exportación CSV y **pantalla Analizar** |
 | Fase 10 · Seguridad, roles y respaldo | ✅ Roles, auditoría (incluidos los cambios de precio), **configuración del negocio**, respaldo y restauración |
 | Fase 11 · Pruebas, empaquetado y puesta en marcha | 🔄 En curso (233 pruebas de backend y 66 de frontend en verde + recorrido de aceptación E2E). **Pendiente**: empaquetador para Windows y prueba física de la impresora |
@@ -106,13 +106,16 @@ La base de pruebas vive en memoria (`tmpfs`) y se crea sola:
 docker compose --profile test up -d db-test
 ```
 
-Cobertura actual: **233 pruebas** de backend (pytest) y **66** de frontend (Vitest), que incluyen
+Cobertura actual: **261 pruebas** de backend (pytest) y **84** de frontend (Vitest), que incluyen
 conversiones exactas (caja × 24, saco de 50 kg, venta fraccionada de 0,750 kg), rechazo de
 fracciones en productos indivisibles, stock insuficiente, idempotencia, concurrencia sobre la
 última unidad, atomicidad de la transacción, reversión por anulación, snapshots históricos,
-**precios variables y su límite de descuento**, **impresión del ticket y su falla sin pérdida de
-la venta**, permisos por rol, importación de Excel, reportes y **contraste WCAG AA de las paletas
-clara y oscura**.
+**inventario por lotes (13 escenarios: lote inicial, ingreso que no toca el anterior, venta de
+lote antiguo, venta de lote nuevo, venta combinada, stock insuficiente por lote, ajuste sobre un
+lote, cambio de precio por lote, anulación con dos lotes, concurrencia, productos sin lotes,
+código de barras y conciliación de existencias)**, precios variables y su límite de descuento,
+impresión del ticket y su falla sin pérdida de la venta, permisos por rol, importación de Excel,
+reportes y **contraste WCAG AA de las paletas clara y oscura**.
 
 Recorrido de aceptación contra el sistema en marcha:
 

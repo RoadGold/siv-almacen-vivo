@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import {
+  Badge,
   EmptyState,
   LoadingBlock,
   Notice,
@@ -22,6 +23,7 @@ import type {
   InventarioValorizado,
   ReporteVentas,
 } from '@/shared/types/api';
+import type { FilaInventarioLote, FilaVentasLote } from './apiReportesLote';
 
 /** Tabla de ventas agrupadas por día. */
 export function TablaPorDia({ reporte }: { reporte: ReporteVentas }) {
@@ -283,6 +285,112 @@ export function TablaInventarioValorizado({
         <span className="text-xl font-bold numero text-ink">{formatearMoneda(total)}</span>
       </div>
     </>
+  );
+}
+
+/** Tabla del inventario desglosado por lote de inventario. */
+export function TablaInventarioPorLote({ filas }: { filas: FilaInventarioLote[] }) {
+  if (filas.length === 0) {
+    return (
+      <EmptyState
+        titulo="Sin lotes en el inventario"
+        descripcion="Todavía no hay lotes registrados: aparecen cuando se recibe mercadería."
+      />
+    );
+  }
+
+  return (
+    <div className="max-h-[420px] overflow-y-auto">
+      <Table descripcion="Inventario por lote de inventario">
+        <TableHead>
+          <TableHeader>Lote</TableHeader>
+          <TableHeader>Fecha</TableHeader>
+          <TableHeader>Producto</TableHeader>
+          <TableHeader className="text-right">Stock</TableHeader>
+          <TableHeader className="text-right">Costo</TableHeader>
+          <TableHeader className="text-right">Precio de venta</TableHeader>
+          <TableHeader className="text-right">Valor al costo</TableHeader>
+          <TableHeader>Estado</TableHeader>
+        </TableHead>
+        <TableBody>
+          {filas.map((fila) => (
+            <TableRow key={fila.lote_id}>
+              <TableCell className="numero text-xs font-semibold text-ink">
+                {fila.codigo_lote}
+              </TableCell>
+              <TableCell className="numero text-xs">
+                {fila.fecha_ingreso ? formatearFecha(fila.fecha_ingreso) : '—'}
+              </TableCell>
+              <TableCell>
+                <span className="font-semibold text-ink">{fila.producto_nombre ?? '—'}</span>
+                {fila.producto_codigo ? (
+                  <span className="ml-2 text-xs text-muted">{fila.producto_codigo}</span>
+                ) : null}
+              </TableCell>
+              <TableCell numerica>{formatearCantidad(fila.cantidad_disponible)}</TableCell>
+              <TableCell numerica>{formatearMoneda(fila.costo_base)}</TableCell>
+              <TableCell numerica>{formatearMoneda(fila.precio_venta)}</TableCell>
+              <TableCell numerica className="font-semibold">
+                {formatearMoneda(fila.valor_costo)}
+              </TableCell>
+              <TableCell>
+                <Badge tono={fila.estado === 'AGOTADO' ? 'peligro' : 'marca'}>
+                  {fila.estado === 'AGOTADO' ? 'Agotado' : 'Disponible'}
+                </Badge>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/** Tabla de ventas y rentabilidad por lote de inventario. */
+export function TablaVentasPorLote({ filas }: { filas: FilaVentasLote[] }) {
+  if (filas.length === 0) {
+    return (
+      <EmptyState
+        titulo="Sin ventas por lote en el periodo"
+        descripcion="No se vendieron lotes en las fechas consultadas."
+      />
+    );
+  }
+
+  return (
+    <div className="max-h-[420px] overflow-y-auto">
+      <Table descripcion="Ventas por lote de inventario">
+        <TableHead>
+          <TableHeader>Lote</TableHeader>
+          <TableHeader>Producto</TableHeader>
+          <TableHeader className="text-right">Cantidad (base)</TableHeader>
+          <TableHeader className="text-right">Ingresos</TableHeader>
+          <TableHeader className="text-right">Costo</TableHeader>
+          <TableHeader className="text-right">Utilidad bruta</TableHeader>
+        </TableHead>
+        <TableBody>
+          {filas.map((fila) => (
+            <TableRow key={fila.lote_id}>
+              <TableCell className="numero text-xs font-semibold text-ink">
+                {fila.codigo_lote}
+              </TableCell>
+              <TableCell>
+                <span className="font-semibold text-ink">{fila.producto_nombre ?? '—'}</span>
+                {fila.producto_codigo ? (
+                  <span className="ml-2 text-xs text-muted">{fila.producto_codigo}</span>
+                ) : null}
+              </TableCell>
+              <TableCell numerica>{formatearCantidad(fila.cantidad_base)}</TableCell>
+              <TableCell numerica>{formatearMoneda(fila.ingresos)}</TableCell>
+              <TableCell numerica>{formatearMoneda(fila.costo)}</TableCell>
+              <TableCell numerica className="font-semibold">
+                {formatearMoneda(fila.utilidad_bruta)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 

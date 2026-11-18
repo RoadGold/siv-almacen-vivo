@@ -14,7 +14,9 @@ export function useCarritoVenta() {
       const existente = actuales.find(
         (item) =>
           item.producto_id === linea.producto_id &&
-          item.presentacion_id === linea.presentacion_id,
+          item.presentacion_id === linea.presentacion_id &&
+          (item.lote_id ?? null) === (linea.lote_id ?? null) &&
+          item.precio_total === linea.precio_total,
       );
       if (!existente) return [...actuales, linea];
       const cantidadTotal = Decimal.desde(existente.cantidad).suma(linea.cantidad);

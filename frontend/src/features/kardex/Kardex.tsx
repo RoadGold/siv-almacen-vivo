@@ -25,18 +25,27 @@ import {
   abastecimientosApi,
   catalogoApi,
   inventarioApi,
+  lotesApi,
   ventasApi,
 } from '@/shared/api/endpoints';
 import {
   etiquetaTipoMovimiento,
+  formatearCantidad,
   formatearCantidadConSigno,
+  formatearFecha,
   formatearFechaHora,
   hoyISO,
   haceDiasISO,
 } from '@/shared/format/formato';
 import { useRetraso } from '@/shared/hooks/useRetraso';
 import { esSinPermisos, mensajeDeError } from '@/shared/hooks/errores';
-import type { Movimiento } from '@/shared/types/api';
+import type { LoteResumen, Movimiento } from '@/shared/types/api';
+
+/**
+ * Movimiento con el lote al que corresponde.
+ * El API expone `lote_id` en cada movimiento del inventario.
+ */
+type MovimientoConLote = Movimiento & { lote_id?: number | null };
 
 const TIPOS_MOVIMIENTO = [
   { valor: '', texto: 'Todos los tipos' },
@@ -65,6 +74,7 @@ export function Kardex() {
   const [productoId, setProductoId] = useState<number | null>(null);
   const [productoNombre, setProductoNombre] = useState('');
   const [tipo, setTipo] = useState('');
+  const [loteId, setLoteId] = useState<number | ''>('');
   const [desde, setDesde] = useState(haceDiasISO(29));
   const [hasta, setHasta] = useState(hoyISO());
   const [pagina, setPagina] = useState(1);
@@ -81,6 +91,29 @@ export function Kardex() {
   });
 
   const datos = movimientos.data;
+
+  // Lotes del producto elegido: alimentan el filtro por lote y la columna «Lote».
+  const lotes = useQuery({
+    queryKey: ['lotes', productoId ?? 0],
+    queryFn: () => lotesApi.listar(productoId!),
+    enabled: productoId !== null,
+  });
+
+  const codigoPorLote = useMemo(() => {
+    const mapa = new Map<number, string>();
+    (lotes.data ?? []).forEach((lote: LoteResumen) => mapa.set(lote.id, lote.codigo_lote));
+    return mapa;
+  }, [lotes.data]);
+
+  /**
+   * El servidor pagina el kardex, pero todavía no pagina por lote: el filtro
+   * por lote se aplica sobre los movimientos de la página cargada.
+   */
+  const movimientosVisibles = useMemo(() => {
+    const items = datos?.items ?? [];
+    if (loteId === '') return items;
+    return items.filter((item) => (item as MovimientoConLote).lote_id === loteId);
+  }, [datos, loteId]);
 
   // El backend devuelve el nombre y el código del producto en cada movimiento,
   // así que no hace falta una consulta por producto.
@@ -109,7 +142,7 @@ export function Kardex() {
       </header>
 
       <Card titulo="Filtros">
-        <CardBody className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <CardBody className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <div>
             <label htmlFor="kardex-producto" className="mb-1 block text-sm font-semibold">
               Producto
@@ -119,10 +152,12 @@ export function Kardex() {
               onElegir={(id, nombre) => cambiarFiltro(() => {
                 setProductoId(id);
                 setProductoNombre(nombre);
+                setLoteId('');
               })}
               onLimpiar={() => cambiarFiltro(() => {
                 setProductoId(null);
                 setProductoNombre('');
+                setLoteId('');
               })}
             />
           </div>
@@ -142,6 +177,32 @@ export function Kardex() {
                 </option>
               ))}
             </Select>
+          </div>
+
+          <div>
+            <label htmlFor="kardex-lote" className="mb-1 block text-sm font-semibold">
+              Lote
+            </label>
+            <Select
+              id="kardex-lote"
+              value={loteId}
+              disabled={productoId === null}
+              onChange={(evento) => cambiarFiltro(() => setLoteId(Number(evento.target.value)))}
+            >
+              <option value="">Todos los lotes</option>
+              {(lotes.data ?? []).map((lote) => (
+                <option key={lote.id} value={lote.id}>
+                  {lote.codigo_lote} ·{' '}
+                  {lote.fecha_ingreso ? formatearFecha(lote.fecha_ingreso) : 'sin fecha'} ·{' '}
+                  {formatearCantidad(lote.cantidad_disponible)}
+                </option>
+              ))}
+            </Select>
+            {productoId === null ? (
+              <p className="mt-1 text-xs text-muted">
+                Elige un producto para filtrar por sus lotes.
+              </p>
+            ) : null}
           </div>
 
           <div>
@@ -189,87 +250,130 @@ export function Kardex() {
             descripcion="Amplía el rango de fechas o quita los filtros de producto y tipo."
           />
         ) : (
-          <Table descripcion="Movimientos de inventario">
-            <TableHead>
-              <TableHeader>Fecha</TableHeader>
-              <TableHeader>Tipo</TableHeader>
-              <TableHeader>Producto</TableHeader>
-              <TableHeader className="text-right">Cantidad</TableHeader>
-              <TableHeader className="text-right">Saldo después</TableHeader>
-              <TableHeader>Referencia</TableHeader>
-              <TableHeader>Usuario</TableHeader>
-            </TableHead>
-            <TableBody>
-              {datos?.items.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="numero text-xs">{formatearFechaHora(item.created_at)}</TableCell>
-                  <TableCell>
-                    <Badge tono={TONO_TIPO[item.tipo] ?? 'neutro'}>
-                      {etiquetaTipoMovimiento(item.tipo)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      to={`/explorar?producto=${item.producto_id}`}
-                      className="text-sm font-semibold text-brand hover:text-ink"
+          <>
+            {loteId !== '' ? (
+              <div className="px-4 pt-4">
+                <Notice tono="info" titulo="Filtro por lote">
+                  Se muestran solo los movimientos del lote seleccionado dentro de la página
+                  cargada: la paginación sigue siendo la del servidor.
+                </Notice>
+              </div>
+            ) : null}
+            <Table descripcion="Movimientos de inventario">
+              <TableHead>
+                <TableHeader>Fecha</TableHeader>
+                <TableHeader>Tipo</TableHeader>
+                <TableHeader>Producto</TableHeader>
+                <TableHeader>Lote</TableHeader>
+                <TableHeader className="text-right">Cantidad</TableHeader>
+                <TableHeader className="text-right">Saldo después</TableHeader>
+                <TableHeader>Referencia</TableHeader>
+                <TableHeader>Usuario</TableHeader>
+              </TableHead>
+              <TableBody>
+                {movimientosVisibles.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-3 py-4 text-center text-sm text-muted">
+                      En esta página no hay movimientos del lote seleccionado.
+                    </td>
+                  </tr>
+                ) : (
+                  movimientosVisibles.map((item) => {
+                    const loteDelMovimiento = (item as MovimientoConLote).lote_id ?? null;
+                    const codigoLote = loteDelMovimiento
+                      ? codigoPorLote.get(loteDelMovimiento)
+                      : undefined;
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell className="numero text-xs">
+                          {formatearFechaHora(item.created_at)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge tono={TONO_TIPO[item.tipo] ?? 'neutro'}>
+                            {etiquetaTipoMovimiento(item.tipo)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Link
+                            to={`/explorar?producto=${item.producto_id}`}
+                            className="text-sm font-semibold text-brand hover:text-ink"
+                          >
+                            {nombrePorProducto.get(item.producto_id) ??
+                              `Producto #${item.producto_id}`}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          {codigoLote ? (
+                            <span className="numero text-xs font-semibold text-ink">
+                              {codigoLote}
+                            </span>
+                          ) : loteDelMovimiento ? (
+                            <span className="numero text-xs text-muted">#{loteDelMovimiento}</span>
+                          ) : (
+                            <span className="text-xs text-muted">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell numerica>
+                          <span
+                            className={[
+                              'font-semibold',
+                              item.cantidad_base_signed.startsWith('-')
+                                ? 'text-danger'
+                                : 'text-brand',
+                            ].join(' ')}
+                          >
+                            {formatearCantidadConSigno(item.cantidad_base_signed)}
+                          </span>
+                        </TableCell>
+                        <TableCell numerica>
+                          {formatearCantidadConSigno(item.saldo_base_despues)}
+                        </TableCell>
+                        <TableCell>
+                          {item.referencia ? (
+                            <button
+                              type="button"
+                              onClick={() => setMovimiento(item)}
+                              className="text-left text-sm font-semibold text-brand underline decoration-dotted underline-offset-2 hover:text-ink"
+                            >
+                              {item.referencia}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-muted">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs">{item.usuario ?? '—'}</TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+              <TableFooter>
+                <td className="px-3 py-2 text-xs text-muted" colSpan={7}>
+                  Página {datos?.pagina} de {datos?.paginas || 1} · {datos?.total ?? 0} movimientos
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variante="secundario"
+                      tamano="sm"
+                      disabled={pagina <= 1}
+                      onClick={() => setPagina((actual) => Math.max(1, actual - 1))}
                     >
-                      {nombrePorProducto.get(item.producto_id) ?? `Producto #${item.producto_id}`}
-                    </Link>
-                  </TableCell>
-                  <TableCell numerica>
-                    <span
-                      className={[
-                        'font-semibold',
-                        item.cantidad_base_signed.startsWith('-') ? 'text-danger' : 'text-brand',
-                      ].join(' ')}
+                      Anterior
+                    </Button>
+                    <Button
+                      variante="secundario"
+                      tamano="sm"
+                      disabled={pagina >= (datos?.paginas ?? 1)}
+                      onClick={() => setPagina((actual) => actual + 1)}
                     >
-                      {formatearCantidadConSigno(item.cantidad_base_signed)}
-                    </span>
-                  </TableCell>
-                  <TableCell numerica>{formatearCantidadConSigno(item.saldo_base_despues)}</TableCell>
-                  <TableCell>
-                    {item.referencia ? (
-                      <button
-                        type="button"
-                        onClick={() => setMovimiento(item)}
-                        className="text-left text-sm font-semibold text-brand underline decoration-dotted underline-offset-2 hover:text-ink"
-                      >
-                        {item.referencia}
-                      </button>
-                    ) : (
-                      <span className="text-xs text-muted">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-xs">{item.usuario ?? '—'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-            <TableFooter>
-              <td className="px-3 py-2 text-xs text-muted" colSpan={6}>
-                Página {datos?.pagina} de {datos?.paginas || 1} · {datos?.total ?? 0} movimientos
-              </td>
-              <td className="px-3 py-2">
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variante="secundario"
-                    tamano="sm"
-                    disabled={pagina <= 1}
-                    onClick={() => setPagina((actual) => Math.max(1, actual - 1))}
-                  >
-                    Anterior
-                  </Button>
-                  <Button
-                    variante="secundario"
-                    tamano="sm"
-                    disabled={pagina >= (datos?.paginas ?? 1)}
-                    onClick={() => setPagina((actual) => actual + 1)}
-                  >
-                    Siguiente
-                  </Button>
-                </div>
-              </td>
-            </TableFooter>
-          </Table>
+                      Siguiente
+                    </Button>
+                  </div>
+                </td>
+              </TableFooter>
+            </Table>
+          </>
         )}
       </Card>
 

@@ -12,7 +12,12 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from app.db.models import Existencia, MovimientoInventario, TipoMovimiento
+from app.db.models import (
+    Existencia,
+    LoteInventario,
+    MovimientoInventario,
+    TipoMovimiento,
+)
 from app.domain.costing import costo_promedio_tras_entrada, costo_promedio_tras_salida
 from app.domain.unidades import ZERO, ErrorNegocio, ErrorStockInsuficiente, dec, num, q4, q6
 
@@ -47,6 +52,38 @@ def bloquear_existencia(db: Session, almacen_id: int, producto_id: int) -> Exist
     return existencia
 
 
+def bloquear_lote(db: Session, lote_id: int) -> LoteInventario:
+    """Bloquea la fila del lote.
+
+    El orden de bloqueo es siempre el mismo (existencia consolidada y luego
+    lote), de modo que dos ventas simultáneas del mismo producto no se
+    bloquean entre sí.
+    """
+    lote = db.execute(
+        select(LoteInventario).where(LoteInventario.id == lote_id).with_for_update()
+    ).scalar_one_or_none()
+    if lote is None:
+        raise ErrorNegocio("El lote no existe.", detalle={"lote_id": lote_id})
+    return lote
+
+
+def recalcular_costo_consolidado(
+    db: Session, existencia: Existencia, producto_id: int, almacen_id: int
+) -> Decimal:
+    """Costo promedio consolidado a partir de los lotes (fuente de verdad).
+
+    Si el producto no tiene lotes, se conserva el promedio ponderado incremental
+    (comportamiento histórico).
+    """
+    from app.services import lotes as servicio_lotes
+
+    costo = servicio_lotes.costo_promedio_de_lotes(db, producto_id, almacen_id)
+    if costo > 0:
+        existencia.costo_promedio_base = q6(costo)
+        db.flush()
+    return existencia.costo_promedio_base
+
+
 def registrar_movimiento(
     db: Session,
     *,
@@ -60,6 +97,7 @@ def registrar_movimiento(
     origen_id: int,
     usuario_id: int | None,
     referencia: str | None = None,
+    lote_id: int | None = None,
 ) -> MovimientoInventario:
     movimiento = MovimientoInventario(
         producto_id=producto_id,
@@ -72,6 +110,7 @@ def registrar_movimiento(
         origen_id=origen_id,
         usuario_id=usuario_id,
         referencia=referencia,
+        lote_id=lote_id,
     )
     db.add(movimiento)
     db.flush()
@@ -90,20 +129,35 @@ def aplicar_entrada(
     origen_id: int,
     usuario_id: int | None,
     referencia: str | None = None,
+    lote_id: int | None = None,
 ) -> Existencia:
-    """Suma stock y recalcula el costo promedio ponderado móvil."""
+    """Suma stock.
+
+    Con `lote_id` la entrada pertenece a un lote: sus existencias y su costo
+    se actualizan y el costo consolidado se recalcula a partir de los lotes.
+    Sin lote se mantiene el promedio ponderado móvil histórico.
+    """
     if cantidad_base <= 0:
         raise ErrorNegocio("La cantidad de entrada debe ser mayor que cero.")
     existencia = bloquear_existencia(db, almacen_id, producto_id)
     cantidad_previa = dec(existencia.cantidad_base)
     costo_previo = dec(existencia.costo_promedio_base)
 
-    nuevo_costo = costo_promedio_tras_entrada(
-        cantidad_previa, costo_previo, cantidad_base, costo_unitario_base
-    )
-    existencia.cantidad_base = q4(cantidad_previa + cantidad_base)
-    existencia.costo_promedio_base = nuevo_costo
-    db.flush()
+    if lote_id is not None:
+        lote = bloquear_lote(db, lote_id)
+        lote.cantidad_disponible = q4(dec(lote.cantidad_disponible) + cantidad_base)
+        db.flush()
+        existencia.cantidad_base = q4(cantidad_previa + cantidad_base)
+        recalcular_costo_consolidado(db, existencia, producto_id, almacen_id)
+        costo_aplicado = costo_unitario_base
+    else:
+        nuevo_costo = costo_promedio_tras_entrada(
+            cantidad_previa, costo_previo, cantidad_base, costo_unitario_base
+        )
+        existencia.cantidad_base = q4(cantidad_previa + cantidad_base)
+        existencia.costo_promedio_base = nuevo_costo
+        db.flush()
+        costo_aplicado = costo_unitario_base
 
     registrar_movimiento(
         db,
@@ -112,11 +166,12 @@ def aplicar_entrada(
         tipo=tipo,
         cantidad_base_signed=cantidad_base,
         saldo_base_despues=dec(existencia.cantidad_base),
-        costo_unitario_base=costo_unitario_base,
+        costo_unitario_base=costo_aplicado,
         origen_tipo=origen_tipo,
         origen_id=origen_id,
         usuario_id=usuario_id,
         referencia=referencia,
+        lote_id=lote_id,
     )
     return existencia
 
@@ -133,8 +188,13 @@ def aplicar_salida(
     usuario_id: int | None,
     referencia: str | None = None,
     permitir_negativo: bool = False,
+    lote_id: int | None = None,
 ) -> Existencia:
-    """Resta stock validando disponibilidad y recalcula el costo promedio."""
+    """Resta stock validando disponibilidad y recalcula el costo promedio.
+
+    Con `lote_id` solo se descuenta del lote indicado (nunca se reparte entre
+    lotes) y el costo_snapshot es el del propio lote.
+    """
     if cantidad_base <= 0:
         raise ErrorNegocio("La cantidad de salida debe ser mayor que cero.")
     existencia = bloquear_existencia(db, almacen_id, producto_id)
@@ -151,12 +211,32 @@ def aplicar_salida(
             },
         )
 
-    costo_salida = costo_previo
-    existencia.cantidad_base = q4(cantidad_previa - cantidad_base)
-    existencia.costo_promedio_base = costo_promedio_tras_salida(
-        cantidad_previa, costo_previo, cantidad_base, costo_salida
-    )
-    db.flush()
+    if lote_id is not None:
+        lote = bloquear_lote(db, lote_id)
+        disponible = dec(lote.cantidad_disponible)
+        if cantidad_base > disponible and not permitir_negativo:
+            raise ErrorStockInsuficiente(
+                "El lote no tiene existencias suficientes.",
+                detalle={
+                    "producto_id": producto_id,
+                    "lote_id": lote_id,
+                    "codigo_lote": lote.codigo_lote,
+                    "cantidad_solicitada": num(q4(cantidad_base)),
+                    "saldo_disponible": num(q4(disponible)),
+                },
+            )
+        lote.cantidad_disponible = q4(disponible - cantidad_base)
+        db.flush()
+        existencia.cantidad_base = q4(cantidad_previa - cantidad_base)
+        recalcular_costo_consolidado(db, existencia, producto_id, almacen_id)
+        costo_salida = dec(lote.costo_base)
+    else:
+        costo_salida = costo_previo
+        existencia.cantidad_base = q4(cantidad_previa - cantidad_base)
+        existencia.costo_promedio_base = costo_promedio_tras_salida(
+            cantidad_previa, costo_previo, cantidad_base, costo_salida
+        )
+        db.flush()
 
     registrar_movimiento(
         db,
@@ -170,6 +250,7 @@ def aplicar_salida(
         origen_id=origen_id,
         usuario_id=usuario_id,
         referencia=referencia,
+        lote_id=lote_id,
     )
     return existencia
 

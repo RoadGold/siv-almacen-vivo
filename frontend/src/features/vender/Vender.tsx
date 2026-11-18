@@ -18,7 +18,7 @@ import {
   useToast,
 } from '@/design-system';
 import { claves } from '@/shared/api/clavesConsulta';
-import { catalogoApi, inventarioApi, ventasApi } from '@/shared/api/endpoints';
+import { catalogoApi, inventarioApi, lotesApi, ventasApi } from '@/shared/api/endpoints';
 import { Decimal } from '@/shared/format/decimal';
 import {
   formatearCantidad,
@@ -29,11 +29,17 @@ import {
 import { useRetraso } from '@/shared/hooks/useRetraso';
 import { esSinPermisos, mensajeDeError } from '@/shared/hooks/errores';
 import { registrarOperacion } from '@/shared/estado/operaciones';
-import { FilaResultado } from './ResultadoProducto';
+import { FilaResultado, type PeticionLote } from './ResultadoProducto';
 import { buscarPorCodigoBarras, pareceCodigoBarras } from './buscarCodigoBarras';
 import type { LineaCarrito, ResultadoBusqueda } from './tipos';
 import { generarClaveIdempotencia, nuevoIdLinea, useCarritoVenta } from './useCarritoVenta';
-import type { PrevisualizacionVenta, Venta } from '@/shared/types/api';
+import type {
+  LoteResumen,
+  PrevisualizacionVenta,
+  Presentacion,
+  Venta,
+} from '@/shared/types/api';
+import { SelectorLote, precioDeLote, type AsignacionLote } from './SelectorLote';
 
 /** Pantalla VENDER: dos paneles (buscador y carrito) con cinta de impacto. */
 export function Vender() {
@@ -57,6 +63,7 @@ export function Vender() {
     ok: boolean;
     mensaje: string;
   } | null>(null);
+  const [peticionLote, setPeticionLote] = useState<PeticionLote | null>(null);
 
   // --- Atajos de teclado: F3 enfoca el buscador, Esc limpia la búsqueda ---
   useEffect(() => {
@@ -130,19 +137,7 @@ export function Vender() {
     if (exacto) {
       const presentacion = exacto.presentaciones.find((item) => item.activo && item.es_venta);
       if (presentacion) {
-        agregarLinea({
-          producto_id: exacto.producto_id,
-          presentacion_id: presentacion.id,
-          producto_nombre: exacto.nombre,
-          producto_codigo: exacto.codigo,
-          presentacion_nombre: presentacion.nombre,
-          unidad_base: exacto.unidad_base,
-          factor_base: presentacion.factor_base,
-          precio_original: presentacion.precio_venta,
-          precio_total: presentacion.precio_venta,
-          precio_total_original: presentacion.precio_venta,
-          cantidad: '1',
-        });
+        await agregarConLotes(exacto, presentacion, '1');
         setBusqueda('');
         return;
       }
@@ -155,19 +150,16 @@ export function Vender() {
     try {
       const coincidencia = await buscarPorCodigoBarras(texto);
       if (coincidencia) {
-        agregarLinea({
-          producto_id: coincidencia.producto.id,
-          presentacion_id: coincidencia.presentacion.id,
-          producto_nombre: coincidencia.producto.nombre,
-          producto_codigo: coincidencia.producto.codigo,
-          presentacion_nombre: coincidencia.presentacion.nombre,
-          unidad_base: coincidencia.producto.unidad_base ?? null,
-          factor_base: coincidencia.presentacion.factor_base,
-          precio_original: coincidencia.presentacion.precio_venta,
-          precio_total: coincidencia.presentacion.precio_venta,
-          precio_total_original: coincidencia.presentacion.precio_venta,
-          cantidad: '1',
-        });
+        await agregarConLotes(
+          {
+            producto_id: coincidencia.producto.id,
+            nombre: coincidencia.producto.nombre,
+            codigo: coincidencia.producto.codigo,
+            unidad_base: coincidencia.producto.unidad_base ?? null,
+          },
+          coincidencia.presentacion,
+          '1',
+        );
         setBusqueda('');
         notificar(`Añadido: ${coincidencia.producto.nombre}`, 'exito');
       } else {
@@ -178,6 +170,99 @@ export function Vender() {
     } finally {
       setCodigoEnviado(false);
     }
+  }
+
+  /**
+   * Agrega un producto al carrito resolviendo sus lotes:
+   * - sin lotes o con uno solo → se agrega directo con el precio de ese lote;
+   * - con varios → se abre el selector para que el cajero elija.
+   */
+  async function agregarConLotes(
+    producto: {
+      producto_id: number;
+      nombre: string;
+      codigo: string;
+      unidad_base: string | null;
+    },
+    presentacion: Presentacion,
+    cantidad: string,
+  ) {
+    const cantidadDecimal = Decimal.desde(cantidad);
+    let lotes: LoteResumen[] = [];
+    try {
+      lotes = await lotesApi.listar(producto.producto_id, { solo_con_stock: true });
+    } catch {
+      lotes = [];
+    }
+
+    if (lotes.length > 1) {
+      setPeticionLote({
+        producto: {
+          id: producto.producto_id,
+          nombre: producto.nombre,
+          codigo: producto.codigo,
+        },
+        presentacion,
+        cantidad: cantidadDecimal.aTexto(),
+        lotes,
+      });
+      return;
+    }
+
+    const lote = lotes[0] ?? null;
+    const precio = lote
+      ? precioDeLote(lote, presentacion.id)
+      : Decimal.desde(presentacion.precio_venta);
+    const total = precio.multiplica(cantidadDecimal).redondear(2);
+    agregarLinea({
+      producto_id: producto.producto_id,
+      presentacion_id: presentacion.id,
+      producto_nombre: producto.nombre,
+      producto_codigo: producto.codigo,
+      presentacion_nombre: presentacion.nombre,
+      unidad_base: producto.unidad_base,
+      factor_base: presentacion.factor_base,
+      precio_original: precio.aTexto(),
+      precio_total: total.aTexto(),
+      precio_total_original: total.aTexto(),
+      cantidad: cantidadDecimal.aTexto(),
+      lote_id: lote?.id ?? null,
+      lote_codigo: lote?.codigo_lote ?? null,
+      lote_fecha_ingreso: lote?.fecha_ingreso ?? null,
+    });
+  }
+
+  /** El cajero confirma el reparto por lotes. */
+  function confirmarLotes(asignaciones: AsignacionLote[]) {
+    const peticion = peticionLote;
+    if (!peticion) return;
+    const precioPorLote = new Map(
+      peticion.lotes.map((lote) => [lote.id, precioDeLote(lote, peticion.presentacion.id)]),
+    );
+    for (const asignacion of asignaciones) {
+      const precio = precioPorLote.get(asignacion.lote_id) ?? Decimal.cero();
+      const cantidad = Decimal.desde(asignacion.cantidad);
+      const total = precio.multiplica(cantidad).redondear(2);
+      const lote = peticion.lotes.find((item) => item.id === asignacion.lote_id);
+      agregarLinea({
+        producto_id: peticion.producto.id,
+        presentacion_id: peticion.presentacion.id,
+        producto_nombre: peticion.producto.nombre,
+        producto_codigo: peticion.producto.codigo,
+        presentacion_nombre: peticion.presentacion.nombre,
+        unidad_base: null,
+        factor_base: peticion.presentacion.factor_base,
+        precio_original: precio.aTexto(),
+        precio_total: total.aTexto(),
+        precio_total_original: total.aTexto(),
+        cantidad: cantidad.aTexto(),
+        lote_id: asignacion.lote_id,
+        lote_codigo: asignacion.lote_codigo,
+        lote_fecha_ingreso: lote?.fecha_ingreso ?? null,
+      });
+    }
+    setPeticionLote(null);
+    window.setTimeout(() => referenciaBuscador.current?.focus(), 0);
   }
 
   function agregarLinea(linea: Omit<LineaCarrito, 'id'>) {
@@ -196,6 +281,7 @@ export function Vender() {
           cantidad: linea.cantidad,
           precio_total: linea.precio_total,
           motivo_precio: linea.motivo_precio ?? null,
+          lote_id: linea.lote_id ?? null,
         })),
       }),
     onSuccess: (respuesta) => {
@@ -221,6 +307,7 @@ export function Vender() {
           cantidad: linea.cantidad,
           precio_total: linea.precio_total,
           motivo_precio: linea.motivo_precio ?? null,
+          lote_id: linea.lote_id ?? null,
         })),
       }),
     onSuccess: (venta) => {
@@ -409,7 +496,12 @@ export function Vender() {
           ) : (
             <div className="border-t border-linea">
               {resultados.map((resultado) => (
-                <FilaResultado key={resultado.producto_id} resultado={resultado} onAgregar={agregarLinea} />
+                <FilaResultado
+                  key={resultado.producto_id}
+                  resultado={resultado}
+                  onAgregar={agregarLinea}
+                  onSeleccionarLote={setPeticionLote}
+                />
               ))}
             </div>
           )}
@@ -437,6 +529,14 @@ export function Vender() {
                         {linea.presentacion_nombre} ·{' '}
                         {formatearMoneda(linea.precio_original)} c/u (precio de lista)
                       </p>
+                      {linea.lote_codigo ? (
+                        <p className="mt-0.5 text-xs text-muted">
+                          Lote <span className="numero font-semibold text-ink-suave">{linea.lote_codigo}</span>
+                          {linea.lote_fecha_ingreso
+                            ? ` · ingreso ${formatearFecha(linea.lote_fecha_ingreso)}`
+                            : ''}
+                        </p>
+                      ) : null}
                     </div>
                     <Button
                       variante="fantasma"
@@ -701,8 +801,17 @@ export function Vender() {
               </TableHead>
               <TableBody>
                 {presentacionPrevia.lineas.map((linea) => (
-                  <TableRow key={`${linea.producto_id}-${linea.presentacion_id}`}>
-                    <TableCell>{linea.producto_nombre}</TableCell>
+                  <TableRow
+                    key={`${linea.producto_id}-${linea.presentacion_id}-${linea.lote_id ?? 'sin-lote'}`}
+                  >
+                    <TableCell>
+                      {linea.producto_nombre}
+                      {linea.lote_codigo ? (
+                        <span className="ml-1">
+                          <Badge tono="neutro">{linea.lote_codigo}</Badge>
+                        </span>
+                      ) : null}
+                    </TableCell>
                     <TableCell>{linea.presentacion_nombre}</TableCell>
                     <TableCell numerica>
                       {formatearCantidad(linea.cantidad)} {linea.presentacion_nombre}
@@ -746,6 +855,17 @@ export function Vender() {
           </div>
         ) : null}
       </Modal>
+
+      {/* --- Selector de lote (producto con varios lotes) --- */}
+      <SelectorLote
+        abierto={peticionLote !== null}
+        onCerrar={() => setPeticionLote(null)}
+        producto={peticionLote?.producto ?? null}
+        presentacion={peticionLote?.presentacion ?? null}
+        cantidad={peticionLote?.cantidad ?? '1'}
+        lotes={peticionLote?.lotes ?? []}
+        onConfirmar={confirmarLotes}
+      />
 
       {/* --- Detalle de la venta registrada --- */}
       <Modal

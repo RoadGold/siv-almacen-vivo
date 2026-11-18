@@ -15,11 +15,20 @@ class LineaAbastecimientoIn(BaseModel):
     presentacion_id: int
     cantidad: Decimal = Field(gt=0)
     costo_unitario: Decimal = Field(ge=0)
+    precio_venta: Decimal | None = Field(
+        default=None,
+        ge=0,
+        description="Precio de venta del lote para esta presentación. Si se omite, "
+        "se usa el precio vigente de la presentación.",
+    )
+    fecha_ingreso: date | None = Field(
+        default=None, description="Fecha del lote (por defecto, la del ingreso)."
+    )
 
-    @field_validator("cantidad", "costo_unitario", mode="before")
+    @field_validator("cantidad", "costo_unitario", "precio_venta", mode="before")
     @classmethod
     def _a_decimal(cls, v):
-        return dec(v)
+        return None if v is None else dec(v)
 
 
 class AbastecimientoIn(BaseModel):
@@ -72,6 +81,8 @@ class DetalleAbastecimientoOut(BaseModel):
     cantidad_base: str
     costo_unitario: str
     subtotal: str
+    lote_id: int | None = None
+    lote_codigo: str | None = None
     producto_codigo: str | None = None
     producto_nombre: str | None = None
     presentacion_nombre: str | None = None

@@ -127,6 +127,33 @@ Línea de entrada/salida: `{ producto_id, presentacion_id, cantidad, costo_unita
 | GET | `/reportes/margen?desde=&hasta=` | Margen **bruto estimado** + nota de lectura |
 | GET | `/reportes/ventas/exportar?desde=&hasta=` | Descarga CSV (UTF-8 con BOM) |
 
+## Lotes de inventario
+
+| Método | Ruta | Notas |
+|---|---|---|
+| GET | `/lotes/producto/{producto_id}?almacen_id=&solo_con_stock=` | Lotes con stock, costo y precios por presentación |
+| GET | `/lotes/{lote_id}` | Detalle de un lote |
+| PATCH | `/lotes/{lote_id}/precios` | `{presentacion_id, precio, motivo?}` — solo `precios.gestionar`, con auditoría |
+
+**Recepción:** cada línea de ingreso acepta `precio_venta` (el precio de venta del lote para esa
+presentación) y crea un lote. Si se omite, se usa el precio vigente de la presentación. El detalle
+del ingreso devuelve `lote_id` y `lote_codigo`.
+
+**Venta:** cada línea acepta `lote_id`. El precio de lista de la línea es el **del lote** (si el
+lote no tiene precio para esa presentación, se usa el de la presentación); el costo snapshot es el
+del lote. Si no se indica lote, el producto se comporta como antes (precio de la presentación y
+costo promedio consolidado).
+
+**Ajuste:** acepta `lote_id`. Si el producto tiene varios lotes con existencias y no se indica,
+el servidor responde `400` con el detalle de los lotes candidatos: **el ajuste nunca se reparte
+solo entre lotes**.
+
+**Kardex:** `GET /inventario/movimientos` acepta `lote_id` y devuelve el `lote_id` de cada
+movimiento.
+
+**Reportes:** `/reportes/inventario-por-lote` y `/reportes/ventas-por-lote` (con utilidad bruta
+por lote).
+
 ## Configuración e impresión
 
 | Método | Ruta | Notas |

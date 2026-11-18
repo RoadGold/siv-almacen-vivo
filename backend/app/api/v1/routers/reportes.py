@@ -62,6 +62,37 @@ def inventario(
     return servicio.inventario_valorizado(db, almacen_id=almacen_id)
 
 
+@router.get("/inventario-por-lote")
+def inventario_por_lote(
+    producto_id: int | None = None,
+    almacen_id: int | None = None,
+    solo_con_stock: bool = Query(default=False),
+    limite: int = Query(default=200, ge=1, le=1000),
+    _: Usuario = Depends(requiere_permiso(Permiso.REPORTES_VER)),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    """Inventario desglosado por lote (stock, costo y precio de cada lote)."""
+    return servicio.inventario_por_lote(
+        db,
+        producto_id=producto_id,
+        almacen_id=almacen_id,
+        solo_con_stock=solo_con_stock,
+        limite=limite,
+    )
+
+
+@router.get("/ventas-por-lote")
+def ventas_por_lote(
+    desde: date | None = None,
+    hasta: date | None = None,
+    limite: int = Query(default=200, ge=1, le=1000),
+    _: Usuario = Depends(requiere_permiso(Permiso.REPORTES_VER)),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    """Ventas y rentabilidad por lote."""
+    return servicio.ventas_por_lote(db, desde=desde, hasta=hasta, limite=limite)
+
+
 @router.get("/margen")
 def margen(
     desde: date | None = None,

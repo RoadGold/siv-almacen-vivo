@@ -10,6 +10,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import (
+    LoteInventario,
     AjusteInventario,
     Almacen,
     Existencia,
@@ -147,6 +148,7 @@ def movimientos(
     *,
     producto_id: int | None = None,
     almacen_id: int | None = None,
+    lote_id: int | None = None,
     tipo: str | None = None,
     desde: date | None = None,
     hasta: date | None = None,
@@ -161,6 +163,8 @@ def movimientos(
         filtros.append(MovimientoInventario.producto_id == producto_id)
     if almacen_id is not None:
         filtros.append(MovimientoInventario.almacen_id == almacen_id)
+    if lote_id is not None:
+        filtros.append(MovimientoInventario.lote_id == lote_id)
     if tipo:
         filtros.append(MovimientoInventario.tipo == tipo)
     if desde:
@@ -200,6 +204,7 @@ def movimientos(
                 "origen_id": movimiento.origen_id,
                 "referencia": movimiento.referencia,
                 "usuario": producto_nombre_usuario(db, movimiento.usuario_id),
+                "lote_id": movimiento.lote_id,
                 "created_at": movimiento.created_at,
             }
         )
@@ -330,14 +335,40 @@ def crear_ajuste(
     cantidad_base: Decimal,
     motivo: str,
     usuario_id: int,
+    lote_id: int | None = None,
 ) -> AjusteInventario:
-    """Ajuste administrativo: suma o resta stock con motivo documentado."""
+    """Ajuste administrativo: suma o resta stock con motivo documentado.
+
+    Si el producto tiene **varios lotes con existencias**, el ajuste debe
+    indicar a cu?l se aplica: nunca se reparte solo entre lotes.
+    """
+    from app.services import lotes as servicio_lotes
+
     producto = db.get(Producto, producto_id)
     if producto is None:
         raise ErrorNegocio("El producto no existe.")
     cantidad = dec(cantidad_base)
     if cantidad == 0:
         raise ErrorNegocio("El ajuste debe ser distinto de cero.")
+
+    lotes_con_stock = servicio_lotes.lotes_disponibles(db, producto_id, almacen_id)
+    if lote_id is None and len(lotes_con_stock) > 1:
+        raise ErrorNegocio(
+            "Este producto tiene varios lotes con existencias: indique a que lote se aplica el ajuste.",
+            detalle={
+                "producto_id": producto_id,
+                "lotes": [
+                    {"id": lote["id"], "codigo_lote": lote["codigo_lote"]}
+                    for lote in lotes_con_stock
+                ],
+            },
+        )
+    if lote_id is not None:
+        lote = db.get(LoteInventario, lote_id)
+        if lote is None or lote.producto_id != producto_id:
+            raise ErrorNegocio("El lote indicado no corresponde al producto.")
+        if lote.estado == "INHABILITADO":
+            raise ErrorNegocio("El lote esta inhabilitado.")
 
     ajuste = AjusteInventario(
         numero="PENDIENTE",
@@ -348,6 +379,7 @@ def crear_ajuste(
         motivo=motivo,
         estado="CONFIRMADO",
         usuario_id=usuario_id,
+        lote_id=lote_id,
     )
     db.add(ajuste)
     db.flush()
@@ -355,17 +387,21 @@ def crear_ajuste(
 
     if cantidad > 0:
         existencia = inventario.bloquear_existencia(db, almacen_id, producto_id)
+        costo = dec(existencia.costo_promedio_base)
+        if lote_id is not None:
+            costo = dec(db.get(LoteInventario, lote_id).costo_base)
         inventario.aplicar_entrada(
             db,
             almacen_id=almacen_id,
             producto_id=producto_id,
             cantidad_base=cantidad,
-            costo_unitario_base=dec(existencia.costo_promedio_base),
+            costo_unitario_base=costo,
             tipo=TipoMovimiento.AJUSTE_ADMINISTRATIVO,
             origen_tipo="AJUSTE",
             origen_id=ajuste.id,
             usuario_id=usuario_id,
             referencia=ajuste.numero,
+            lote_id=lote_id,
         )
     else:
         inventario.aplicar_salida(
@@ -378,12 +414,13 @@ def crear_ajuste(
             origen_id=ajuste.id,
             usuario_id=usuario_id,
             referencia=ajuste.numero,
+            lote_id=lote_id,
         )
     db.flush()
     return ajuste
 
 
-def Ficha_producto(db: Session, producto_id: int) -> dict[str, Any]:
+def ficha_producto(db: Session, producto_id: int) -> dict[str, Any]:
     """Ficha viva del producto: existencias, proveedores y huella reciente."""
     from app.db.models import Abastecimiento, DetalleAbastecimiento
 
@@ -401,18 +438,18 @@ def Ficha_producto(db: Session, producto_id: int) -> dict[str, Any]:
         raise ErrorNegocio("El producto no existe.")
 
     existencias = []
-    for ex in db.execute(
+    for existencia, almacen in db.execute(
         select(Existencia, Almacen).join(Almacen, Almacen.id == Existencia.almacen_id)
         .where(Existencia.producto_id == producto_id)
     ).all():
-        cantidad = dec(ex.cantidad_base)
+        cantidad = dec(existencia.cantidad_base)
         presentacion = _presentacion_visual(producto, cantidad)
         existencias.append(
             {
-                "almacen_id": ex.almacen.id,
-                "almacen": ex.almacen.nombre,
+                "almacen_id": almacen.id,
+                "almacen": almacen.nombre,
                 "cantidad_base": num(q4(cantidad)),
-                "costo_promedio_base": num(ex.costo_promedio_base),
+                "costo_promedio_base": num(existencia.costo_promedio_base),
                 "presentacion_principal": presentacion.nombre if presentacion else None,
                 "cantidad_presentacion": _cantidad_en_presentacion(cantidad, presentacion),
                 "unidad_base": producto.unidad_base.nombre if producto.unidad_base else None,
@@ -455,12 +492,15 @@ def Ficha_producto(db: Session, producto_id: int) -> dict[str, Any]:
         ultimo_costo = num(row)
 
     from app.services.catalogo import producto_a_dict
+    from app.services.lotes import listar_lotes
 
     base = producto_a_dict(producto)
     base["existencias"] = existencias
     base["proveedores"] = proveedores
     base["ultimo_costo"] = ultimo_costo
     base["movimientos_recientes"] = ultimos
+    # Lotes del producto: stock, costo y precio de venta por lote.
+    base["lotes"] = listar_lotes(db, producto_id)
     return base
 
 

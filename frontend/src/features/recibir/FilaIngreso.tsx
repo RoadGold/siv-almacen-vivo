@@ -14,6 +14,8 @@ export interface DatosLineaIngreso {
   unidad_base: string | null;
   cantidad: string;
   costo_unitario: string;
+  /** Precio de venta del lote que se crea con esta línea. */
+  precio_venta: string;
 }
 
 interface Propiedades {
@@ -51,6 +53,7 @@ export function FilaIngreso({
   );
   const [cantidad, setCantidad] = useState('1');
   const [costo, setCosto] = useState(() => ultimoCosto ?? '0');
+  const [precioVenta, setPrecioVenta] = useState('0');
 
   useEffect(() => {
     if (!presentacionesCompra.some((item) => item.id === presentacionId)) {
@@ -68,11 +71,20 @@ export function FilaIngreso({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presentacion?.id]);
 
+  // El precio de venta del lote se precarga con el precio vigente de la
+  // presentación; el vendedor puede ajustarlo antes de confirmar la línea.
+  useEffect(() => {
+    if (!presentacion) return;
+    setPrecioVenta(presentacion.precio_venta ?? '0');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presentacion?.id]);
+
   const cantidadValida = Decimal.desde(cantidad).comparar(0) > 0;
   const costoValido = Decimal.desde(costo).comparar(0) >= 0;
+  const precioValido = Decimal.desde(precioVenta).comparar(0) >= 0;
 
   function agregar() {
-    if (!presentacion || !cantidadValida || !costoValido) return;
+    if (!presentacion || !cantidadValida || !costoValido || !precioValido) return;
     onAgregar({
       producto_id: productoId,
       presentacion_id: presentacion.id,
@@ -83,6 +95,7 @@ export function FilaIngreso({
       unidad_base: unidadBase ?? null,
       cantidad: Decimal.desde(cantidad).aTexto(),
       costo_unitario: Decimal.desde(costo).aTexto(),
+      precio_venta: Decimal.desde(precioVenta).aTexto(),
     });
   }
 
@@ -151,7 +164,25 @@ export function FilaIngreso({
             />
           </div>
 
-          <Button variante="secundario" onClick={agregar} disabled={!cantidadValida || !costoValido}>
+          <div className="w-[120px]">
+            <label htmlFor={`precio-venta-ingreso-${productoId}`} className="sr-only">
+              Precio de venta del lote de {nombre}
+            </label>
+            <Input
+              id={`precio-venta-ingreso-${productoId}`}
+              className="numero"
+              inputMode="decimal"
+              prefijo="S/"
+              value={precioVenta}
+              onChange={(evento) => setPrecioVenta(evento.target.value)}
+            />
+          </div>
+
+          <Button
+            variante="secundario"
+            onClick={agregar}
+            disabled={!cantidadValida || !costoValido || !precioValido}
+          >
             Añadir
           </Button>
         </div>
@@ -160,7 +191,8 @@ export function FilaIngreso({
       {presentacion ? (
         <p className="mt-2 text-xs text-muted">
           1 {presentacion.nombre} = {formatearCantidad(presentacion.factor_base)}{' '}
-          {unidadBase?.toLowerCase() ?? 'und'}
+          {unidadBase?.toLowerCase() ?? 'und'} · precio de venta del lote{' '}
+          {formatearMoneda(precioVenta)}
         </p>
       ) : null}
     </article>

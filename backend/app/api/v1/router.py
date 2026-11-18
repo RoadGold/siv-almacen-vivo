@@ -13,6 +13,7 @@ from app.api.v1.routers import (
     dashboard,
     impresora,
     inventario,
+    lotes,
     proveedores,
     reportes,
     ventas,
@@ -25,6 +26,7 @@ api_router.include_router(proveedores.router)
 api_router.include_router(abastecimientos.router)
 api_router.include_router(ventas.router)
 api_router.include_router(inventario.router)
+api_router.include_router(lotes.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(reportes.router)
 api_router.include_router(configuracion.router)

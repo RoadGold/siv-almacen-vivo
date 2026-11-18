@@ -207,6 +207,80 @@ class PresentacionProducto(Base, TimestampMixin):
     producto: Mapped[Producto] = relationship(back_populates="presentaciones")
 
 
+class LoteInventario(Base, TimestampMixin):
+    """Lote de inventario: una porción de existencias con su propio costo y precio.
+
+    Un producto puede tener muchos lotes (una compra por temporada). Cada lote
+    tiene existencias, costo y precios de venta propios, y se identifica en las
+    ventas y en el Kardex.
+    """
+
+    __tablename__ = "lotes_inventario"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    producto_id: Mapped[int] = mapped_column(
+        ForeignKey("productos.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    codigo_lote: Mapped[str] = mapped_column(String(60), unique=True, nullable=False)
+    fecha_ingreso: Mapped[date | None] = mapped_column(Date, index=True)
+    cantidad_inicial: Mapped[int] = mapped_column(CANT, default=0, nullable=False)
+    cantidad_disponible: Mapped[int] = mapped_column(CANT, default=0, nullable=False)
+    """ Costo por unidad base (gramo, kilo, unidad) del lote. """
+    costo_base: Mapped[int] = mapped_column(COSTO_UNIT, default=0, nullable=False)
+    """ Costo por presentación de compra del lote (referencia informativa). """
+    costo_unitario: Mapped[int] = mapped_column(MONEDA, default=0, nullable=False)
+    """ Precio de venta de la presentación con la que ingresó el lote. """
+    precio_venta: Mapped[int] = mapped_column(MONEDA, default=0, nullable=False)
+    presentacion_principal_id: Mapped[int | None] = mapped_column(
+        ForeignKey("presentaciones_producto.id", ondelete="SET NULL")
+    )
+    """ Presentación con la que se compró el lote (saco, caja, kilo…). """
+    almacen_id: Mapped[int] = mapped_column(
+        ForeignKey("almacenes.id"), nullable=False, index=True
+    )
+    abastecimiento_id: Mapped[int | None] = mapped_column(
+        ForeignKey("abastecimientos.id", ondelete="SET NULL"), index=True
+    )
+    detalle_abastecimiento_id: Mapped[int | None] = mapped_column(
+        ForeignKey("detalle_abastecimientos.id", ondelete="SET NULL")
+    )
+    estado: Mapped[str] = mapped_column(String(20), default="ACTIVO", nullable=False, index=True)
+    """ ACTIVO | INHABILITADO (agotado se deduce de la cantidad). """
+    origen: Mapped[str] = mapped_column(String(20), default="RECEPCION", nullable=False)
+    """ RECEPCION | MIGRACION | AJUSTE | INVENTARIO_INICIAL """
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+
+    producto: Mapped[Producto] = relationship()
+    precios: Mapped[list["LotePrecio"]] = relationship(
+        back_populates="lote", cascade="all, delete-orphan"
+    )
+
+
+class LotePrecio(Base, TimestampMixin):
+    """Precio de venta de una presentación dentro de un lote.
+
+    Un mismo lote puede venderse como saco, por kilo o por medio saco, cada uno
+    con su propio precio.
+    """
+
+    __tablename__ = "lotes_precios"
+    __table_args__ = (
+        UniqueConstraint("lote_id", "presentacion_id", name="uq_lotes_precios_lote_presentacion"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    lote_id: Mapped[int] = mapped_column(
+        ForeignKey("lotes_inventario.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    presentacion_id: Mapped[int] = mapped_column(
+        ForeignKey("presentaciones_producto.id"), nullable=False, index=True
+    )
+    precio: Mapped[int] = mapped_column(MONEDA, default=0, nullable=False)
+
+    lote: Mapped["LoteInventario"] = relationship(back_populates="precios")
+    presentacion: Mapped[PresentacionProducto] = relationship()
+
+
 class Proveedor(Base, TimestampMixin):
     __tablename__ = "proveedores"
 
@@ -299,10 +373,17 @@ class DetalleAbastecimiento(Base):
     costo_unitario: Mapped[int] = mapped_column(MONEDA, nullable=False)
     costo_base: Mapped[int] = mapped_column(COSTO_UNIT, nullable=False)
     subtotal: Mapped[int] = mapped_column(MONEDA, nullable=False)
+    lote_id: Mapped[int | None] = mapped_column(
+        ForeignKey("lotes_inventario.id", ondelete="SET NULL"), index=True
+    )
+    """ Lote creado por esta línea de ingreso (si el producto se maneja por lotes). """
 
     abastecimiento: Mapped[Abastecimiento] = relationship(back_populates="detalles")
     producto: Mapped[Producto] = relationship()
     presentacion: Mapped[PresentacionProducto] = relationship()
+    lote: Mapped["LoteInventario | None"] = relationship(
+        foreign_keys="DetalleAbastecimiento.lote_id"
+    )
 
 
 class Venta(Base, TimestampMixin):
@@ -388,6 +469,12 @@ class DetalleVenta(Base):
     precio_unitario: Mapped[int] = mapped_column(MONEDA, nullable=False)
     precio_original: Mapped[int | None] = mapped_column(MONEDA)
     motivo_precio: Mapped[str | None] = mapped_column(String(120))
+    lote_id: Mapped[int | None] = mapped_column(
+        ForeignKey("lotes_inventario.id", ondelete="SET NULL"), index=True
+    )
+    lote_id: Mapped[int | None] = mapped_column(
+        ForeignKey("lotes_inventario.id", ondelete="SET NULL"), index=True
+    )
     costo_base_snapshot: Mapped[int] = mapped_column(COSTO_UNIT, nullable=False)
     subtotal: Mapped[int] = mapped_column(MONEDA, nullable=False)
     costo_total_linea: Mapped[int] = mapped_column(MONEDA, default=0, nullable=False)
@@ -395,6 +482,9 @@ class DetalleVenta(Base):
     venta: Mapped[Venta] = relationship(back_populates="detalles")
     producto: Mapped[Producto] = relationship()
     presentacion: Mapped[PresentacionProducto] = relationship()
+    lote: Mapped["LoteInventario | None"] = relationship(
+        foreign_keys="DetalleVenta.lote_id"
+    )
 
 
 # --- Inventario ------------------------------------------------------------
@@ -442,6 +532,10 @@ class MovimientoInventario(Base):
     origen_id: Mapped[int] = mapped_column(Integer, nullable=False)
     referencia: Mapped[str | None] = mapped_column(String(40))
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    lote_id: Mapped[int | None] = mapped_column(
+        ForeignKey("lotes_inventario.id", ondelete="SET NULL"), index=True
+    )
+    """ Lote del que salió o al que entró la mercadería (nulo en los históricos). """
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
@@ -469,6 +563,10 @@ class AjusteInventario(Base, TimestampMixin):
         nullable=False,
     )
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), nullable=False)
+    lote_id: Mapped[int | None] = mapped_column(
+        ForeignKey("lotes_inventario.id", ondelete="SET NULL"), index=True
+    )
+    """ Lote afectado por el ajuste (obligatorio si el producto tiene varios lotes). """
 
 
 class Auditoria(Base):

@@ -382,13 +382,142 @@ def exportar_ventas_csv(
     return b"\xef\xbb\xbf" + buffer.getvalue().encode("utf-8")
 
 
+def inventario_por_lote(
+    db: Session,
+    *,
+    producto_id: int | None = None,
+    almacen_id: int | None = None,
+    solo_con_stock: bool = False,
+    limite: int = 200,
+) -> list[dict[str, Any]]:
+    """Inventario desglosado por lote: stock, costo y precio de cada uno."""
+    from app.db.models import LoteInventario
+
+    filtros = []
+    if producto_id is not None:
+        filtros.append(LoteInventario.producto_id == producto_id)
+    if almacen_id is not None:
+        filtros.append(LoteInventario.almacen_id == almacen_id)
+    if solo_con_stock:
+        filtros.append(LoteInventario.cantidad_disponible > 0)
+
+    filas = db.execute(
+        select(
+            LoteInventario.id,
+            LoteInventario.codigo_lote,
+            LoteInventario.fecha_ingreso,
+            LoteInventario.cantidad_inicial,
+            LoteInventario.cantidad_disponible,
+            LoteInventario.costo_base,
+            LoteInventario.costo_unitario,
+            LoteInventario.precio_venta,
+            LoteInventario.estado,
+            LoteInventario.origen,
+            Producto.codigo,
+            Producto.nombre,
+            Producto.unidad_base_id,
+        )
+        .join(Producto, Producto.id == LoteInventario.producto_id)
+        .where(*filtros)
+        .order_by(Producto.nombre, LoteInventario.fecha_ingreso.asc().nulls_last(), LoteInventario.id)
+        .limit(limite)
+    ).all()
+
+    resultado = []
+    for (
+        lote_id,
+        codigo_lote,
+        fecha_ingreso,
+        cantidad_inicial,
+        cantidad_disponible,
+        costo_base,
+        costo_unitario,
+        precio_venta,
+        estado,
+        origen,
+        codigo,
+        nombre,
+        unidad_base_id,
+    ) in filas:
+        cantidad = dec(cantidad_disponible)
+        resultado.append(
+            {
+                "lote_id": lote_id,
+                "codigo_lote": codigo_lote,
+                "fecha_ingreso": fecha_ingreso.isoformat() if fecha_ingreso else None,
+                "producto_codigo": codigo,
+                "producto_nombre": nombre,
+                "cantidad_inicial": num(q4(dec(cantidad_inicial))),
+                "cantidad_disponible": num(q4(cantidad)),
+                "costo_base": num(dec(costo_base)),
+                "costo_unitario": num(q2(dec(costo_unitario))),
+                "precio_venta": num(q2(dec(precio_venta))),
+                "valor_costo": num(q2(cantidad * dec(costo_base))),
+                "estado": "AGOTADO" if cantidad <= 0 else estado,
+                "origen": origen,
+            }
+        )
+    return resultado
+
+
+def ventas_por_lote(
+    db: Session, *, desde: date | None = None, hasta: date | None = None, limite: int = 200
+) -> list[dict[str, Any]]:
+    """Ventas y rentabilidad por lote (se usa el costo del lote, no el promedio)."""
+    from app.db.models import LoteInventario
+
+    inicio, fin = _periodo(desde, hasta)
+    filtros = []
+    if desde is not None or hasta is not None:
+        filtros.append(Venta.fecha.between(inicio, fin))
+
+    filas = db.execute(
+        select(
+            LoteInventario.id,
+            LoteInventario.codigo_lote,
+            Producto.codigo,
+            Producto.nombre,
+            func.coalesce(func.sum(DetalleVenta.cantidad_base), 0),
+            func.coalesce(func.sum(DetalleVenta.subtotal), 0),
+            func.coalesce(func.sum(DetalleVenta.costo_total_linea), 0),
+        )
+        .join(DetalleVenta, DetalleVenta.lote_id == LoteInventario.id)
+        .join(Venta, Venta.id == DetalleVenta.venta_id)
+        .join(Producto, Producto.id == LoteInventario.producto_id)
+        .where(Venta.estado == "CONFIRMADO", *filtros)
+        .group_by(LoteInventario.id, LoteInventario.codigo_lote, Producto.codigo, Producto.nombre)
+        .order_by(func.sum(DetalleVenta.subtotal).desc())
+        .limit(limite)
+    ).all()
+
+    resultado = []
+    for lote_id, codigo_lote, codigo, nombre, cantidad, ingresos, costo in filas:
+        ingresos_dec = dec(ingresos)
+        costo_dec = dec(costo)
+        resultado.append(
+            {
+                "lote_id": lote_id,
+                "codigo_lote": codigo_lote,
+                "producto_codigo": codigo,
+                "producto_nombre": nombre,
+                "cantidad_base": num(q4(dec(cantidad))),
+                "ingresos": num(q2(ingresos_dec)),
+                "costo": num(q2(costo_dec)),
+                "utilidad_bruta": num(q2(ingresos_dec - costo_dec)),
+            }
+        )
+    return resultado
+
+
 __all__ = [
     "abastecimientos_por_proveedor",
     "exportar_ventas_csv",
     "historico_de_costos",
+    "inventario_por_lote",
     "inventario_valorizado",
     "margen_bruto",
     "ventas_por_categoria",
+    "ventas_por_lote",
     "ventas_por_periodo",
     "ventas_por_producto",
     "ventas_por_usuario",

@@ -247,6 +247,7 @@ export interface LineaVentaIn {
   precio_unitario?: string | null;
   precio_total?: string | null;
   motivo_precio?: string | null;
+  lote_id?: number | null;
 }
 
 export interface VentaIn {
@@ -278,6 +279,10 @@ export interface LineaCalculadaVenta {
   descuento_monto: string;
   precio_permitido: boolean;
   motivo_precio?: string | null;
+  lote_id?: number | null;
+  lote_codigo?: string | null;
+  lote_fecha_ingreso?: string | null;
+  lote_stock_disponible?: string | null;
   subtotal: string;
   stock_actual_base: string;
   stock_resultante_base: string;
@@ -302,6 +307,7 @@ export interface DetalleVenta {
   precio_unitario: string;
   precio_original: string;
   motivo_precio?: string | null;
+  lote_id?: number | null;
   descuento_porcentaje: string;
   subtotal: string;
   costo_total_linea: string;
@@ -336,6 +342,7 @@ export interface LineaAbastecimientoIn {
   presentacion_id: number;
   cantidad: string;
   costo_unitario: string;
+  precio_venta?: string | null;
 }
 
 export interface AbastecimientoIn {
@@ -497,6 +504,57 @@ export interface MargenBruto {
   margen_bruto_porcentaje: string;
   /** Nota literal del backend: el margen no es utilidad neta. */
   nota: string;
+}
+
+/* --- Lotes de inventario --------------------------------------------- */
+
+export interface PrecioLote {
+  presentacion_id: number;
+  presentacion_nombre: string;
+  precio: string;
+}
+
+export interface LoteResumen {
+  id: number;
+  producto_id: number;
+  producto_codigo?: string | null;
+  producto_nombre?: string | null;
+  codigo_lote: string;
+  fecha_ingreso?: string | null;
+  cantidad_inicial: string;
+  cantidad_disponible: string;
+  costo_base: string;
+  costo_unitario: string;
+  precio_venta: string;
+  almacen_id: number;
+  abastecimiento_id?: number | null;
+  estado: string;
+  origen: string;
+  precios: PrecioLote[];
+  precio_minimo?: string | null;
+  precio_maximo?: string | null;
+  tiene_precios_distintos: boolean;
+}
+
+export interface AjusteInventario {
+  id: number;
+  numero: string;
+  almacen_id: number;
+  producto_id: number;
+  tipo: string;
+  cantidad_base: string;
+  motivo: string;
+  estado: string;
+  lote_id?: number | null;
+  created_at?: string | null;
+}
+
+export interface ResultadoImpresion {
+  ok: boolean;
+  mensaje: string;
+  numero?: string;
+  duracion_ms?: number;
+  reimpresion?: boolean;
 }
 
 /* --- Configuración del negocio e impresora ------------------------------- */

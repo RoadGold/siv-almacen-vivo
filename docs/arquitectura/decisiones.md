@@ -116,6 +116,46 @@ recomienda instalar PostgreSQL de forma nativa.
 **Motivo.** El sistema debe funcionar sin Docker y sin Internet, y el volumen de Docker sobre
 Windows muestra un rendimiento de escritura deficiente en las pruebas realizadas.
 
+## AD-15 · Inventario por lotes con precio de venta propio
+
+**Decisión.** El stock se administra por **lote**: cada línea de ingreso crea un lote con su
+cantidad, su costo y sus precios de venta por presentación. La existencia consolidada por
+(almacén, producto) se mantiene como caché y como fila bloqueada; el lote es la fuente de verdad
+del detalle.
+
+**Motivo.** El negocio compra el mismo producto a distintos precios por temporada y necesita
+poder **terminar el stock viejo al precio viejo** y **vender del nuevo al precio nuevo** en la
+misma operación, sin duplicar el producto en el catálogo.
+
+**Consecuencias.**
+
+- El precio de lista de una línea es el del lote; el de la presentación queda como precio de
+  lista y precio por defecto de los lotes nuevos.
+- El costo de una venta es el del lote: la rentabilidad deja de ser una estimación.
+- El precio de un lote es **por presentación**: un mismo lote puede venderse como saco, por kilo
+  o por medio saco, cada uno con su precio (necesario para ventas fraccionadas).
+- La existencia consolidada sigue siendo la fila que se bloquea (`SELECT ... FOR UPDATE`), y el
+  lote se bloquea después, siempre en el mismo orden: no hay interbloqueos.
+- La conciliación compara la suma de los lotes con la existencia consolidada.
+- Un producto **sin lotes** se comporta exactamente como antes (precio de la presentación y costo
+  promedio ponderado): los datos históricos y las pruebas existentes siguen valiendo.
+- La migración crea un lote `MIG-<producto>-<almacén>` por producto con stock, con el costo
+  promedio y los precios vigentes; las ventas y los movimientos históricos quedan con `lote_id`
+  nulo (lote no identificado).
+
+## AD-16 · El ajuste manual de stock se adapta, no se duplica
+
+**Decisión.** La funcionalidad de ajuste que ya existía (`POST /inventario/ajustes`, con su
+interfaz en la ficha del producto) **no se duplica**: ahora acepta `lote_id` y, si el producto
+tiene varios lotes con existencias, obliga a elegir uno.
+
+**Motivo.** El documento de requerimiento pide expressly no crear un segundo mecanismo de
+modificación de stock. Además, repartir un ajuste entre lotes sin que el usuario lo elija
+generaría existencias incoherentes con la trazabilidad.
+
+**Consecuencia.** Con un solo lote, la experiencia es la misma de siempre (un clic). Con varios,
+el panel muestra los lotes con su stock y el impacto sobre el lote elegido.
+
 ## AD-14 · API en `/api/v1` con sobre de error uniforme
 
 **Decisión.** Todas las respuestas de error usan `{ "error": { "codigo", "mensaje", "detalle" } }` con

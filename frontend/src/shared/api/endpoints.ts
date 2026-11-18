@@ -33,6 +33,7 @@ import type {
   ConfiguracionNegocio,
   EstadoImpresora,
   ResultadoImpresion,
+  LoteResumen,
   ResultadoInventarioInicial,
   AjusteInventario,
   ResumenDashboard,
@@ -197,6 +198,7 @@ export const inventarioApi = {
   movimientos: (filtros: {
     producto_id?: number | null;
     almacen_id?: number | null;
+    lote_id?: number | null;
     tipo?: string | null;
     desde?: string | null;
     hasta?: string | null;
@@ -206,6 +208,7 @@ export const inventarioApi = {
     api.get<Pagina<Movimiento>>('/inventario/movimientos', {
       producto_id: filtros.producto_id ?? undefined,
       almacen_id: filtros.almacen_id ?? undefined,
+      lote_id: filtros.lote_id ?? undefined,
       tipo: filtros.tipo ?? undefined,
       desde: filtros.desde ?? undefined,
       hasta: filtros.hasta ?? undefined,
@@ -219,6 +222,8 @@ export const inventarioApi = {
     producto_id: number;
     cantidad_base: string;
     motivo: string;
+    /** Lote afectado: obligatorio si el producto tiene varios lotes con stock. */
+    lote_id?: number | null;
   }) => api.post<AjusteInventario>('/inventario/ajustes', cuerpo),
   /** Carga inicial de existencias: es una operación administrativa, no una compra. */
   inventarioInicial: (cuerpo: {
@@ -245,6 +250,30 @@ export const ventasApi = {
   imprimir: (id: number) => api.post<ResultadoImpresion>(`/ventas/${id}/imprimir`),
   anular: (id: number, motivo: string) =>
     api.post<Venta>(`/ventas/${id}/anular`, { motivo }),
+};
+
+/* --- Lotes de inventario ------------------------------------------------ */
+
+export const lotesApi = {
+  listar: (
+    productoId: number,
+    opciones?: { almacen_id?: number | null; solo_con_stock?: boolean },
+  ) =>
+    api.get<LoteResumen[]>(`/lotes/producto/${productoId}`, {
+      almacen_id: opciones?.almacen_id ?? undefined,
+      solo_con_stock: opciones?.solo_con_stock ?? undefined,
+    }),
+  obtener: (loteId: number) => api.get<LoteResumen>(`/lotes/${loteId}`),
+  actualizarPrecio: (
+    loteId: number,
+    cuerpo: { presentacion_id: number; precio: string; motivo?: string },
+  ) =>
+    api.patch<{
+      lote_id: number;
+      presentacion_id: number;
+      precio_anterior: string;
+      precio_nuevo: string;
+    }>(`/lotes/${loteId}/precios`, cuerpo),
 };
 
 /* --- Configuración del negocio ------------------------------------------ */

@@ -21,6 +21,9 @@ class LineaVentaIn(BaseModel):
         description="Total a cobrar por la línea; el precio unitario se deriva de él.",
     )
     motivo_precio: str | None = Field(default=None, max_length=120)
+    lote_id: int | None = Field(
+        default=None, description="Lote del que sale la mercadería (si el producto tiene lotes)."
+    )
 
     @field_validator("cantidad", mode="before")
     @classmethod
@@ -100,6 +103,7 @@ class DetalleVentaOut(BaseModel):
     precio_unitario: str
     precio_original: str = "0"
     motivo_precio: str | None = None
+    lote_id: int | None = None
     descuento_porcentaje: str = "0"
     subtotal: str
     costo_total_linea: str = "0"

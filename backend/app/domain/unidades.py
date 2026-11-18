@@ -32,19 +32,19 @@ class ErrorValidacionUnidad(ErrorNegocio):
     http_status = 400
 
 
-def q2(value: Decimal) -> Decimal:
+def q2(value: object) -> Decimal:
     """Redondeo monetario a 2 decimales (half-up)."""
-    return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return dec(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def q4(value: Decimal) -> Decimal:
+def q4(value: object) -> Decimal:
     """Redondeo de cantidades a 4 decimales."""
-    return value.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+    return dec(value).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
 
 
-def q6(value: Decimal) -> Decimal:
+def q6(value: object) -> Decimal:
     """Redondeo de costos unitarios a 6 decimales."""
-    return value.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+    return dec(value).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
 
 
 def num(value: object) -> str:

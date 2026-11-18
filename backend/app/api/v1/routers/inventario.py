@@ -75,6 +75,7 @@ def ficha_producto(
 def movimientos(
     producto_id: int | None = None,
     almacen_id: int | None = None,
+    lote_id: int | None = None,
     tipo: str | None = None,
     desde: date | None = None,
     hasta: date | None = None,
@@ -87,6 +88,7 @@ def movimientos(
         db,
         producto_id=producto_id,
         almacen_id=almacen_id,
+        lote_id=lote_id,
         tipo=tipo,
         desde=desde,
         hasta=hasta,
@@ -125,6 +127,7 @@ def crear_ajuste(
         cantidad_base=datos.cantidad_base,
         motivo=datos.motivo,
         usuario_id=usuario.id,
+        lote_id=datos.lote_id,
     )
     auditoria.registrar(
         db,

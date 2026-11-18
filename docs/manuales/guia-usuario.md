@@ -464,6 +464,80 @@ Para activarla hay que editar el archivo `.env` y reiniciar el servidor (ver la
 
 ---
 
+## 7 quater. LOTES · Productos con varios precios
+
+Un mismo producto puede entrar al almacén varias veces a precios distintos (temporadas,
+proveedores). Cada entrada crea un **lote** con su propio stock, su costo y **su precio de
+venta**. El producto se registra **una sola vez** en el catálogo.
+
+### 7.4.1 Recibir mercadería con su precio
+
+En **RECEBIR**, cada línea de ingreso tiene ahora tres campos:
+
+| Campo | Qué se escribe |
+|---|---|
+| Cantidad | Cuántas unidades entran |
+| Costo unitario | Lo que se pagó por unidad de esa presentación |
+| **Precio de venta** | Lo que se cobrará por esa unidad **en ese lote** |
+
+El precio de venta viene precargado con el de la presentación y se puede cambiar. **Los lotes
+anteriores no se tocan**: el lote viejo sigue a su precio y el nuevo entra al suyo.
+
+```
+Producto: Arroz granulado (saco 50 kg)
+
+ Lote                     Ingreso   Stock   Costo   Precio de venta
+ ARROZ-SACOS-L001         enero     10 sacos  S/ 150    S/ 170,00
+ ARROZ-SACOS-L002         marzo     20 sacos  S/ 160    S/ 180,00
+ Stock total: 30 sacos
+```
+
+### 7.4.2 Vender cuando hay varios lotes
+
+Al agregar un producto con varios lotes, la caja abre el **selector de lote**:
+
+```
+ ELEGIR EL LOTE DE VENTA                       Arroz granulado (saco 50 kg)
+ Lote            Ingreso   Stock    Precio    Cantidad      Importe
+ ARROZ-SACOS-L001 enero     10 sacos S/ 170,00  [ 2 ]         S/ 340,00
+ ARROZ-SACOS-L002 marzo     20 sacos S/ 180,00  [     ]      S/ 0,00
+                                                  Total: S/ 340,00
+```
+
+- El sistema **propone el lote más antiguo** (para terminar el stock viejo, que es lo que
+  conviene hacer), pero el cajero puede elegir otro o repartir la cantidad entre varios.
+- Cada línea del carrito muestra el **código del lote** y el importe de cada línea.
+- Si la venta combina varios lotes del mismo producto, cada uno tiene su precio y el total
+  se calcula con el precio que corresponde a cada lote.
+
+> El precio de un lote se puede cambiar en cualquier momento (Administrar → la ficha del
+> producto → Lotes → Editar precio). **Las ventas ya realizadas no cambian.**
+
+### 7.4.3 Ajustar el stock de un lote concreto
+
+La función de **registrar ajuste** (ficha del producto en EXPLORAR) ahora pide **qué lote** se
+está ajustando cuando el producto tiene varios lotes con existencias:
+
+```
+Producto: Arroz granulado (saco 50 kg)
+ Lote                 Stock   Ajuste
+ ARROZ-SACOS-L001     10 sacos  [    ]
+ ARROZ-SACOS-L002     20 sacos  [ -2 ]   <- se aplica solo a este lote
+ Motivo: [ Dos sacos dañados por el manipuleo ]
+```
+
+El ajuste **nunca** se reparte solo entre lotes: si hay varios, hay que elegir uno.
+
+### 7.4.4 Ver los lotes
+
+- **Ficha del producto** (EXPLORAR): sección **Lotes** con código, fecha, stock, costo, precio
+  y estado (disponible / agotado).
+- **Kardex**: cada movimiento indica de qué lote salió o al que entró la mercadería, y se puede
+  filtrar por lote.
+- **Analizar**: *Inventario por lote* y *Ventas por lote* (con la utilidad bruta de cada lote).
+
+---
+
 ## 8. GESTIONAR · Proveedores
 
 ### 8.1 Crear un proveedor

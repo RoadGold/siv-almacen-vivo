@@ -20,7 +20,7 @@ import {
   TableRow,
 } from '@/design-system';
 import { claves } from '@/shared/api/clavesConsulta';
-import { inventarioApi } from '@/shared/api/endpoints';
+import { inventarioApi, lotesApi } from '@/shared/api/endpoints';
 import {
   abreviarUnidad,
   etiquetaEstado,
@@ -35,6 +35,7 @@ import { useRetraso } from '@/shared/hooks/useRetraso';
 import { esSinPermisos, mensajeDeError } from '@/shared/hooks/errores';
 import { useAutenticacion } from '@/shared/auth/ProveedorAutenticacion';
 import { PanelAjusteInventario, type ModoAjuste } from './PanelAjusteInventario';
+import { SeccionLotes } from './SeccionLotes';
 
 const TONO_ESTADO = {
   agotado: 'peligro',
@@ -56,6 +57,7 @@ export function Explorar() {
   const [modalAjuste, setModalAjuste] = useState<ModoAjuste | null>(null);
   const { puede } = useAutenticacion();
   const puedeAjustar = puede('inventario.ajustar');
+  const puedeEditarPrecios = puede('precios.gestionar');
 
   // Permite abrir la ficha de un producto desde otras pantallas (kardex, reportes).
   useEffect(() => {
@@ -92,6 +94,13 @@ export function Explorar() {
   const ficha = useQuery({
     queryKey: claves.ficha(productoId ?? 0),
     queryFn: () => inventarioApi.ficha(productoId!),
+    enabled: productoId !== null,
+  });
+
+  // Lotes del producto: cada uno con su stock, su costo y su precio de venta.
+  const lotes = useQuery({
+    queryKey: ['lotes', productoId ?? 0],
+    queryFn: () => lotesApi.listar(productoId!),
     enabled: productoId !== null,
   });
 
@@ -413,6 +422,16 @@ export function Explorar() {
                     </ul>
                   </section>
 
+                  <SeccionLotes
+                    productoId={ficha.data.id}
+                    lotes={lotes.data ?? []}
+                    cargando={lotes.isLoading}
+                    error={lotes.isError ? lotes.error : null}
+                    puedeEditarPrecios={puedeEditarPrecios}
+                    presentaciones={ficha.data.presentaciones}
+                    unidadBase={ficha.data.unidad_base ?? null}
+                  />
+
                   <section>
                     <h4 className="etiqueta mb-1">Proveedores conocidos</h4>
                     {ficha.data.proveedores.length === 0 ? (
@@ -553,6 +572,7 @@ export function Explorar() {
         }
         almacenId={ficha.data?.existencias?.[0]?.almacen_id ?? null}
         existenciaBase={ficha.data?.existencias?.[0]?.cantidad_base ?? '0'}
+        lotes={lotes.data ?? []}
       />
     </div>
   );

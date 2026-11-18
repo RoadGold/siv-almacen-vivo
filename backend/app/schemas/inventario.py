@@ -44,6 +44,7 @@ class MovimientoOut(BaseModel):
     origen_id: int | None = None
     referencia: str | None = None
     usuario: str | None = None
+    lote_id: int | None = None
     created_at: datetime | None = None
 
 
@@ -52,6 +53,10 @@ class AjusteIn(BaseModel):
     producto_id: int
     cantidad_base: Decimal = Field(description="Positivo suma, negativo resta.")
     motivo: str = Field(min_length=5, max_length=500)
+    lote_id: int | None = Field(
+        default=None,
+        description="Lote afectado. Obligatorio si el producto tiene varios lotes con stock.",
+    )
 
     @field_validator("cantidad_base", mode="before")
     @classmethod

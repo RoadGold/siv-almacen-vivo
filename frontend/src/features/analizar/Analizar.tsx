@@ -27,12 +27,15 @@ import {
   PanelConsulta,
   TablaAbastecimientosPorProveedor,
   TablaHistoricoCostos,
+  TablaInventarioPorLote,
   TablaInventarioValorizado,
   TablaPorCategoria,
   TablaPorDia,
   TablaPorProducto,
   TablaPorUsuario,
+  TablaVentasPorLote,
 } from './TablasReporte';
+import { reportesLoteApi } from './apiReportesLote';
 
 type VistaDetalle = 'producto' | 'categoria' | 'usuario';
 
@@ -94,6 +97,51 @@ export function Analizar() {
     queryKey: claves.reportes.inventario({}),
     queryFn: () => reportesApi.inventario(),
   });
+
+  // Inventario desglosado por lote: cada lote con su stock, costo y precio.
+  const inventarioLote = useQuery({
+    queryKey: ['reportes', 'inventario-por-lote'],
+    queryFn: () => reportesLoteApi.inventarioPorLote({ limite: 200 }),
+  });
+
+  // Ventas y rentabilidad por lote del periodo seleccionado.
+  const ventasLote = useQuery({
+    queryKey: ['reportes', 'ventas-por-lote', periodo],
+    queryFn: () => reportesLoteApi.ventasPorLote({ ...periodo, limite: 200 }),
+  });
+
+  const valorInventarioLote = useMemo(
+    () =>
+      (inventarioLote.data ?? []).reduce(
+        (total, fila) => total.suma(fila.valor_costo),
+        Decimal.cero(),
+      ),
+    [inventarioLote.data],
+  );
+
+  const ingresosPorLote = useMemo(
+    () =>
+      (ventasLote.data ?? []).reduce(
+        (total, fila) => total.suma(fila.ingresos),
+        Decimal.cero(),
+      ),
+    [ventasLote.data],
+  );
+
+  const costoPorLote = useMemo(
+    () =>
+      (ventasLote.data ?? []).reduce((total, fila) => total.suma(fila.costo), Decimal.cero()),
+    [ventasLote.data],
+  );
+
+  const utilidadPorLote = useMemo(
+    () =>
+      (ventasLote.data ?? []).reduce(
+        (total, fila) => total.suma(fila.utilidad_bruta),
+        Decimal.cero(),
+      ),
+    [ventasLote.data],
+  );
 
   const valorInventario = useMemo(
     () =>
@@ -302,6 +350,83 @@ export function Analizar() {
           onReintentar={() => void costos.refetch()}
         >
           <TablaHistoricoCostos filas={costos.data ?? []} />
+        </PanelConsulta>
+      </Card>
+
+      {/* --- Inventario por lote --- */}
+      <section aria-label="Resumen del inventario por lote" className="grid gap-4 sm:grid-cols-3">
+        <TarjetaResumen
+          titulo="Lotes con existencias"
+          valor={formatearNumero(
+            (inventarioLote.data ?? []).filter((fila) => fila.estado !== 'AGOTADO').length,
+            0,
+          )}
+          detalle={`${formatearNumero(inventarioLote.data?.length ?? 0, 0)} lote(s) en total`}
+          cargando={inventarioLote.isLoading}
+        />
+        <TarjetaResumen
+          titulo="Lotes agotados"
+          valor={formatearNumero(
+            (inventarioLote.data ?? []).filter((fila) => fila.estado === 'AGOTADO').length,
+            0,
+          )}
+          detalle="Lotes sin existencias: conservan su trazabilidad"
+          cargando={inventarioLote.isLoading}
+        />
+        <TarjetaResumen
+          titulo="Valor del inventario por lote"
+          valor={formatearMoneda(valorInventarioLote)}
+          detalle="Suma del valor al costo de cada lote"
+          cargando={inventarioLote.isLoading}
+        />
+      </section>
+
+      <Card
+        titulo="Inventario por lote"
+        subtitulo="Stock, costo y precio de venta de cada lote de inventario"
+      >
+        <PanelConsulta
+          cargando={inventarioLote.isLoading}
+          error={inventarioLote.isError ? inventarioLote.error : null}
+          onReintentar={() => void inventarioLote.refetch()}
+        >
+          <TablaInventarioPorLote filas={inventarioLote.data ?? []} />
+        </PanelConsulta>
+      </Card>
+
+      {/* --- Ventas por lote --- */}
+      <section aria-label="Resumen de ventas por lote" className="grid gap-4 sm:grid-cols-3">
+        <TarjetaResumen
+          titulo="Ingresos por lote"
+          valor={formatearMoneda(ingresosPorLote)}
+          detalle="Ventas del periodo agrupadas por lote"
+          cargando={ventasLote.isLoading}
+        />
+        <TarjetaResumen
+          titulo="Costo por lote"
+          valor={formatearMoneda(costoPorLote)}
+          detalle="Costo de la mercadería vendida"
+          cargando={ventasLote.isLoading}
+        />
+        <TarjetaResumen
+          titulo="Utilidad bruta por lote"
+          valor={formatearMoneda(utilidadPorLote)}
+          detalle="Ingresos menos costo"
+          destacado
+          cargando={ventasLote.isLoading}
+        />
+      </section>
+
+      <Card
+        titulo="Ventas por lote"
+        subtitulo="Ingresos, costo y utilidad bruta de cada lote en el periodo"
+      >
+        <PanelConsulta
+          cargando={ventasLote.isLoading}
+          error={ventasLote.isError ? ventasLote.error : null}
+          onReintentar={() => void ventasLote.refetch()}
+        >
+          <TablaVentasPorLote filas={ventasLote.data ?? []} />
         </PanelConsulta>
       </Card>
 

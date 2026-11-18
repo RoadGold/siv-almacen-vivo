@@ -33,6 +33,7 @@ from app.domain.unidades import (
     q6,
 )
 from app.services import inventario
+from app.services import lotes as servicio_lotes
 from app.services.secuencias import siguiente_numero
 
 
@@ -170,6 +171,47 @@ def confirmar(db: Session, payload: dict[str, Any], usuario_id: int) -> Abasteci
         costo = dec(linea["costo_unitario"])
         subtotal = q2(cantidad * costo)
         costo_base = q6(costo / dec(presentacion.factor_base))
+        precio_venta = (
+            dec(linea["precio_venta"])
+            if linea.get("precio_venta") is not None
+            else dec(presentacion.precio_venta)
+        )
+        fecha_lote = linea.get("fecha_ingreso") or fecha
+
+        # El detalle se guarda primero para que el lote pueda referenciarlo.
+        detalle = DetalleAbastecimiento(
+            abastecimiento_id=abastecimiento.id,
+            producto_id=producto.id,
+            presentacion_id=presentacion.id,
+            cantidad=q4(cantidad),
+            factor_snapshot=dec(presentacion.factor_base),
+            cantidad_base=q4(conversion.cantidad_base),
+            costo_unitario=q2(costo),
+            costo_base=costo_base,
+            subtotal=subtotal,
+        )
+        db.add(detalle)
+        db.flush()
+
+        # Cada línea de ingreso crea un LOTE con su costo y su precio de venta.
+        # Los lotes anteriores no se tocan.
+        lote = servicio_lotes.crear_lote(
+            db,
+            producto_id=producto.id,
+            almacen_id=almacen.id,
+            cantidad_base=conversion.cantidad_base,
+            cantidad_inicial=conversion.cantidad_base,
+            costo_base=costo_base,
+            costo_unitario=costo,
+            precio_venta=precio_venta,
+            presentacion_id=presentacion.id,
+            fecha_ingreso=fecha_lote,
+            abastecimiento_id=abastecimiento.id,
+            detalle_abastecimiento_id=detalle.id,
+            usuario_id=usuario_id,
+            origen="RECEPCION",
+        )
+        detalle.lote_id = lote.id
 
         inventario.aplicar_entrada(
             db,
@@ -182,20 +224,7 @@ def confirmar(db: Session, payload: dict[str, Any], usuario_id: int) -> Abasteci
             origen_id=abastecimiento.id,
             usuario_id=usuario_id,
             referencia=abastecimiento.numero,
-        )
-
-        db.add(
-            DetalleAbastecimiento(
-                abastecimiento_id=abastecimiento.id,
-                producto_id=producto.id,
-                presentacion_id=presentacion.id,
-                cantidad=q4(cantidad),
-                factor_snapshot=dec(presentacion.factor_base),
-                cantidad_base=q4(conversion.cantidad_base),
-                costo_unitario=q2(costo),
-                costo_base=costo_base,
-                subtotal=subtotal,
-            )
+            lote_id=lote.id,
         )
         total += subtotal
 
@@ -241,6 +270,7 @@ def anular(db: Session, abastecimiento_id: int, motivo: str, usuario_id: int) ->
             origen_id=abastecimiento.id,
             usuario_id=usuario_id,
             referencia=abastecimiento.numero,
+            lote_id=detalle.lote_id,
         )
 
     abastecimiento.estado = "REVERTIDO"
@@ -256,6 +286,7 @@ def abastecimiento_a_dict(abastecimiento: Abastecimiento) -> dict[str, Any]:
     for d in abastecimiento.detalles:
         producto = d.producto
         presentacion = d.presentacion
+        lote = d.lote
         detalles.append(
             {
                 "id": d.id,
@@ -266,6 +297,8 @@ def abastecimiento_a_dict(abastecimiento: Abastecimiento) -> dict[str, Any]:
                 "cantidad_base": num(q4(dec(d.cantidad_base))),
                 "costo_unitario": num(q2(dec(d.costo_unitario))),
                 "subtotal": num(q2(dec(d.subtotal))),
+                "lote_id": d.lote_id,
+                "lote_codigo": lote.codigo_lote if lote is not None else None,
                 "producto_codigo": producto.codigo if producto else None,
                 "producto_nombre": producto.nombre if producto else None,
                 "presentacion_nombre": presentacion.nombre if presentacion else None,

@@ -155,12 +155,43 @@ class ProductoOut(BaseModel):
 
 
 class ProductoFicha(ProductoOut):
-    """Ficha viva: producto + existencias + últimos movimientos."""
+    """Ficha viva: producto + existencias + lotes + últimos movimientos."""
 
     existencias: list["ExistenciaResumen"] = Field(default_factory=list)
     proveedores: list["ProveedorProductoResumen"] = Field(default_factory=list)
     ultimo_costo: str | None = None
     movimientos_recientes: list["MovimientoResumen"] = Field(default_factory=list)
+    lotes: list["LoteResumen"] = Field(default_factory=list)
+
+
+class LoteResumen(BaseModel):
+    """Lote de inventario con su stock, costo y precios de venta."""
+
+    id: int
+    producto_id: int
+    producto_codigo: str | None = None
+    producto_nombre: str | None = None
+    codigo_lote: str
+    fecha_ingreso: str | None = None
+    cantidad_inicial: str = "0"
+    cantidad_disponible: str = "0"
+    costo_base: str = "0"
+    costo_unitario: str = "0"
+    precio_venta: str = "0"
+    almacen_id: int
+    abastecimiento_id: int | None = None
+    estado: str = "ACTIVO"
+    origen: str = "RECEPCION"
+    precios: list["PrecioLote"] = Field(default_factory=list)
+    precio_minimo: str | None = None
+    precio_maximo: str | None = None
+    tiene_precios_distintos: bool = False
+
+
+class PrecioLote(BaseModel):
+    presentacion_id: int
+    presentacion_nombre: str = ""
+    precio: str = "0"
 
 
 class ExistenciaResumen(BaseModel):
