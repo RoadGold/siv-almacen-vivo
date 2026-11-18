@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Badge, Button, Input, Select } from '@/design-system';
+import { Badge, Button, Field, Input, Select } from '@/design-system';
 import { Decimal } from '@/shared/format/decimal';
+import { parsearEntradaNumerica } from '@/shared/format/entrada';
 import { etiquetaEstado, formatearCantidad, formatearMoneda } from '@/shared/format/formato';
 import { lotesApi } from '@/shared/api/endpoints';
 import type { LoteResumen, Presentacion } from '@/shared/types/api';
@@ -74,8 +75,8 @@ export function FilaResultado({ resultado, onAgregar, onSeleccionarLote }: Propi
   }, [presentacionesVenta, presentacionId]);
 
   const presentacion = presentacionesVenta.find((item) => item.id === presentacionId);
-  const cantidadDecimal = Decimal.desde(cantidad);
-  const valida = Boolean(presentacion) && cantidadDecimal.comparar(0) > 0;
+  const cantidadNumero = parsearEntradaNumerica(cantidad);
+  const cantidadValida = cantidadNumero !== '' && Decimal.desde(cantidadNumero).comparar(0) > 0;
 
   /**
    * Al añadir se consultan los lotes del producto:
@@ -83,7 +84,7 @@ export function FilaResultado({ resultado, onAgregar, onSeleccionarLote }: Propi
    * - varios lotes → el cajero elige (o se reparten con PEPS).
    */
   async function agregar() {
-    if (!presentacion || !valida) return;
+    if (!presentacion || !cantidadValida) return;
     setConsultando(true);
     try {
       const lotes = await lotesApi.listar(resultado.producto_id, { solo_con_stock: true });
@@ -95,16 +96,16 @@ export function FilaResultado({ resultado, onAgregar, onSeleccionarLote }: Propi
             codigo: resultado.codigo,
           },
           presentacion,
-          cantidad: cantidadDecimal.aTexto(),
+          cantidad: cantidadNumero,
           lotes,
         });
         return;
       }
       const lote = lotes[0] ?? null;
-      onAgregar(construirLinea(resultado, presentacion, cantidadDecimal, lote));
+      onAgregar(construirLinea(resultado, presentacion, Decimal.desde(cantidadNumero), lote));
     } catch {
       // Si no se pueden consultar los lotes, se cobra al precio de la presentacion.
-      onAgregar(construirLinea(resultado, presentacion, cantidadDecimal, null));
+      onAgregar(construirLinea(resultado, presentacion, Decimal.desde(cantidadNumero), null));
     } finally {
       setConsultando(false);
     }
@@ -135,49 +136,61 @@ export function FilaResultado({ resultado, onAgregar, onSeleccionarLote }: Propi
 
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <div className="min-w-[190px] flex-1">
-          <label htmlFor={`presentacion-${resultado.producto_id}`} className="sr-only">
-            Presentación de venta para {resultado.nombre}
-          </label>
-          <Select
-            id={`presentacion-${resultado.producto_id}`}
-            value={presentacionId || ''}
-            onChange={(evento) => setPresentacionId(Number(evento.target.value))}
-            disabled={presentacionesVenta.length === 0}
+          <Field
+            htmlFor={`presentacion-${resultado.producto_id}`}
+            etiqueta="Presentación de venta"
+            ejemplo="botella"
+            compacto
           >
-            {presentacionesVenta.length === 0 ? (
-              <option value="">Sin presentaciones de venta</option>
-            ) : null}
-            {presentacionesVenta.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.nombre} · {formatearMoneda(item.precio_venta)}
-              </option>
-            ))}
-          </Select>
+            <Select
+              id={`presentacion-${resultado.producto_id}`}
+              value={presentacionId || ''}
+              onChange={(evento) => setPresentacionId(Number(evento.target.value))}
+              disabled={presentacionesVenta.length === 0}
+            >
+              {presentacionesVenta.length === 0 ? (
+                <option value="">Sin presentaciones de venta</option>
+              ) : null}
+              {presentacionesVenta.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nombre} · {formatearMoneda(item.precio_venta)}
+                </option>
+              ))}
+            </Select>
+          </Field>
         </div>
 
         <div className="w-[110px]">
-          <label htmlFor={`cantidad-${resultado.producto_id}`} className="sr-only">
-            Cantidad para {resultado.nombre}
-          </label>
-          <Input
-            id={`cantidad-${resultado.producto_id}`}
-            className="numero"
-            inputMode="decimal"
-            value={cantidad}
-            onChange={(evento) => setCantidad(evento.target.value)}
-            onKeyDown={(evento) => {
-              if (evento.key === 'Enter') {
-                evento.preventDefault();
-                void agregar();
-              }
-            }}
-          />
+          <Field
+            htmlFor={`cantidad-${resultado.producto_id}`}
+            etiqueta="Cantidad"
+            ejemplo="1"
+            compacto
+            error={
+              cantidad !== '' && !cantidadValida ? 'Debe ser un número mayor que cero.' : undefined
+            }
+          >
+            <Input
+              id={`cantidad-${resultado.producto_id}`}
+              className="numero"
+              inputMode="decimal"
+              invalido={cantidad !== '' && !cantidadValida}
+              value={cantidad}
+              onChange={(evento) => setCantidad(evento.target.value)}
+              onKeyDown={(evento) => {
+                if (evento.key === 'Enter') {
+                  evento.preventDefault();
+                  void agregar();
+                }
+              }}
+            />
+          </Field>
         </div>
 
         <Button
           variante="secundario"
           onClick={() => void agregar()}
-          disabled={!valida || consultando}
+          disabled={!cantidadValida || consultando}
           cargando={consultando}
           textoCargando="Buscando lotes…"
         >

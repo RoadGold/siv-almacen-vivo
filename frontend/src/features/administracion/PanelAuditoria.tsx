@@ -6,6 +6,7 @@ import {
   Card,
   CardBody,
   EmptyState,
+  Field,
   LoadingBlock,
   Notice,
   Select,
@@ -51,23 +52,26 @@ export function PanelAuditoria() {
     >
       <CardBody className="flex flex-wrap items-end gap-3 pb-2">
         <div className="w-[240px]">
-          <label htmlFor="admin-filtro-auditoria" className="mb-1 block text-sm font-semibold">
-            Entidad
-          </label>
-          <Select
-            id="admin-filtro-auditoria"
-            value={entidad}
-            onChange={(evento) => {
-              setEntidad(evento.target.value);
-              setPagina(1);
-            }}
+          <Field
+            htmlFor="admin-filtro-auditoria"
+            etiqueta="Entidad"
+            ayuda="Ejemplo: venta, usuario o ajuste."
           >
-            {ENTIDADES.map((item) => (
-              <option key={item.valor} value={item.valor}>
-                {item.texto}
-              </option>
-            ))}
-          </Select>
+            <Select
+              id="admin-filtro-auditoria"
+              value={entidad}
+              onChange={(evento) => {
+                setEntidad(evento.target.value);
+                setPagina(1);
+              }}
+            >
+              {ENTIDADES.map((item) => (
+                <option key={item.valor} value={item.valor}>
+                  {item.texto}
+                </option>
+              ))}
+            </Select>
+          </Field>
         </div>
       </CardBody>
 

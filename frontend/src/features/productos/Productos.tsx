@@ -145,19 +145,21 @@ export function Productos() {
         <CardBody className="pb-2">
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-[260px] flex-1">
-              <label htmlFor="buscador-productos" className="mb-1 block text-sm font-semibold">
-                Buscar producto
-              </label>
-              <Input
-                id="buscador-productos"
-                value={busqueda}
-                onChange={(evento) => {
-                  setBusqueda(evento.target.value);
-                  setPagina(1);
-                }}
-                placeholder="Nombre, código o descripción…"
-                autoComplete="off"
-              />
+              <Field
+                htmlFor="buscador-productos"
+                etiqueta="Buscar producto"
+                ejemplo="Nombre, código o descripción…"
+              >
+                <Input
+                  id="buscador-productos"
+                  value={busqueda}
+                  onChange={(evento) => {
+                    setBusqueda(evento.target.value);
+                    setPagina(1);
+                  }}
+                  autoComplete="off"
+                />
+              </Field>
             </div>
           </div>
         </CardBody>
@@ -332,11 +334,15 @@ function FormularioEdicion({
         </Notice>
       ) : null}
 
-      <Field htmlFor="edicion-nombre" etiqueta="Nombre" obligatorio>
+      <Field htmlFor="edicion-nombre" etiqueta="Nombre" ejemplo="Arroz a granel" obligatorio>
         <Input id="edicion-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
       </Field>
 
-      <Field htmlFor="edicion-descripcion" etiqueta="Descripción">
+      <Field
+        htmlFor="edicion-descripcion"
+        etiqueta="Descripción"
+        ejemplo="Arroz pilado de la marca Genérica"
+      >
         <Input
           id="edicion-descripcion"
           value={descripcion}
@@ -347,6 +353,7 @@ function FormularioEdicion({
       <Field
         htmlFor="edicion-stock-minimo"
         etiqueta="Stock mínimo"
+        ejemplo="10000"
         ayuda={`Expresado en ${(producto.unidad_base ?? 'unidad base').toLowerCase()}.`}
       >
         <Input

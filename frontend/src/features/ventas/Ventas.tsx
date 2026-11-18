@@ -107,7 +107,11 @@ export function Ventas() {
       <Card titulo="Filtros">
         <CardBody className="flex flex-wrap items-end gap-3">
           <div className="w-[150px]">
-            <Field htmlFor="ventas-desde" etiqueta="Desde">
+            <Field
+              htmlFor="ventas-desde"
+              etiqueta="Desde"
+              ayuda="El navegador muestra la fecha como dd/mm/aaaa."
+            >
               <Input
                 id="ventas-desde"
                 type="date"
@@ -120,7 +124,11 @@ export function Ventas() {
             </Field>
           </div>
           <div className="w-[150px]">
-            <Field htmlFor="ventas-hasta" etiqueta="Hasta">
+            <Field
+              htmlFor="ventas-hasta"
+              etiqueta="Hasta"
+              ayuda="El navegador muestra la fecha como dd/mm/aaaa."
+            >
               <Input
                 id="ventas-hasta"
                 type="date"
@@ -133,7 +141,11 @@ export function Ventas() {
             </Field>
           </div>
           <div className="w-[170px]">
-            <Field htmlFor="ventas-estado" etiqueta="Estado">
+            <Field
+              htmlFor="ventas-estado"
+              etiqueta="Estado"
+              ayuda="Ejemplo: Confirmadas o Anuladas."
+            >
               <select
                 id="ventas-estado"
                 value={estado}
@@ -430,13 +442,13 @@ export function Ventas() {
         <Field
           htmlFor="motivo-anulacion"
           etiqueta="Motivo de la anulación"
+          ejemplo="Error de digitación en la caja"
           ayuda="Obligatorio (mínimo 5 caracteres). Queda registrado en la auditoría."
         >
           <Textarea
             id="motivo-anulacion"
             value={motivo}
             onChange={(evento) => setMotivo(evento.target.value)}
-            placeholder="Por ejemplo: error de digitación en la caja"
           />
         </Field>
       </Modal>

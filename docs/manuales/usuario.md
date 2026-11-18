@@ -37,6 +37,10 @@ lo que no existe. Ajuste la cantidad y vuelva a confirmar.
 
 **Atajos**: `F3` enfoca el buscador · `Esc` limpia el panel.
 
+**Cómo escribir las cantidades**: el sistema entiende `1.000`, `1,000` y `1 000` como mil, y
+`12,50` como 12,50. Cada cuadro muestra el nombre del dato y un ejemplo. Si una cantidad queda en
+cero o vacía, el aviso aparece en la misma línea y el botón de confirmar se queda apagado.
+
 ## 3. RECIBIR — registrar la mercadería que llegó
 
 1. En **RECIBIR**, elija el **proveedor** (paso 1).
@@ -47,6 +51,9 @@ lo que no existe. Ajuste la cantidad y vuelva a confirmar.
 
 **¿Falta un producto en el catálogo?** Créelo desde la misma pantalla con **+ Nuevo producto**; la
 recepción en curso no se pierde.
+
+**Si una línea sale marcada en rojo**: la cantidad no es un número o no es mayor que cero. Corrija
+esa línea y el botón **Revisar y confirmar** se vuelve a encender.
 
 ## 4. EXPLORAR — consultar stock y movimientos
 

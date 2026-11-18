@@ -114,6 +114,24 @@ Debajo están los accesos rápidos a **Analizar**, **Gestionar productos** y **P
 | **Reverso** | La contramovimiento que devuelve el stock de una venta anulada o retira el de un ingreso revertido. La operación original **se conserva**. |
 | **Huella** | La línea de tiempo de movimientos de un producto: qué entró, qué salió, quién y por qué. |
 
+### 2 bis. Cómo escribir las cantidades y los precios
+
+Todos los cuadros del sistema llevan **el nombre del dato** encima y **un ejemplo** de lo que se
+debe escribir. El sistema entiende las dos notaciones que se usan en el Perú, así que se puede
+escribir como se lee en voz alta:
+
+| Se escribe | El sistema entiende | Nota |
+|---|---|---|
+| `1.000` | 1000 | Miles: punto, coma o espacio. La parte entera va de 1 a 3 cifras y los tres decimales son exactos. |
+| `1,000` | 1000 | Igual que el punto. |
+| `1 000` | 1000 | Con espacio. |
+| `12,50` | 12.50 | Decimal: coma con uno o dos decimales. |
+| `0,750` | 0.750 | Decimal: la parte entera es 0, así que no son miles. |
+| `1.234,56` | 1234.56 | Miles y decimal a la vez. |
+
+Si la cantidad queda en **0** o vacía, el sistema lo avisa **en la misma línea** y el botón de
+confirmar permanece apagado hasta corregirlo: no se registra nada a medias.
+
 ---
 
 ## 3. VENDER · Registrar una venta

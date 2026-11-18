@@ -22,6 +22,7 @@ import {
 import { claves } from '@/shared/api/clavesConsulta';
 import { abastecimientosApi, catalogoApi, proveedoresApi } from '@/shared/api/endpoints';
 import { Decimal } from '@/shared/format/decimal';
+import { parsearEntradaNumerica } from '@/shared/format/entrada';
 import {
   formatearCantidad,
   formatearEnUnidadLegible,
@@ -157,11 +158,45 @@ export function Recibir() {
     );
   }
 
+  /**
+   * Revisa cada línea del ingreso: la cantidad debe ser un número mayor que
+   * cero y el costo y el precio un número no negativo.
+   */
+  const erroresLinea = useMemo(() => {
+    const errores: Record<number, string> = {};
+    lineas.forEach((linea, indice) => {
+      const cantidad = parsearEntradaNumerica(linea.cantidad);
+      const costo = parsearEntradaNumerica(linea.costo_unitario);
+      const precio = parsearEntradaNumerica(linea.precio_venta);
+      if (cantidad === '') {
+        errores[indice] = 'La cantidad no tiene un valor numérico.';
+      } else if (Decimal.desde(cantidad).comparar(0) <= 0) {
+        errores[indice] = 'La cantidad debe ser mayor que cero.';
+      } else if (costo === '') {
+        errores[indice] = 'El costo unitario no tiene un valor numérico.';
+      } else if (Decimal.desde(costo).comparar(0) < 0) {
+        errores[indice] = 'El costo unitario no puede ser negativo.';
+      } else if (precio === '') {
+        errores[indice] = 'El precio de venta no tiene un valor numérico.';
+      } else if (Decimal.desde(precio).comparar(0) < 0) {
+        errores[indice] = 'El precio de venta no puede ser negativo.';
+      }
+    });
+    return errores;
+  }, [lineas]);
+
+  const lineasInvalidas = Object.keys(erroresLinea).length;
+  const puedeConfirmar = lineas.length > 0 && lineasInvalidas === 0;
+
   const total = useMemo(
     () =>
       lineas.reduce(
         (acumulado, linea) =>
-          acumulado.suma(Decimal.desde(linea.cantidad).multiplica(linea.costo_unitario)),
+          acumulado.suma(
+            Decimal.desde(parsearEntradaNumerica(linea.cantidad)).multiplica(
+              parsearEntradaNumerica(linea.costo_unitario),
+            ),
+          ),
         Decimal.cero(),
       ),
     [lineas],
@@ -172,7 +207,7 @@ export function Recibir() {
       lineas.map((linea) => ({
         id: `${linea.producto_id}-${linea.presentacion_id}`,
         texto: `${linea.producto_nombre} +${formatearCantidad(
-          Decimal.desde(linea.cantidad).multiplica(linea.factor_base),
+          Decimal.desde(parsearEntradaNumerica(linea.cantidad)).multiplica(linea.factor_base),
         )} ${linea.unidad_base?.toLowerCase() ?? 'und'}`,
       })),
     [lineas],
@@ -187,9 +222,9 @@ export function Recibir() {
       lineas: lineas.map((linea) => ({
         producto_id: linea.producto_id,
         presentacion_id: linea.presentacion_id,
-        cantidad: linea.cantidad,
-        costo_unitario: linea.costo_unitario,
-        precio_venta: linea.precio_venta,
+        cantidad: parsearEntradaNumerica(linea.cantidad),
+        costo_unitario: parsearEntradaNumerica(linea.costo_unitario),
+        precio_venta: parsearEntradaNumerica(linea.precio_venta),
       })),
     };
   }
@@ -337,16 +372,19 @@ export function Recibir() {
           <CardBody>
             <div className="mb-4 flex flex-wrap items-end gap-2">
               <div className="min-w-[260px] flex-1">
-                <label htmlFor="buscador-proveedor" className="mb-1 block text-sm font-semibold">
-                  Buscar proveedor
-                </label>
-                <Input
-                  id="buscador-proveedor"
-                  value={busquedaProveedor}
-                  onChange={(evento) => setBusquedaProveedor(evento.target.value)}
-                  placeholder="Razón social, código o RUC…"
-                  autoComplete="off"
-                />
+                <Field
+                  htmlFor="buscador-proveedor"
+                  etiqueta="Buscar proveedor"
+                  ejemplo="Razón social, código o RUC…"
+                  compacto
+                >
+                  <Input
+                    id="buscador-proveedor"
+                    value={busquedaProveedor}
+                    onChange={(evento) => setBusquedaProveedor(evento.target.value)}
+                    autoComplete="off"
+                  />
+                </Field>
               </div>
             </div>
 
@@ -413,12 +451,11 @@ export function Recibir() {
             }
           >
             <CardBody className="grid gap-4 md:grid-cols-3">
-              <Field htmlFor="documento-ingreso" etiqueta="Documento de referencia">
+              <Field htmlFor="documento-ingreso" etiqueta="Documento de referencia" ejemplo="F001-00123">
                 <Input
                   id="documento-ingreso"
                   value={documento}
                   onChange={(evento) => setDocumento(evento.target.value)}
-                  placeholder="F001-00123"
                 />
               </Field>
               <Field htmlFor="fecha-ingreso" etiqueta="Fecha">
@@ -430,12 +467,15 @@ export function Recibir() {
                   onChange={(evento) => setFecha(evento.target.value)}
                 />
               </Field>
-              <Field htmlFor="observaciones-ingreso" etiqueta="Observaciones">
+              <Field
+                htmlFor="observaciones-ingreso"
+                etiqueta="Observaciones"
+                ejemplo="Mercadería completa, sin roturas"
+              >
                 <Input
                   id="observaciones-ingreso"
                   value={observaciones}
                   onChange={(evento) => setObservaciones(evento.target.value)}
-                  placeholder="Opcional"
                 />
               </Field>
             </CardBody>
@@ -502,13 +542,19 @@ export function Recibir() {
 
               <Card titulo="Buscar otro producto del catálogo" subtitulo="Agrega productos que no son habituales del proveedor">
                 <CardBody>
-                  <Input
-                    value={busquedaProducto}
-                    onChange={(evento) => setBusquedaProducto(evento.target.value)}
-                    placeholder="Nombre o código del producto…"
-                    aria-label="Buscar producto del catálogo para el ingreso"
-                    autoComplete="off"
-                  />
+                  <Field
+                    htmlFor="buscador-producto-ingreso"
+                    etiqueta="Buscar producto del catálogo"
+                    ejemplo="Nombre o código del producto…"
+                    compacto
+                  >
+                    <Input
+                      id="buscador-producto-ingreso"
+                      value={busquedaProducto}
+                      onChange={(evento) => setBusquedaProducto(evento.target.value)}
+                      autoComplete="off"
+                    />
+                  </Field>
 
                   {consultaCatalogo.isLoading ? (
                     <div className="mt-3">
@@ -569,60 +615,73 @@ export function Recibir() {
                           Quitar
                         </Button>
                       </div>
-                      <div className="mt-2 flex items-center gap-2">
-                        <div className="w-[88px]">
-                          <label htmlFor={`cantidad-linea-${indice}`} className="sr-only">
-                            Cantidad de {linea.producto_nombre}
-                          </label>
-                          <Input
-                            id={`cantidad-linea-${indice}`}
-                            className="numero"
-                            inputMode="decimal"
-                            value={linea.cantidad}
-                            onChange={(evento) =>
-                              cambiarCampoLinea(indice, 'cantidad', evento.target.value)
-                            }
-                          />
+                      <div className="mt-2 flex flex-wrap items-end gap-2">
+                        <div className="w-[104px]">
+                          <Field
+                            htmlFor={`cantidad-linea-${indice}`}
+                            etiqueta="Cantidad"
+                            ejemplo="10"
+                            compacto
+                            error={erroresLinea[indice]}
+                          >
+                            <Input
+                              id={`cantidad-linea-${indice}`}
+                              className="numero"
+                              inputMode="decimal"
+                              invalido={Boolean(erroresLinea[indice])}
+                              value={linea.cantidad}
+                              onChange={(evento) =>
+                                cambiarCampoLinea(indice, 'cantidad', evento.target.value)
+                              }
+                            />
+                          </Field>
                         </div>
-                        <div className="w-[110px]">
-                          <label htmlFor={`costo-linea-${indice}`} className="sr-only">
-                            Costo unitario de {linea.producto_nombre}
-                          </label>
-                          <Input
-                            id={`costo-linea-${indice}`}
-                            className="numero"
-                            inputMode="decimal"
-                            prefijo="S/"
-                            value={linea.costo_unitario}
-                            onChange={(evento) =>
-                              cambiarCampoLinea(indice, 'costo_unitario', evento.target.value)
-                            }
-                          />
+                        <div className="w-[124px]">
+                          <Field
+                            htmlFor={`costo-linea-${indice}`}
+                            etiqueta="Costo unitario"
+                            ejemplo="150.00"
+                            compacto
+                          >
+                            <Input
+                              id={`costo-linea-${indice}`}
+                              className="numero"
+                              inputMode="decimal"
+                              prefijo="S/"
+                              value={linea.costo_unitario}
+                              onChange={(evento) =>
+                                cambiarCampoLinea(indice, 'costo_unitario', evento.target.value)
+                              }
+                            />
+                          </Field>
                         </div>
-                        <span className="ml-auto text-sm font-semibold numero text-ink">
+                        <span className="ml-auto pb-1 text-sm font-semibold numero text-ink">
                           {formatearMoneda(
-                            Decimal.desde(linea.cantidad).multiplica(linea.costo_unitario),
+                            Decimal.desde(parsearEntradaNumerica(linea.cantidad)).multiplica(
+                              parsearEntradaNumerica(linea.costo_unitario),
+                            ),
                           )}
                         </span>
                       </div>
                       <div className="mt-2 flex items-end gap-2">
-                        <div className="w-[110px]">
-                          <label
+                        <div className="w-[124px]">
+                          <Field
                             htmlFor={`precio-venta-linea-${indice}`}
-                            className="mb-1 block text-xs text-muted"
+                            etiqueta="Precio de venta del lote"
+                            ejemplo="170.00"
+                            compacto
                           >
-                            Precio de venta
-                          </label>
-                          <Input
-                            id={`precio-venta-linea-${indice}`}
-                            className="numero"
-                            inputMode="decimal"
-                            prefijo="S/"
-                            value={linea.precio_venta}
-                            onChange={(evento) =>
-                              cambiarCampoLinea(indice, 'precio_venta', evento.target.value)
-                            }
-                          />
+                            <Input
+                              id={`precio-venta-linea-${indice}`}
+                              className="numero"
+                              inputMode="decimal"
+                              prefijo="S/"
+                              value={linea.precio_venta}
+                              onChange={(evento) =>
+                                cambiarCampoLinea(indice, 'precio_venta', evento.target.value)
+                              }
+                            />
+                          </Field>
                         </div>
                         <p className="pb-2 text-xs text-muted">
                           Precio del lote que crea esta línea.
@@ -645,12 +704,26 @@ export function Recibir() {
                   Cada línea de ingreso crea un lote con su propio precio y costo; los lotes
                   anteriores no cambian.
                 </p>
+                {lineasInvalidas > 0 ? (
+                  <Notice
+                    tono="error"
+                    titulo={`Hay ${lineasInvalidas} línea(s) con datos que corregir`}
+                  >
+                    <ul className="list-disc pl-5">
+                      {Object.entries(erroresLinea).map(([indice, mensaje]) => (
+                        <li key={indice}>
+                          {lineas[Number(indice)]?.producto_nombre}: {mensaje}
+                        </li>
+                      ))}
+                    </ul>
+                  </Notice>
+                ) : null}
                 <Button
                   variante="primario"
                   tamano="lg"
                   anchoCompleto
                   className="mt-3"
-                  disabled={lineas.length === 0}
+                  disabled={!puedeConfirmar}
                   onClick={() => setPaso(3)}
                 >
                   Revisar y confirmar

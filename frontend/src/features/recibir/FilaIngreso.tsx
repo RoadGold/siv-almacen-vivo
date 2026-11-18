@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Badge, Button, Input, Select } from '@/design-system';
+import { Badge, Button, Field, Input, Select } from '@/design-system';
 import { Decimal } from '@/shared/format/decimal';
+import { parsearEntradaNumerica } from '@/shared/format/entrada';
 import { formatearCantidad, formatearMoneda } from '@/shared/format/formato';
 import type { Presentacion } from '@/shared/types/api';
 
@@ -79,9 +80,13 @@ export function FilaIngreso({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presentacion?.id]);
 
-  const cantidadValida = Decimal.desde(cantidad).comparar(0) > 0;
-  const costoValido = Decimal.desde(costo).comparar(0) >= 0;
-  const precioValido = Decimal.desde(precioVenta).comparar(0) >= 0;
+  /** Valores escritos, ya normalizados (1.000 = mil, 12,50 = decimal). */
+  const cantidadNumero = parsearEntradaNumerica(cantidad);
+  const costoNumero = parsearEntradaNumerica(costo);
+  const precioNumero = parsearEntradaNumerica(precioVenta);
+  const cantidadValida = cantidadNumero !== '' && Decimal.desde(cantidadNumero).comparar(0) > 0;
+  const costoValido = costoNumero !== '' && Decimal.desde(costoNumero).comparar(0) >= 0;
+  const precioValido = precioNumero !== '' && Decimal.desde(precioNumero).comparar(0) >= 0;
 
   function agregar() {
     if (!presentacion || !cantidadValida || !costoValido || !precioValido) return;
@@ -93,9 +98,9 @@ export function FilaIngreso({
       producto_nombre: nombre,
       producto_codigo: codigo,
       unidad_base: unidadBase ?? null,
-      cantidad: Decimal.desde(cantidad).aTexto(),
-      costo_unitario: Decimal.desde(costo).aTexto(),
-      precio_venta: Decimal.desde(precioVenta).aTexto(),
+      cantidad: cantidadNumero,
+      costo_unitario: costoNumero,
+      precio_venta: precioNumero,
     });
   }
 
@@ -120,62 +125,92 @@ export function FilaIngreso({
       ) : (
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <div className="min-w-[180px] flex-1">
-            <label htmlFor={`presentacion-ingreso-${productoId}`} className="sr-only">
-              Presentación de compra de {nombre}
-            </label>
-            <Select
-              id={`presentacion-ingreso-${productoId}`}
-              value={presentacionId || ''}
-              onChange={(evento) => setPresentacionId(Number(evento.target.value))}
+            <Field
+              htmlFor={`presentacion-ingreso-${productoId}`}
+              etiqueta="Presentación de compra"
+              ejemplo="saco 50 kg"
+              compacto
             >
-              {presentacionesCompra.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nombre} · {formatearCantidad(item.factor_base)}{' '}
-                  {unidadBase?.toLowerCase() ?? 'und'}
-                </option>
-              ))}
-            </Select>
+              <Select
+                id={`presentacion-ingreso-${productoId}`}
+                value={presentacionId || ''}
+                onChange={(evento) => setPresentacionId(Number(evento.target.value))}
+              >
+                {presentacionesCompra.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.nombre} · {formatearCantidad(item.factor_base)}{' '}
+                    {unidadBase?.toLowerCase() ?? 'und'}
+                  </option>
+                ))}
+              </Select>
+            </Field>
           </div>
 
-          <div className="w-[92px]">
-            <label htmlFor={`cantidad-ingreso-${productoId}`} className="sr-only">
-              Cantidad de {nombre}
-            </label>
-            <Input
-              id={`cantidad-ingreso-${productoId}`}
-              className="numero"
-              inputMode="decimal"
-              value={cantidad}
-              onChange={(evento) => setCantidad(evento.target.value)}
-            />
+          <div className="w-[100px]">
+            <Field
+              htmlFor={`cantidad-ingreso-${productoId}`}
+              etiqueta="Cantidad"
+              ejemplo="10"
+              compacto
+              error={
+                cantidad !== '' && !cantidadValida
+                  ? 'Debe ser un número mayor que cero.'
+                  : undefined
+              }
+            >
+              <Input
+                id={`cantidad-ingreso-${productoId}`}
+                className="numero"
+                inputMode="decimal"
+                invalido={cantidad !== '' && !cantidadValida}
+                value={cantidad}
+                onChange={(evento) => setCantidad(evento.target.value)}
+              />
+            </Field>
           </div>
 
-          <div className="w-[120px]">
-            <label htmlFor={`costo-ingreso-${productoId}`} className="sr-only">
-              Costo unitario de {nombre}
-            </label>
-            <Input
-              id={`costo-ingreso-${productoId}`}
-              className="numero"
-              inputMode="decimal"
-              prefijo="S/"
-              value={costo}
-              onChange={(evento) => setCosto(evento.target.value)}
-            />
+          <div className="w-[128px]">
+            <Field
+              htmlFor={`costo-ingreso-${productoId}`}
+              etiqueta="Costo unitario"
+              ejemplo="150.00"
+              compacto
+              error={
+                costo !== '' && !costoValido ? 'No es un número válido.' : undefined
+              }
+            >
+              <Input
+                id={`costo-ingreso-${productoId}`}
+                className="numero"
+                inputMode="decimal"
+                prefijo="S/"
+                invalido={costo !== '' && !costoValido}
+                value={costo}
+                onChange={(evento) => setCosto(evento.target.value)}
+              />
+            </Field>
           </div>
 
-          <div className="w-[120px]">
-            <label htmlFor={`precio-venta-ingreso-${productoId}`} className="sr-only">
-              Precio de venta del lote de {nombre}
-            </label>
-            <Input
-              id={`precio-venta-ingreso-${productoId}`}
-              className="numero"
-              inputMode="decimal"
-              prefijo="S/"
-              value={precioVenta}
-              onChange={(evento) => setPrecioVenta(evento.target.value)}
-            />
+          <div className="w-[128px]">
+            <Field
+              htmlFor={`precio-venta-ingreso-${productoId}`}
+              etiqueta="Precio de venta del lote"
+              ejemplo="170.00"
+              compacto
+              error={
+                precioVenta !== '' && !precioValido ? 'No es un número válido.' : undefined
+              }
+            >
+              <Input
+                id={`precio-venta-ingreso-${productoId}`}
+                className="numero"
+                inputMode="decimal"
+                prefijo="S/"
+                invalido={precioVenta !== '' && !precioValido}
+                value={precioVenta}
+                onChange={(evento) => setPrecioVenta(evento.target.value)}
+              />
+            </Field>
           </div>
 
           <Button

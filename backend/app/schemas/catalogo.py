@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.domain.unidades import dec
+from app.domain.unidades import decimal_ingreso
 
 
 class UnidadMedidaOut(BaseModel):
@@ -65,7 +65,7 @@ class PresentacionIn(BaseModel):
     @field_validator("factor_base", "precio_venta", "costo_referencia", mode="before")
     @classmethod
     def _a_decimal(cls, v):
-        return dec(v)
+        return decimal_ingreso(v)
 
 
 class PresentacionUpdate(BaseModel):
@@ -82,7 +82,7 @@ class PresentacionUpdate(BaseModel):
     @field_validator("factor_base", "precio_venta", "costo_referencia", mode="before")
     @classmethod
     def _a_decimal(cls, v):
-        return None if v is None else dec(v)
+        return None if v is None else decimal_ingreso(v)
 
 
 class PresentacionOut(BaseModel):
@@ -116,7 +116,7 @@ class ProductoIn(BaseModel):
     @field_validator("stock_minimo_base", mode="before")
     @classmethod
     def _a_decimal(cls, v):
-        return dec(v)
+        return decimal_ingreso(v)
 
 
 class ProductoUpdate(BaseModel):
@@ -131,7 +131,7 @@ class ProductoUpdate(BaseModel):
     @field_validator("stock_minimo_base", mode="before")
     @classmethod
     def _a_decimal(cls, v):
-        return None if v is None else dec(v)
+        return None if v is None else decimal_ingreso(v)
 
 
 class ProductoOut(BaseModel):

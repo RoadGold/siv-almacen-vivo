@@ -129,23 +129,26 @@ export function FormularioProducto({
       ) : null}
 
       <div className="grid gap-3 md:grid-cols-2">
-        <Field htmlFor="producto-codigo" etiqueta="Código" obligatorio>
+        <Field htmlFor="producto-codigo" etiqueta="Código" ejemplo="ARZ-001" obligatorio>
           <Input
             id="producto-codigo"
             value={codigo}
             onChange={(evento) => setCodigo(evento.target.value)}
-            placeholder="ARZ-001"
           />
         </Field>
-        <Field htmlFor="producto-nombre" etiqueta="Nombre" obligatorio>
+        <Field htmlFor="producto-nombre" etiqueta="Nombre" ejemplo="Arroz a granel" obligatorio>
           <Input
             id="producto-nombre"
             value={nombre}
             onChange={(evento) => setNombre(evento.target.value)}
-            placeholder="Arroz a granel"
           />
         </Field>
-        <Field htmlFor="producto-unidad" etiqueta="Unidad base" obligatorio>
+        <Field
+          htmlFor="producto-unidad"
+          etiqueta="Unidad base"
+          ayuda="Ejemplo: UND (unidades), GR (gramos) o ML (mililitros)."
+          obligatorio
+        >
           <Select
             id="producto-unidad"
             value={unidadId}
@@ -159,7 +162,11 @@ export function FormularioProducto({
             ))}
           </Select>
         </Field>
-        <Field htmlFor="producto-categoria" etiqueta="Categoría">
+        <Field
+          htmlFor="producto-categoria"
+          etiqueta="Categoría"
+          ayuda="Ejemplo: Abarrotes."
+        >
           <Select
             id="producto-categoria"
             value={categoriaId}
@@ -176,6 +183,7 @@ export function FormularioProducto({
         <Field
           htmlFor="producto-stock-minimo"
           etiqueta="Stock mínimo"
+          ejemplo="10000"
           ayuda={`Expresado en ${unidad?.nombre.toLowerCase() ?? 'unidad base'}.`}
         >
           <Input
@@ -186,12 +194,15 @@ export function FormularioProducto({
             onChange={(evento) => setStockMinimo(evento.target.value)}
           />
         </Field>
-        <Field htmlFor="producto-descripcion" etiqueta="Descripción">
+        <Field
+          htmlFor="producto-descripcion"
+          etiqueta="Descripción"
+          ejemplo="Arroz pilado de la marca Genérica"
+        >
           <Input
             id="producto-descripcion"
             value={descripcion}
             onChange={(evento) => setDescripcion(evento.target.value)}
-            placeholder="Opcional"
           />
         </Field>
       </div>
@@ -223,20 +234,26 @@ export function FormularioProducto({
             className="flex flex-col gap-2 rounded-[6px] border border-linea px-3 py-3"
           >
             <div className="grid gap-2 md:grid-cols-4">
-              <Field htmlFor={`presentacion-nombre-${indice}`} etiqueta="Nombre">
+              <Field
+                htmlFor={`presentacion-nombre-${indice}`}
+                etiqueta="Nombre"
+                ejemplo="Saco 50 kg"
+                compacto
+              >
                 <Input
                   id={`presentacion-nombre-${indice}`}
                   value={presentacion.nombre}
                   onChange={(evento) =>
                     cambiarPresentacion(indice, 'nombre', evento.target.value)
                   }
-                  placeholder="Caja x 24"
                 />
               </Field>
               <Field
                 htmlFor={`presentacion-factor-${indice}`}
                 etiqueta="Factor de conversión"
+                ejemplo="24"
                 ayuda={`1 presentación = ${formatearCantidad(presentacion.factor_base)} ${unidad?.nombre.toLowerCase() ?? 'unidad base'}`}
+                compacto
               >
                 <Input
                   id={`presentacion-factor-${indice}`}
@@ -248,7 +265,12 @@ export function FormularioProducto({
                   }
                 />
               </Field>
-              <Field htmlFor={`presentacion-precio-${indice}`} etiqueta="Precio de venta">
+              <Field
+                htmlFor={`presentacion-precio-${indice}`}
+                etiqueta="Precio de venta"
+                ejemplo="48.00"
+                compacto
+              >
                 <Input
                   id={`presentacion-precio-${indice}`}
                   className="numero"
@@ -260,7 +282,12 @@ export function FormularioProducto({
                   }
                 />
               </Field>
-              <Field htmlFor={`presentacion-costo-${indice}`} etiqueta="Costo de referencia">
+              <Field
+                htmlFor={`presentacion-costo-${indice}`}
+                etiqueta="Costo de referencia"
+                ejemplo="36.00"
+                compacto
+              >
                 <Input
                   id={`presentacion-costo-${indice}`}
                   className="numero"

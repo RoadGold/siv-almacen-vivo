@@ -7,7 +7,50 @@ from decimal import Decimal
 import pytest
 
 from app.domain.costing import costo_promedio_tras_entrada, costo_promedio_tras_salida
-from app.domain.unidades import ErrorValidacionUnidad, convertir_a_base
+from app.domain.unidades import (
+    ErrorValidacionUnidad,
+    convertir_a_base,
+    decimal_ingreso,
+)
+
+
+class TestEntradaNumerica:
+    """La persona escribe los números como los ve en el sistema: «1.000» es mil."""
+
+    @pytest.mark.parametrize(
+        ("texto", "esperado"),
+        [
+            ("1.000", Decimal("1000")),
+            ("1 000", Decimal("1000")),
+            ("1,000", Decimal("1000")),
+            ("12.500", Decimal("12500")),
+            ("1.234.567", Decimal("1234567")),
+            ("1.234,56", Decimal("1234.56")),
+        ],
+    )
+    def test_entiende_los_miles(self, texto: str, esperado: Decimal) -> None:
+        assert decimal_ingreso(texto) == esperado
+
+    @pytest.mark.parametrize(
+        ("texto", "esperado"),
+        [
+            ("12,50", Decimal("12.50")),
+            ("0,750", Decimal("0.750")),
+            ("3,4", Decimal("3.4")),
+            ("1.5", Decimal("1.5")),
+            ("0.75", Decimal("0.75")),
+            ("170.00", Decimal("170.00")),
+            ("10", Decimal("10")),
+            ("0", Decimal("0")),
+        ],
+    )
+    def test_entiende_los_decimales(self, texto: str, esperado: Decimal) -> None:
+        assert decimal_ingreso(texto) == esperado
+
+    @pytest.mark.parametrize("texto", ["", "   ", "abc", "1,2,3", "diez"])
+    def test_rechaza_lo_que_no_es_numero(self, texto: str) -> None:
+        with pytest.raises(ValueError, match="no tiene un valor num"):
+            decimal_ingreso(texto)
 
 
 def test_caja_de_24_unidades():

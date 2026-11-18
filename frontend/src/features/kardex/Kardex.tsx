@@ -7,6 +7,7 @@ import {
   Card,
   CardBody,
   EmptyState,
+  Field,
   Input,
   LoadingBlock,
   Modal,
@@ -143,10 +144,12 @@ export function Kardex() {
 
       <Card titulo="Filtros">
         <CardBody className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <div>
-            <label htmlFor="kardex-producto" className="mb-1 block text-sm font-semibold">
-              Producto
-            </label>
+          <Field
+            htmlFor="kardex-producto"
+            etiqueta="Producto"
+            ejemplo="Nombre o código…"
+            compacto
+          >
             <SelectorProducto
               valor={productoNombre}
               onElegir={(id, nombre) => cambiarFiltro(() => {
@@ -160,12 +163,14 @@ export function Kardex() {
                 setLoteId('');
               })}
             />
-          </div>
+          </Field>
 
-          <div>
-            <label htmlFor="kardex-tipo" className="mb-1 block text-sm font-semibold">
-              Tipo de movimiento
-            </label>
+          <Field
+            htmlFor="kardex-tipo"
+            etiqueta="Tipo de movimiento"
+            ayuda="Ejemplo: Venta, Ingreso o Anulación de venta."
+            compacto
+          >
             <Select
               id="kardex-tipo"
               value={tipo}
@@ -177,12 +182,14 @@ export function Kardex() {
                 </option>
               ))}
             </Select>
-          </div>
+          </Field>
 
-          <div>
-            <label htmlFor="kardex-lote" className="mb-1 block text-sm font-semibold">
-              Lote
-            </label>
+          <Field
+            htmlFor="kardex-lote"
+            etiqueta="Lote"
+            ayuda="Los códigos de lote lucen así: F001-00123."
+            compacto
+          >
             <Select
               id="kardex-lote"
               value={loteId}
@@ -203,12 +210,14 @@ export function Kardex() {
                 Elige un producto para filtrar por sus lotes.
               </p>
             ) : null}
-          </div>
+          </Field>
 
-          <div>
-            <label htmlFor="kardex-desde" className="mb-1 block text-sm font-semibold">
-              Desde
-            </label>
+          <Field
+            htmlFor="kardex-desde"
+            etiqueta="Desde"
+            ayuda="El navegador muestra la fecha como dd/mm/aaaa."
+            compacto
+          >
             <Input
               id="kardex-desde"
               type="date"
@@ -216,12 +225,14 @@ export function Kardex() {
               value={desde}
               onChange={(evento) => cambiarFiltro(() => setDesde(evento.target.value))}
             />
-          </div>
+          </Field>
 
-          <div>
-            <label htmlFor="kardex-hasta" className="mb-1 block text-sm font-semibold">
-              Hasta
-            </label>
+          <Field
+            htmlFor="kardex-hasta"
+            etiqueta="Hasta"
+            ayuda="El navegador muestra la fecha como dd/mm/aaaa."
+            compacto
+          >
             <Input
               id="kardex-hasta"
               type="date"
@@ -229,7 +240,7 @@ export function Kardex() {
               value={hasta}
               onChange={(evento) => cambiarFiltro(() => setHasta(evento.target.value))}
             />
-          </div>
+          </Field>
         </CardBody>
       </Card>
 

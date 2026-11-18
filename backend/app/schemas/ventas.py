@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.domain.unidades import dec
+from app.domain.unidades import decimal_ingreso
 
 
 class LineaVentaIn(BaseModel):
@@ -28,12 +28,12 @@ class LineaVentaIn(BaseModel):
     @field_validator("cantidad", mode="before")
     @classmethod
     def _a_decimal(cls, v):
-        return dec(v)
+        return decimal_ingreso(v)
 
     @field_validator("precio_unitario", "precio_total", mode="before")
     @classmethod
     def _precio_a_decimal(cls, v):
-        return None if v is None else dec(v)
+        return None if v is None else decimal_ingreso(v)
 
 
 class VentaIn(BaseModel):
@@ -49,7 +49,7 @@ class VentaIn(BaseModel):
     @field_validator("monto_recibido", mode="before")
     @classmethod
     def _monto_a_decimal(cls, v):
-        return None if v is None else dec(v)
+        return None if v is None else decimal_ingreso(v)
 
     @field_validator("lineas")
     @classmethod

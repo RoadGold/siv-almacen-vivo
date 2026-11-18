@@ -200,6 +200,7 @@ export function SelectorLote({
                       type="text"
                       inputMode="decimal"
                       aria-label={`Cantidad del lote ${lote.codigo_lote}`}
+                      placeholder="0"
                       className="numero w-[88px] rounded-[6px] border border-linea bg-surface px-2 py-1 text-right text-sm text-ink"
                       value={asignado}
                       onChange={(evento) =>

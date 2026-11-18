@@ -97,21 +97,24 @@ export function PanelUsuarios() {
     <Card titulo="Usuarios" subtitulo={`${datos?.total ?? 0} usuarios registrados`}>
       <CardBody className="flex flex-wrap items-end justify-between gap-3 pb-2">
         <div className="w-[220px]">
-          <label htmlFor="admin-filtro-usuarios" className="mb-1 block text-sm font-semibold">
-            Estado
-          </label>
-          <Select
-            id="admin-filtro-usuarios"
-            value={filtroActivo}
-            onChange={(evento) => {
-              setFiltroActivo(evento.target.value);
-              setPagina(1);
-            }}
+          <Field
+            htmlFor="admin-filtro-usuarios"
+            etiqueta="Estado"
+            ayuda="Ejemplo: Solo activos o Solo inactivos."
           >
-            <option value="">Todos</option>
-            <option value="activos">Solo activos</option>
-            <option value="inactivos">Solo inactivos</option>
-          </Select>
+            <Select
+              id="admin-filtro-usuarios"
+              value={filtroActivo}
+              onChange={(evento) => {
+                setFiltroActivo(evento.target.value);
+                setPagina(1);
+              }}
+            >
+              <option value="">Todos</option>
+              <option value="activos">Solo activos</option>
+              <option value="inactivos">Solo inactivos</option>
+            </Select>
+          </Field>
         </div>
         <Button variante="primario" onClick={() => setFormulario({ usuario: null })}>
           Nuevo usuario
@@ -286,25 +289,35 @@ function ModalUsuario({
     >
       <div className="flex flex-col gap-4">
         <div className="grid gap-3 md:grid-cols-2">
-          <Field htmlFor="usuario-nombre" etiqueta="Nombre completo" obligatorio>
+          <Field
+            htmlFor="usuario-nombre"
+            etiqueta="Nombre completo"
+            ejemplo="Rosa Quispe"
+            obligatorio
+          >
             <Input
               id="usuario-nombre"
               value={nombre}
               onChange={(evento) => setNombre(evento.target.value)}
             />
           </Field>
-          <Field htmlFor="usuario-acceso" etiqueta="Nombre de acceso" obligatorio>
+          <Field
+            htmlFor="usuario-acceso"
+            etiqueta="Nombre de acceso"
+            ejemplo="vendedor1"
+            obligatorio
+          >
             <Input
               id="usuario-acceso"
               value={nombreUsuario}
               disabled={esEdicion}
               onChange={(evento) => setNombreUsuario(evento.target.value)}
-              placeholder="vendedor1"
             />
           </Field>
           <Field
             htmlFor="usuario-password"
             etiqueta={esEdicion ? 'Nueva contraseña' : 'Contraseña'}
+            ejemplo="mínimo 6 caracteres"
             obligatorio={!esEdicion}
             ayuda={esEdicion ? 'Opcional: déjala vacía para no cambiarla.' : 'Mínimo 6 caracteres.'}
           >
@@ -316,7 +329,12 @@ function ModalUsuario({
               onChange={(evento) => setPassword(evento.target.value)}
             />
           </Field>
-          <Field htmlFor="usuario-rol" etiqueta="Rol" obligatorio>
+          <Field
+            htmlFor="usuario-rol"
+            etiqueta="Rol"
+            ayuda="Ejemplo: Administrador (acceso total) o Vendedor (solo la caja y las ventas)."
+            obligatorio
+          >
             <Select id="usuario-rol" value={rol} onChange={(evento) => setRol(evento.target.value)}>
               {ROLES.map((item) => (
                 <option key={item.valor} value={item.valor}>

@@ -270,7 +270,7 @@ export function PanelAjusteInventario({
             obligatorio={requiereLote}
             ayuda={
               requiereLote
-                ? 'Este producto tiene varios lotes con existencias: el ajuste se aplica solo al lote que elijas.'
+                ? 'Este producto tiene varios lotes con existencias: el ajuste se aplica solo al lote que elijas. Los códigos lucen así: F001-00123.'
                 : `El producto tiene un único lote con existencias: el ajuste se aplicará al lote ${lotesConStock[0].codigo_lote}.`
             }
             error={faltaElegirLote ? 'Seleccione el lote para poder registrar el ajuste.' : undefined}
@@ -295,13 +295,12 @@ export function PanelAjusteInventario({
 
         <Field
           htmlFor="ajuste-cantidad"
-          etiqueta={
-            esSaldoInicial ? 'Cantidad en unidad base' : 'Cantidad (positivo suma, negativo resta)'
-          }
+          etiqueta="Cantidad"
+          ejemplo={esSaldoInicial ? '120' : '-2'}
           ayuda={
             esSaldoInicial
               ? 'Unidades, gramos o mililitros según la unidad base del producto.'
-              : 'Ejemplo: -2 para registrar una rotura de dos unidades.'
+              : 'Positivo suma existencias y negativo las resta. Ejemplo: -2 para una rotura de dos unidades.'
           }
         >
           <Input
@@ -311,14 +310,14 @@ export function PanelAjusteInventario({
             className="numero"
             value={cantidad}
             onChange={(evento) => setCantidad(evento.target.value)}
-            placeholder={esSaldoInicial ? '120' : '-2'}
           />
         </Field>
 
         {esSaldoInicial ? (
           <Field
             htmlFor="ajuste-costo"
-            etiqueta="Costo unitario en unidad base"
+            etiqueta="Costo unitario"
+            ejemplo="12,50"
             ayuda="Costo por unidad base. Si no lo conoce, deje 0 y se corregirá con el primer ingreso."
           >
             <Input
@@ -335,6 +334,7 @@ export function PanelAjusteInventario({
         <Field
           htmlFor="ajuste-motivo"
           etiqueta={esSaldoInicial ? 'Referencia del conteo' : 'Motivo del ajuste'}
+          ejemplo={esSaldoInicial ? 'Conteo de apertura' : 'Rotura durante el manipuleo'}
           ayuda={
             esSaldoInicial
               ? 'Por ejemplo: «Conteo de apertura» o «Diferencia de inventario inicial».'
@@ -346,7 +346,6 @@ export function PanelAjusteInventario({
             type="text"
             value={motivo}
             onChange={(evento) => setMotivo(evento.target.value)}
-            placeholder={esSaldoInicial ? 'Conteo de apertura' : 'Motivo del ajuste'}
           />
         </Field>
 

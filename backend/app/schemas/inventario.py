@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.domain.unidades import dec
+from app.domain.unidades import decimal_ingreso
 
 
 class ExistenciaOut(BaseModel):
@@ -61,7 +61,7 @@ class AjusteIn(BaseModel):
     @field_validator("cantidad_base", mode="before")
     @classmethod
     def _a_decimal(cls, v):
-        return dec(v)
+        return decimal_ingreso(v)
 
 
 class AjusteOut(BaseModel):

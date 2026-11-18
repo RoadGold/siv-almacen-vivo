@@ -68,6 +68,70 @@ def dec(value: object) -> Decimal:
         raise ErrorNegocio(f"Valor numérico inválido: {value!r}") from exc
 
 
+def _normalizar_miles(texto: str) -> str:
+    """Entiende la notación de miles que usa la persona al escribir.
+
+    Reglas acordadas con el negocio:
+      1.000  ·  1 000  ·  1,000   ->  1000   (miles)
+      1.234,56                   ->  1234.56 (miles y decimal)
+      12,50  ·  0,750            ->  12.50  ·  0.750 (decimal)
+      1.5                        ->  1.5    (decimal)
+
+    La interfaz ya normaliza antes de enviar, pero el backend también lo hace:
+    así una importación directa o un cliente viejo no vuelve a registrar
+    «1.000» como 1.
+    """
+    limpio = texto.replace(" ", "").replace("\u00a0", "").replace("\u202f", "")
+    if limpio == "":
+        return limpio
+
+    tiene_coma = "," in limpio
+    tiene_punto = "." in limpio
+
+    if tiene_coma and tiene_punto:
+        # 1.234,56 -> el punto es de miles y la coma es decimal.
+        limpio = limpio.replace(".", "").replace(",", ".")
+    elif tiene_coma:
+        entero, _, decimales = limpio.partition(",")
+        if len(decimales) == 3 and 1 <= len(entero) <= 3 and entero != "0":
+            # 1,000 -> miles (tres decimales y parte entera de 1 a 3).
+            limpio = entero + decimales
+        else:
+            limpio = f"{entero}.{decimales}"
+    elif tiene_punto:
+        partes = limpio.split(".")
+        decimales = partes[1:]
+        if (
+            len(partes) > 1
+            and all(len(parte) == 3 for parte in decimales)
+            and 1 <= len(partes[0]) <= 3
+            and partes[0] != "0"
+        ):
+            # 1.000 -> miles ; 1.234.567 -> millones.
+            limpio = "".join(partes)
+
+    return limpio
+
+
+def decimal_ingreso(valor: object) -> Decimal:
+    """Como `dec`, pero para lo que escribe una persona.
+
+    Entiende la notación de miles y el error sale en español y sin detalles
+    técnicos: la interfaz lo muestra tal cual bajo el campo.
+    """
+    if isinstance(valor, Decimal):
+        return valor
+    if valor is None:
+        raise ValueError("no tiene un valor numérico")
+    texto = str(valor).strip()
+    if texto == "":
+        raise ValueError("no tiene un valor numérico")
+    try:
+        return Decimal(_normalizar_miles(texto))
+    except (InvalidOperation, ValueError) as error:
+        raise ValueError("no tiene un valor numérico") from error
+
+
 @dataclass(frozen=True)
 class Conversion:
     """Resultado de convertir una cantidad de presentación a unidad base."""

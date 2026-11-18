@@ -197,7 +197,12 @@ export function Analizar() {
       <Card titulo="Periodo" subtitulo="Las cifras se calculan en el servidor con agregaciones">
         <CardBody className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-3">
-            <Field htmlFor="reporte-desde" etiqueta="Desde" className="w-[180px]">
+            <Field
+              htmlFor="reporte-desde"
+              etiqueta="Desde"
+              ayuda="El navegador muestra la fecha como dd/mm/aaaa."
+              className="w-[180px]"
+            >
               <Input
                 id="reporte-desde"
                 type="date"
@@ -206,7 +211,12 @@ export function Analizar() {
                 onChange={(evento) => setDesde(evento.target.value)}
               />
             </Field>
-            <Field htmlFor="reporte-hasta" etiqueta="Hasta" className="w-[180px]">
+            <Field
+              htmlFor="reporte-hasta"
+              etiqueta="Hasta"
+              ayuda="El navegador muestra la fecha como dd/mm/aaaa."
+              className="w-[180px]"
+            >
               <Input
                 id="reporte-hasta"
                 type="date"

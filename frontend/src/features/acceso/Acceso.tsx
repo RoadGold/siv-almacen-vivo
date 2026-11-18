@@ -79,7 +79,7 @@ export function Acceso() {
           ) : null}
 
           <div className="flex flex-col gap-4">
-            <Field htmlFor="usuario" etiqueta="Usuario" obligatorio>
+            <Field htmlFor="usuario" etiqueta="Usuario" ejemplo="vendedor1" obligatorio>
               <Input
                 id="usuario"
                 name="usuario"
@@ -88,11 +88,10 @@ export function Acceso() {
                 required
                 value={nombreUsuario}
                 onChange={(evento) => setNombreUsuario(evento.target.value)}
-                placeholder="admin"
               />
             </Field>
 
-            <Field htmlFor="clave" etiqueta="Contraseña" obligatorio>
+            <Field htmlFor="clave" etiqueta="Contraseña" ejemplo="••••••••" obligatorio>
               <Input
                 id="clave"
                 name="clave"
@@ -101,7 +100,6 @@ export function Acceso() {
                 required
                 value={clave}
                 onChange={(evento) => setClave(evento.target.value)}
-                placeholder="••••••••"
               />
             </Field>
 

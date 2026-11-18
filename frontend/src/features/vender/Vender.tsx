@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   EmptyState,
+  Field,
   Input,
   LoadingBlock,
   Modal,
@@ -20,6 +21,7 @@ import {
 import { claves } from '@/shared/api/clavesConsulta';
 import { catalogoApi, inventarioApi, lotesApi, ventasApi } from '@/shared/api/endpoints';
 import { Decimal } from '@/shared/format/decimal';
+import { parsearEntradaNumerica } from '@/shared/format/entrada';
 import {
   formatearCantidad,
   formatearEnUnidadLegible,
@@ -278,8 +280,8 @@ export function Vender() {
         lineas: carrito.lineas.map((linea) => ({
           producto_id: linea.producto_id,
           presentacion_id: linea.presentacion_id,
-          cantidad: linea.cantidad,
-          precio_total: linea.precio_total,
+          cantidad: parsearEntradaNumerica(linea.cantidad),
+          precio_total: parsearEntradaNumerica(linea.precio_total),
           motivo_precio: linea.motivo_precio ?? null,
           lote_id: linea.lote_id ?? null,
         })),
@@ -300,12 +302,13 @@ export function Vender() {
       ventasApi.confirmar({
         idempotency_key: clave,
         forma_pago: formaPago,
-        monto_recibido: montoRecibido.trim() === '' ? null : montoRecibido,
+        monto_recibido:
+          montoRecibido.trim() === '' ? null : parsearEntradaNumerica(montoRecibido) || null,
         lineas: carrito.lineas.map((linea) => ({
           producto_id: linea.producto_id,
           presentacion_id: linea.presentacion_id,
-          cantidad: linea.cantidad,
-          precio_total: linea.precio_total,
+          cantidad: parsearEntradaNumerica(linea.cantidad),
+          precio_total: parsearEntradaNumerica(linea.precio_total),
           motivo_precio: linea.motivo_precio ?? null,
           lote_id: linea.lote_id ?? null,
         })),
@@ -360,11 +363,48 @@ export function Vender() {
 
   const hayAlertas = (presentacionPrevia?.alertas.length ?? 0) > 0;
 
+  /**
+   * Revisa el carrito antes de confirmar: la cantidad debe ser un número mayor
+   * que cero y el total un número no negativo.
+   */
+  const erroresCarrito = useMemo(() => {
+    const errores: Record<string, { cantidad?: string; precio?: string }> = {};
+    for (const linea of carrito.lineas) {
+      const cantidad = parsearEntradaNumerica(linea.cantidad);
+      const precio = parsearEntradaNumerica(linea.precio_total);
+      if (cantidad === '') {
+        errores[linea.id] = {
+          ...(errores[linea.id] ?? {}),
+          cantidad: 'La cantidad no tiene un valor numérico.',
+        };
+      } else if (Decimal.desde(cantidad).comparar(0) <= 0) {
+        errores[linea.id] = {
+          ...(errores[linea.id] ?? {}),
+          cantidad: 'La cantidad debe ser mayor que cero.',
+        };
+      }
+      if (precio === '') {
+        errores[linea.id] = {
+          ...(errores[linea.id] ?? {}),
+          precio: 'El total no tiene un valor numérico.',
+        };
+      } else if (Decimal.desde(precio).comparar(0) < 0) {
+        errores[linea.id] = {
+          ...(errores[linea.id] ?? {}),
+          precio: 'El total no puede ser negativo.',
+        };
+      }
+    }
+    return errores;
+  }, [carrito.lineas]);
+
+  const carritoInvalido = Object.keys(erroresCarrito).length > 0;
+
   const vuelto = useMemo(() => {
     if (formaPago !== 'efectivo') return null;
     if (!presentacionPrevia) return null;
     if (montoRecibido.trim() === '') return null;
-    const recibido = Decimal.desde(montoRecibido);
+    const recibido = Decimal.desde(parsearEntradaNumerica(montoRecibido) || '0');
     const total = Decimal.desde(presentacionPrevia.total);
     if (recibido.comparar(total) < 0) return null;
     return recibido.resta(total);
@@ -440,23 +480,26 @@ export function Vender() {
         >
           <div className="flex flex-wrap items-end gap-2 px-4 py-3">
             <div className="min-w-[260px] flex-1">
-              <label htmlFor="buscador-venta" className="sr-only">
-                Buscar producto para la venta
-              </label>
-              <Input
-                id="buscador-venta"
-                ref={referenciaBuscador}
-                value={busqueda}
-                onChange={(evento) => setBusqueda(evento.target.value)}
-                onKeyDown={(evento) => {
-                  if (evento.key === 'Enter') {
-                    evento.preventDefault();
-                    void enviarBusqueda();
-                  }
-                }}
-                placeholder="Arroz, código 0001 o código de barras…"
-                autoComplete="off"
-              />
+              <Field
+                htmlFor="buscador-venta"
+                etiqueta="Buscar producto"
+                ejemplo="Arroz, código 0001 o código de barras…"
+                compacto
+              >
+                <Input
+                  id="buscador-venta"
+                  ref={referenciaBuscador}
+                  value={busqueda}
+                  onChange={(evento) => setBusqueda(evento.target.value)}
+                  onKeyDown={(evento) => {
+                    if (evento.key === 'Enter') {
+                      evento.preventDefault();
+                      void enviarBusqueda();
+                    }
+                  }}
+                  autoComplete="off"
+                />
+              </Field>
             </div>
             <Button
               variante="secundario"
@@ -548,35 +591,48 @@ export function Vender() {
                     </Button>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <div className="w-[92px]">
-                      <label htmlFor={`linea-${linea.id}`} className="sr-only">
-                        Cantidad de {linea.producto_nombre}
-                      </label>
-                      <Input
-                        id={`linea-${linea.id}`}
-                        className="numero"
-                        inputMode="decimal"
-                        value={linea.cantidad}
-                        onChange={(evento) => carrito.cambiarCantidad(linea.id, evento.target.value)}
-                      />
+                    <div className="w-[104px]">
+                      <Field
+                        htmlFor={`linea-${linea.id}`}
+                        etiqueta="Cantidad"
+                        ejemplo="1"
+                        compacto
+                        error={erroresCarrito[linea.id]?.cantidad}
+                      >
+                        <Input
+                          id={`linea-${linea.id}`}
+                          className="numero"
+                          inputMode="decimal"
+                          invalido={Boolean(erroresCarrito[linea.id]?.cantidad)}
+                          value={linea.cantidad}
+                          onChange={(evento) =>
+                            carrito.cambiarCantidad(linea.id, evento.target.value)
+                          }
+                        />
+                      </Field>
                     </div>
                     <span className="text-xs text-muted">{linea.presentacion_nombre}</span>
                     <div className="ml-auto flex items-center gap-2">
-                      <div className="w-[120px]">
-                        <label htmlFor={`precio-${linea.id}`} className="sr-only">
-                          Total a cobrar por {linea.producto_nombre}
-                        </label>
-                        <Input
-                          id={`precio-${linea.id}`}
-                          className="numero"
-                          inputMode="decimal"
-                          value={linea.precio_total}
-                          onChange={(evento) =>
-                            carrito.cambiarPrecio(linea.id, evento.target.value)
-                          }
-                        />
+                      <div className="w-[132px]">
+                        <Field
+                          htmlFor={`precio-${linea.id}`}
+                          etiqueta="Total a cobrar"
+                          ejemplo="8.00"
+                          compacto
+                          error={erroresCarrito[linea.id]?.precio}
+                        >
+                          <Input
+                            id={`precio-${linea.id}`}
+                            className="numero"
+                            inputMode="decimal"
+                            invalido={Boolean(erroresCarrito[linea.id]?.precio)}
+                            value={linea.precio_total}
+                            onChange={(evento) =>
+                              carrito.cambiarPrecio(linea.id, evento.target.value)
+                            }
+                          />
+                        </Field>
                       </div>
-                      <span className="text-xs text-muted">total</span>
                     </div>
                   </div>
                   <p className="mt-1 text-xs text-muted">
@@ -624,12 +680,28 @@ export function Vender() {
                 {formatearMoneda(carrito.total)}
               </span>
             </div>
+            {carritoInvalido ? (
+              <Notice
+                tono="error"
+                titulo="Revisa el carrito antes de confirmar"
+                className="mb-3"
+              >
+                <ul className="list-disc pl-5">
+                  {Object.entries(erroresCarrito).map(([id, error]) => (
+                    <li key={id}>
+                      {carrito.lineas.find((linea) => linea.id === id)?.producto_nombre}:{' '}
+                      {error.cantidad ?? error.precio}
+                    </li>
+                  ))}
+                </ul>
+              </Notice>
+            ) : null}
             <Button
               variante="primario"
               tamano="lg"
               anchoCompleto
               className="mt-3"
-              disabled={carrito.vacia}
+              disabled={carrito.vacia || carritoInvalido}
               cargando={previsualizar.isPending}
               textoCargando="Calculando impacto…"
               onClick={() => previsualizar.mutate()}
@@ -755,20 +827,30 @@ export function Vender() {
                 </div>
                 {formaPago === 'efectivo' ? (
                   <div className="w-[150px]">
-                    <label
+                    <Field
                       htmlFor="monto-recibido"
-                      className="mb-1 block text-xs font-semibold text-ink"
+                      etiqueta="Recibido"
+                      compacto
+                      error={
+                        montoRecibido.trim() !== '' &&
+                        parsearEntradaNumerica(montoRecibido) === ''
+                          ? 'No es un número válido.'
+                          : undefined
+                      }
                     >
-                      Recibido
-                    </label>
-                    <Input
-                      id="monto-recibido"
-                      className="numero"
-                      inputMode="decimal"
-                      value={montoRecibido}
-                      onChange={(evento) => setMontoRecibido(evento.target.value)}
-                      placeholder={presentacionPrevia.total}
-                    />
+                      <Input
+                        id="monto-recibido"
+                        className="numero"
+                        inputMode="decimal"
+                        invalido={
+                          montoRecibido.trim() !== '' &&
+                          parsearEntradaNumerica(montoRecibido) === ''
+                        }
+                        value={montoRecibido}
+                        onChange={(evento) => setMontoRecibido(evento.target.value)}
+                        placeholder={presentacionPrevia.total}
+                      />
+                    </Field>
                   </div>
                 ) : null}
                 {vuelto ? (

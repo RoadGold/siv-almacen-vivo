@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Decimal } from '@/shared/format/decimal';
+import { parsearEntradaNumerica } from '@/shared/format/entrada';
 import type { LineaCarrito } from './tipos';
 
 /**
@@ -63,16 +64,20 @@ export function useCarritoVenta() {
   const lineasConDescuento = useMemo(
     () =>
       lineas.filter(
-        (linea) => Decimal.desde(linea.precio_total).comparar(linea.precio_total_original) !== 0,
+        (linea) =>
+          Decimal.desde(parsearEntradaNumerica(linea.precio_total)).comparar(
+            parsearEntradaNumerica(linea.precio_total_original),
+          ) !== 0,
       ),
     [lineas],
   );
 
-  /** Total a cobrar: suma de los totales de las líneas. */
+  /** Total a cobrar: suma de los totales de las líneas (con los miles bien leídos). */
   const total = useMemo(
     () =>
       lineas.reduce(
-        (acumulado, linea) => acumulado.suma(Decimal.desde(linea.precio_total)),
+        (acumulado, linea) =>
+          acumulado.suma(Decimal.desde(parsearEntradaNumerica(linea.precio_total))),
         Decimal.cero(),
       ),
     [lineas],

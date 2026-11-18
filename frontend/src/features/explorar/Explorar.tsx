@@ -7,6 +7,7 @@ import {
   Card,
   CardBody,
   EmptyState,
+  Field,
   Input,
   LoadingBlock,
   Notice,
@@ -139,10 +140,7 @@ export function Explorar() {
 
       <Card titulo="Filtros">
         <CardBody className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]">
-          <div>
-            <label htmlFor="buscador-explorar" className="mb-1 block text-sm font-semibold">
-              Buscar producto
-            </label>
+          <Field htmlFor="buscador-explorar" etiqueta="Buscar producto" ejemplo="Nombre o código…">
             <Input
               id="buscador-explorar"
               value={busqueda}
@@ -150,14 +148,14 @@ export function Explorar() {
                 setBusqueda(evento.target.value);
                 setPagina(1);
               }}
-              placeholder="Nombre o código…"
               autoComplete="off"
             />
-          </div>
-          <div>
-            <label htmlFor="filtro-estado" className="mb-1 block text-sm font-semibold">
-              Estado
-            </label>
+          </Field>
+          <Field
+            htmlFor="filtro-estado"
+            etiqueta="Estado"
+            ayuda="Ejemplo: Agotado, Bajo mínimo o Disponible."
+          >
             <Select
               id="filtro-estado"
               value={estado}
@@ -171,7 +169,7 @@ export function Explorar() {
               <option value="bajo_minimo">Bajo mínimo</option>
               <option value="disponible">Disponible</option>
             </Select>
-          </div>
+          </Field>
           <div className="flex items-end">
             <Button
               variante="secundario"

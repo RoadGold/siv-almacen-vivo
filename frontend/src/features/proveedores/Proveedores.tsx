@@ -137,19 +137,21 @@ export function Proveedores() {
         <CardBody className="pb-2">
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-[260px] flex-1">
-              <label htmlFor="buscador-proveedores" className="mb-1 block text-sm font-semibold">
-                Buscar proveedor
-              </label>
-              <Input
-                id="buscador-proveedores"
-                value={busqueda}
-                onChange={(evento) => {
-                  setBusqueda(evento.target.value);
-                  setPagina(1);
-                }}
-                placeholder="Razón social, código, RUC o contacto…"
-                autoComplete="off"
-              />
+              <Field
+                htmlFor="buscador-proveedores"
+                etiqueta="Buscar proveedor"
+                ejemplo="Razón social, código, RUC o contacto…"
+              >
+                <Input
+                  id="buscador-proveedores"
+                  value={busqueda}
+                  onChange={(evento) => {
+                    setBusqueda(evento.target.value);
+                    setPagina(1);
+                  }}
+                  autoComplete="off"
+                />
+              </Field>
             </div>
           </div>
         </CardBody>
@@ -361,54 +363,68 @@ function FormularioProveedor({
       ) : null}
 
       <div className="grid gap-3 md:grid-cols-2">
-        <Field htmlFor="proveedor-codigo" etiqueta="Código" obligatorio>
+        <Field htmlFor="proveedor-codigo" etiqueta="Código" ejemplo="PROV-001" obligatorio>
           <Input
             id="proveedor-codigo"
             value={codigo}
             disabled={Boolean(proveedor)}
             onChange={(evento) => setCodigo(evento.target.value)}
-            placeholder="PROV-001"
           />
         </Field>
-        <Field htmlFor="proveedor-razon" etiqueta="Razón social" obligatorio>
+        <Field
+          htmlFor="proveedor-razon"
+          etiqueta="Razón social"
+          ejemplo="Distribuidora ABC S.A.C."
+          obligatorio
+        >
           <Input
             id="proveedor-razon"
             value={razonSocial}
             onChange={(evento) => setRazonSocial(evento.target.value)}
-            placeholder="Distribuidora ABC S.A.C."
           />
         </Field>
-        <Field htmlFor="proveedor-nombre-comercial" etiqueta="Nombre comercial">
+        <Field
+          htmlFor="proveedor-nombre-comercial"
+          etiqueta="Nombre comercial"
+          ejemplo="ABC"
+        >
           <Input
             id="proveedor-nombre-comercial"
             value={nombreComercial}
             onChange={(evento) => setNombreComercial(evento.target.value)}
           />
         </Field>
-        <Field htmlFor="proveedor-ruc" etiqueta="RUC">
+        <Field htmlFor="proveedor-ruc" etiqueta="RUC" ejemplo="20123456789">
           <Input
             id="proveedor-ruc"
             className="numero"
             value={ruc}
             onChange={(evento) => setRuc(evento.target.value)}
-            placeholder="20123456789"
           />
         </Field>
-        <Field htmlFor="proveedor-telefono" etiqueta="Teléfono">
+        <Field htmlFor="proveedor-telefono" etiqueta="Teléfono" ejemplo="01 555 0123">
           <Input
             id="proveedor-telefono"
             value={telefono}
             onChange={(evento) => setTelefono(evento.target.value)}
           />
         </Field>
-        <Field htmlFor="proveedor-contacto" etiqueta="Persona de contacto">
+        <Field
+          htmlFor="proveedor-contacto"
+          etiqueta="Persona de contacto"
+          ejemplo="Carlos Ramos"
+        >
           <Input
             id="proveedor-contacto"
             value={contacto}
             onChange={(evento) => setContacto(evento.target.value)}
           />
         </Field>
-        <Field htmlFor="proveedor-email" etiqueta="Correo electrónico">
+        <Field
+          htmlFor="proveedor-email"
+          etiqueta="Correo electrónico"
+          ejemplo="compras@abc.com"
+        >
           <Input
             id="proveedor-email"
             type="email"
@@ -416,7 +432,11 @@ function FormularioProveedor({
             onChange={(evento) => setEmail(evento.target.value)}
           />
         </Field>
-        <Field htmlFor="proveedor-direccion" etiqueta="Dirección">
+        <Field
+          htmlFor="proveedor-direccion"
+          etiqueta="Dirección"
+          ejemplo="Av. Siempre Viva 742"
+        >
           <Input
             id="proveedor-direccion"
             value={direccion}
@@ -425,7 +445,11 @@ function FormularioProveedor({
         </Field>
       </div>
 
-      <Field htmlFor="proveedor-observaciones" etiqueta="Observaciones">
+      <Field
+        htmlFor="proveedor-observaciones"
+        etiqueta="Observaciones"
+        ejemplo="Entrega los martes por la mañana."
+      >
         <Input
           id="proveedor-observaciones"
           value={observaciones}
@@ -529,12 +553,15 @@ function FormularioVinculo({
         </Notice>
       ) : null}
 
-      <Field htmlFor="vinculo-busqueda" etiqueta="Buscar producto del catálogo">
+      <Field
+        htmlFor="vinculo-busqueda"
+        etiqueta="Buscar producto del catálogo"
+        ejemplo="Nombre o código…"
+      >
         <Input
           id="vinculo-busqueda"
           value={busqueda}
           onChange={(evento) => setBusqueda(evento.target.value)}
-          placeholder="Nombre o código…"
           autoComplete="off"
         />
       </Field>
@@ -567,7 +594,11 @@ function FormularioVinculo({
       )}
 
       {producto ? (
-        <Field htmlFor="vinculo-presentacion" etiqueta="Presentación de compra (opcional)">
+        <Field
+          htmlFor="vinculo-presentacion"
+          etiqueta="Presentación de compra (opcional)"
+          ayuda="Ejemplo: Saco 50 kg."
+        >
           <Select
             id="vinculo-presentacion"
             value={presentacionId}

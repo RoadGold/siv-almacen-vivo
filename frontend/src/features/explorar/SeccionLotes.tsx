@@ -276,7 +276,7 @@ export function SeccionLotes({
           <Field
             htmlFor="lote-precio-presentacion"
             etiqueta="Presentación"
-            ayuda="El precio se guarda por presentación dentro del lote."
+            ayuda="El precio se guarda por presentación dentro del lote. Ejemplo: Saco 50 kg."
           >
             <Select
               id="lote-precio-presentacion"
@@ -294,6 +294,7 @@ export function SeccionLotes({
           <Field
             htmlFor="lote-precio-nuevo"
             etiqueta="Precio de venta"
+            ejemplo="13.50"
             ayuda="Precio por unidad de la presentación (no por kilo)."
           >
             <Input
@@ -308,14 +309,14 @@ export function SeccionLotes({
 
           <Field
             htmlFor="lote-precio-motivo"
-            etiqueta="Motivo (opcional)"
-            ayuda="Por ejemplo: «Ajuste por promoción de temporada»."
+            etiqueta="Motivo"
+            ejemplo="Motivo del cambio"
+            ayuda="Opcional. Por ejemplo: «Ajuste por promoción de temporada»."
           >
             <Input
               id="lote-precio-motivo"
               value={motivo}
               onChange={(evento) => setMotivo(evento.target.value)}
-              placeholder="Motivo del cambio"
             />
           </Field>
         </div>
