@@ -27,6 +27,7 @@ import {
 } from '@/design-system';
 import { ventasApi } from '@/shared/api/endpoints';
 import { formatearCantidad, formatearFecha, formatearMoneda } from '@/shared/format/formato';
+import { reglaDe } from '@/shared/contrato/reglas';
 import { mensajeDeError } from '@/shared/hooks/errores';
 import { registrarOperacion } from '@/shared/estado/operaciones';
 import type { Venta } from '@/shared/types/api';
@@ -425,7 +426,12 @@ export function Ventas() {
             </Button>
             <Button
               variante="primario"
-              disabled={motivo.trim().length < 5 || anular.isPending}
+              disabled={
+                motivo.trim().length < (reglaDe('anulacion_venta', 'motivo').min ?? 5) ||
+                // La misma regla que aplica el backend (ver `AnulacionVentaIn`).
+                motivo.trim().length > (reglaDe('anulacion_venta', 'motivo').max ?? 500) ||
+                anular.isPending
+              }
               cargando={anular.isPending}
               textoCargando="Anulando…"
               onClick={() => {

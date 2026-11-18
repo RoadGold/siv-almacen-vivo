@@ -24,6 +24,7 @@ import {
 import { claves } from '@/shared/api/clavesConsulta';
 import { adminApi } from '@/shared/api/endpoints';
 import { formatearFechaHora } from '@/shared/format/formato';
+import { errorDeLongitud, reglaDe } from '@/shared/contrato/reglas';
 import { esSinPermisos, mensajeDeError } from '@/shared/hooks/errores';
 import { registrarOperacion } from '@/shared/estado/operaciones';
 import type { Usuario } from '@/shared/types/api';
@@ -266,9 +267,24 @@ function ModalUsuario({
 
   const esEdicion = usuario !== null;
 
+  // Las mismas reglas que aplica el backend (ver `UsuarioCreate`/`UsuarioUpdate`).
+  const grupo = esEdicion ? 'usuarios_edicion' : 'usuarios';
   const errores: string[] = [];
   if (!nombre.trim()) errores.push('El nombre es obligatorio.');
-  if (!esEdicion && !nombreUsuario.trim()) errores.push('El nombre de acceso es obligatorio.');
+  else {
+    const error = errorDeLongitud(nombre, reglaDe(grupo, 'nombre'), 'El nombre');
+    if (error) errores.push(error);
+  }
+  if (!esEdicion && !nombreUsuario.trim()) {
+    errores.push('El nombre de acceso es obligatorio.');
+  } else {
+    const error = errorDeLongitud(
+      nombreUsuario,
+      reglaDe(grupo, 'usuario'),
+      'El nombre de acceso',
+    );
+    if (error) errores.push(error);
+  }
   if (!esEdicion && password.length < 6) {
     errores.push('La contraseña debe tener al menos 6 caracteres.');
   }

@@ -47,4 +47,11 @@ describe('parsearEntradaNumerica', () => {
     expect(esNumeroValido('')).toBe(false);
     expect(esNumeroValido('doce')).toBe(false);
   });
+
+  it('entiende el signo menos de los ajustes de stock', () => {
+    expect(parsearEntradaNumerica('-2')).toBe('-2');
+    expect(parsearEntradaNumerica('-2,50')).toBe('-2.50');
+    expect(parsearEntradaNumerica('-1.000')).toBe('-1000');
+    expect(parsearEntradaNumerica('-0,750')).toBe('-0.750');
+  });
 });

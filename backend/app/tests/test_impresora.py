@@ -95,12 +95,14 @@ def test_configuracion_del_negocio_lectura_y_guardado(cliente, cabeceras_admin):
 
 
 def test_configuracion_rechaza_valores_no_validos(cliente, cabeceras_admin):
+    """La configuración se valida con su schema: el ancho del ticket es 58 o 80."""
     respuesta = cliente.put(
         "/api/v1/configuracion",
         json={"ticket_ancho": "120"},
         headers=cabeceras_admin,
     )
-    assert respuesta.status_code == 400
+    assert respuesta.status_code == 422
+    assert "58" in respuesta.json()["error"]["mensaje"]
 
 
 def test_configuracion_solo_el_administrador_la_modifica(cliente, cabeceras_vendedor):

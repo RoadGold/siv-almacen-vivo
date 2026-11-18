@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
-
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import requiere_permiso
@@ -13,15 +10,10 @@ from app.core.permissions import Permiso
 from app.db.models import Usuario
 from app.db.session import get_db
 from app.domain.unidades import ErrorNegocio, dec
+from app.schemas.lotes import PrecioLoteIn
 from app.services import lotes as servicio
 
 router = APIRouter(prefix="/lotes", tags=["Lotes de inventario"])
-
-
-class PrecioLoteIn(BaseModel):
-    presentacion_id: int
-    precio: Decimal = Field(ge=0)
-    motivo: str | None = Field(default=None, max_length=200)
 
 
 @router.get("/producto/{producto_id}")

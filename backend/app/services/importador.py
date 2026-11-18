@@ -31,6 +31,7 @@ from app.db.models import (
     UnidadMedida,
 )
 from app.domain.unidades import ErrorNegocio, dec, num
+from app.schemas.catalogo import ProductoIn
 from app.services import catalogo
 
 COLUMNAS = [
@@ -240,8 +241,12 @@ def leer_filas(contenido: bytes, nombre_archivo: str = "") -> list[FilaImportada
 def _validar_fila(db: Session, fila: FilaImportada) -> None:
     if not fila.codigo:
         fila.mensajes.append("Falta el código del producto.")
+    elif len(fila.codigo) > 40:
+        fila.mensajes.append("El código del producto no puede pasar de 40 caracteres.")
     if not fila.nombre:
         fila.mensajes.append("Falta el nombre del producto.")
+    elif len(fila.nombre) > 200:
+        fila.mensajes.append("El nombre del producto no puede pasar de 200 caracteres.")
     if not fila.unidad_base:
         fila.mensajes.append("Falta la unidad base (UND, GR o ML).")
     else:
@@ -267,9 +272,18 @@ def _validar_fila(db: Session, fila: FilaImportada) -> None:
         valor = getattr(fila, campo)
         if valor:
             try:
-                dec(valor)
+                numero = dec(valor)
             except Exception:
                 fila.mensajes.append(f"El valor de «{campo}» no es numérico.")
+                continue
+            if numero < 0:
+                fila.mensajes.append(f"El valor de «{campo}» no puede ser negativo.")
+    if fila.costo_inicial:
+        try:
+            if dec(fila.costo_inicial) < 0:
+                fila.mensajes.append("El valor de «costo_inicial» no puede ser negativo.")
+        except Exception:
+            fila.mensajes.append("El valor de «costo_inicial» no es numérico.")
 
     if fila.codigo:
         existente = db.execute(
@@ -536,20 +550,21 @@ def confirmar(
         ).scalar_one_or_none()
 
         if producto is None:
-            producto = catalogo.crear_producto(
-                db,
-                {
-                    "codigo": fila.codigo,
-                    "nombre": fila.nombre,
-                    "categoria_id": categoria.id if categoria else None,
-                    "marca_id": marca.id if marca else None,
-                    "unidad_base_id": unidad.id,
-                    "stock_minimo_base": fila.stock_minimo or "0",
-                    "permite_fraccion": _es_verdadero(fila.permite_fraccion),
-                    "activo": True,
-                    "presentaciones": [],
-                },
+            # Se construye el schema real del producto: así la importación
+            # hereda las mismas reglas que el alta manual (longitudes, stock
+            # mínimo no negativo, factor mayor que cero).
+            datos_producto = ProductoIn(
+                codigo=fila.codigo,
+                nombre=fila.nombre,
+                categoria_id=categoria.id if categoria else None,
+                marca_id=marca.id if marca else None,
+                unidad_base_id=unidad.id,
+                stock_minimo_base=fila.stock_minimo or "0",
+                permite_fraccion=_es_verdadero(fila.permite_fraccion),
+                activo=True,
+                presentaciones=[],
             )
+            producto = catalogo.crear_producto(db, datos_producto.model_dump())
             productos_creados.add(producto.id)
         else:
             producto.nombre = fila.nombre or producto.nombre

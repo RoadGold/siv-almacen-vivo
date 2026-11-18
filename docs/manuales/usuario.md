@@ -35,6 +35,9 @@ mismos colores de estado (Agotado, Bajo mínimo, Disponible).
 **Si aparece «No hay stock suficiente»**: otra operación ya tomó ese stock. El sistema nunca vende
 lo que no existe. Ajuste la cantidad y vuelva a confirmar.
 
+**Si el efectivo no alcanza**: el sistema avisa cuánto falta y registra la venta igual. El importe
+pendiente queda anotado como deuda en la venta y en el ticket, para que el cierre de caja cuadre.
+
 **Atajos**: `F3` enfoca el buscador · `Esc` limpia el panel.
 
 **Cómo escribir las cantidades**: el sistema entiende `1.000`, `1,000` y `1 000` como mil, y

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  AvisoErrores,
   Badge,
   Button,
   Card,
@@ -24,8 +25,14 @@ import {
 import { claves } from '@/shared/api/clavesConsulta';
 import { catalogoApi, proveedoresApi } from '@/shared/api/endpoints';
 import { formatearFecha, formatearMoneda } from '@/shared/format/formato';
+import {
+  errorDeLongitud,
+  REGLAS_EMAIL,
+  REGLAS_RUC,
+  reglaDe,
+} from '@/shared/contrato/reglas';
 import { useRetraso } from '@/shared/hooks/useRetraso';
-import { esSinPermisos, mensajeDeError } from '@/shared/hooks/errores';
+import { esSinPermisos, mensajeDeCampo, mensajeDeError } from '@/shared/hooks/errores';
 import { registrarOperacion } from '@/shared/estado/operaciones';
 import { useAutenticacion } from '@/shared/auth/ProveedorAutenticacion';
 import type { Proveedor } from '@/shared/types/api';
@@ -270,9 +277,9 @@ export function Proveedores() {
           guardando={crear.isPending || actualizar.isPending}
           error={
             crear.isError
-              ? mensajeDeError(crear.error)
+              ? crear.error
               : actualizar.isError
-                ? mensajeDeError(actualizar.error)
+                ? actualizar.error
                 : null
           }
           onCancelar={() => {
@@ -334,7 +341,7 @@ function FormularioProveedor({
     activo: boolean;
   }) => void;
   guardando: boolean;
-  error: string | null;
+  error: unknown;
 }) {
   const [codigo, setCodigo] = useState(proveedor?.codigo ?? '');
   const [razonSocial, setRazonSocial] = useState(proveedor?.razon_social ?? '');
@@ -347,19 +354,39 @@ function FormularioProveedor({
   const [observaciones, setObservaciones] = useState(proveedor?.observaciones ?? '');
   const [activo, setActivo] = useState(proveedor?.activo ?? true);
 
+  // Las mismas reglas que aplica el backend (ver `ProveedorIn`).
+  const grupo = proveedor ? 'proveedores_edicion' : 'proveedores';
+  const erroresRuc =
+    ruc.trim() && !REGLAS_RUC.test(ruc.trim())
+      ? 'El RUC debe tener 11 dígitos.'
+      : undefined;
+  const erroresEmail =
+    email.trim() && !REGLAS_EMAIL.test(email.trim())
+      ? 'El correo electrónico no tiene un formato válido.'
+      : undefined;
+
   const errores: string[] = [];
   if (!codigo.trim()) errores.push('El código es obligatorio.');
-  if (!razonSocial.trim()) errores.push('La razón social es obligatoria.');
-  if (email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
-    errores.push('El correo electrónico no tiene un formato válido.');
+  else {
+    const error = errorDeLongitud(codigo, reglaDe(grupo, 'codigo'), 'El código');
+    if (error) errores.push(error);
   }
+  if (!razonSocial.trim()) errores.push('La razón social es obligatoria.');
+  else {
+    const error = errorDeLongitud(
+      razonSocial,
+      reglaDe(grupo, 'razon_social'),
+      'La razón social',
+    );
+    if (error) errores.push(error);
+  }
+  if (erroresRuc) errores.push(erroresRuc);
+  if (erroresEmail) errores.push(erroresEmail);
 
   return (
     <div className="flex flex-col gap-4">
       {error ? (
-        <Notice tono="error" titulo="No se pudo guardar el proveedor">
-          {error}
-        </Notice>
+        <AvisoErrores error={error} titulo="No se pudo guardar el proveedor" />
       ) : null}
 
       <div className="grid gap-3 md:grid-cols-2">
@@ -394,10 +421,16 @@ function FormularioProveedor({
             onChange={(evento) => setNombreComercial(evento.target.value)}
           />
         </Field>
-        <Field htmlFor="proveedor-ruc" etiqueta="RUC" ejemplo="20123456789">
+        <Field
+          htmlFor="proveedor-ruc"
+          etiqueta="RUC"
+          ejemplo="20123456789"
+          error={mensajeDeCampo(error, 'ruc') ?? (erroresRuc ?? undefined)}
+        >
           <Input
             id="proveedor-ruc"
             className="numero"
+            invalido={Boolean(ruc.trim()) && !REGLAS_RUC.test(ruc.trim())}
             value={ruc}
             onChange={(evento) => setRuc(evento.target.value)}
           />
@@ -424,10 +457,12 @@ function FormularioProveedor({
           htmlFor="proveedor-email"
           etiqueta="Correo electrónico"
           ejemplo="compras@abc.com"
+          error={mensajeDeCampo(error, 'email') ?? (erroresEmail ?? undefined)}
         >
           <Input
             id="proveedor-email"
             type="email"
+            invalido={Boolean(email.trim()) && !REGLAS_EMAIL.test(email.trim())}
             value={email}
             onChange={(evento) => setEmail(evento.target.value)}
           />
@@ -520,7 +555,7 @@ function FormularioVinculo({
     presentacion_id: number | null;
   }) => void;
   guardando: boolean;
-  error: string | null;
+  error: unknown;
 }) {
   const [busqueda, setBusqueda] = useState('');
   const busquedaRetrasada = useRetraso(busqueda, 250);
@@ -548,9 +583,7 @@ function FormularioVinculo({
   return (
     <div className="flex flex-col gap-4">
       {error ? (
-        <Notice tono="error" titulo="No se pudo vincular el producto">
-          {error}
-        </Notice>
+        <AvisoErrores error={error} titulo="No se pudo vincular el producto" />
       ) : null}
 
       <Field

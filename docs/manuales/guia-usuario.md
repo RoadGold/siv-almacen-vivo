@@ -213,13 +213,29 @@ IMPACTO: arroz −750 g · leche −2 unidades. Stock validado.
    - **Nueva venta** — vuelve al panel vacío para seguir cobrando.
    - **Ver detalle** — muestra la venta con sus líneas, costo y usuario.
 
-### 3.6 Si el sistema dice «No hay stock suficiente»
+### 3.6 Si el efectivo no cubre el total
+
+En la caja, si el monto recibido es **menor** que el total, el sistema **no bloquea** la venta:
+avisa con un recuadro «Atención» y muestra cuánto queda por cobrar.
+
+```
+ATENCIÓN · El efectivo no cubre el total
+Faltan S/ 5,00. La venta se registra igual y el importe queda anotado como deuda en el ticket y en la venta.
+```
+
+- El importe pendiente queda guardado en la venta como **deuda** y aparece en el ticket impreso.
+- Si el efectivo alcanza o sobra, se muestra el **vuelto** como siempre y no hay deuda.
+
+> Anotar la deuda es para que el cierre de caja cuadre: el sistema nunca pierde un importe
+> recibido por debajo del total.
+
+### 3.7 Si el sistema dice «No hay stock suficiente»
 
 Significa que **otra operación ya tomó ese stock** (por ejemplo, otra caja vendió antes). El
 sistema nunca vende lo que no existe. Ajuste la cantidad a lo que realmente hay y vuelva a
 confirmar.
 
-### 3.7 Anular una venta (solo administrador)
+### 3.8 Anular una venta (solo administrador)
 
 1. Vaya a **Analizar → Ventas** (o al detalle de la venta desde el historial).
 2. Abra la venta y pulse **Anular**.
@@ -230,7 +246,7 @@ confirmar.
 No se puede anular dos veces la misma venta, ni anular una venta cuya mercadería ya se vendió de
 nuevo.
 
-### 3.8 Atajos de teclado de esta pantalla
+### 3.9 Atajos de teclado de esta pantalla
 
 | Atajo | Acción |
 |---|---|

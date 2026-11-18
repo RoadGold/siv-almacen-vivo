@@ -409,6 +409,10 @@ class Venta(Base, TimestampMixin):
     forma_pago: Mapped[str | None] = mapped_column(String(30))
     monto_recibido: Mapped[int | None] = mapped_column(MONEDA)
     vuelto: Mapped[int | None] = mapped_column(MONEDA)
+    deuda: Mapped[int | None] = mapped_column(
+        MONEDA,
+        comment="Importe que quedó sin cobrar cuando el efectivo no cubrió el total.",
+    )
     observaciones: Mapped[str | None] = mapped_column(Text)
     anulado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     anulado_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

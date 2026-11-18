@@ -61,4 +61,28 @@ describe('Decimal', () => {
   it('no falla al dividir entre cero', () => {
     expect(Decimal.desde('10').divide('0', 2).aTexto()).toBe('0.00');
   });
+
+  describe('intentarDesde', () => {
+    it('entiende lo que escribe una persona, con miles y decimales', () => {
+      expect(Decimal.intentarDesde('1.000')?.aTexto()).toBe('1000');
+      expect(Decimal.intentarDesde('1,000')?.aTexto()).toBe('1000');
+      expect(Decimal.intentarDesde('12,50')?.aTexto()).toBe('12.50');
+      expect(Decimal.intentarDesde('0,750')?.aTexto()).toBe('0.750');
+      expect(Decimal.intentarDesde('-2')?.aTexto()).toBe('-2');
+    });
+
+    it('devuelve null cuando el texto no es un número', () => {
+      // Antes, `Decimal.desde` devolvía cero en silencio: un precio mal
+      // escrito se guardaba como 0 sin que nadie se enterara.
+      expect(Decimal.intentarDesde('abc')).toBeNull();
+      expect(Decimal.intentarDesde('')).toBeNull();
+      expect(Decimal.intentarDesde('   ')).toBeNull();
+      expect(Decimal.intentarDesde('1,2,3')).toBeNull();
+    });
+
+    it('acepta el cero y los números negativos', () => {
+      expect(Decimal.intentarDesde('0')?.aTexto()).toBe('0');
+      expect(Decimal.intentarDesde('-5')?.esNegativo()).toBe(true);
+    });
+  });
 });

@@ -81,6 +81,23 @@ def obtener_proveedor(db: Session, proveedor_id: int) -> Proveedor:
     return proveedor
 
 
+def _verificar_ruc_unico(
+    db: Session, ruc: str | None, proveedor_id: int | None = None
+) -> None:
+    """El RUC no puede repetirse entre proveedores.
+
+    Antes solo se comprobaba al crear: al editar, dos proveedores quedaban con
+    el mismo RUC sin avisar.
+    """
+    if not ruc:
+        return
+    stmt = select(Proveedor).where(Proveedor.ruc == ruc)
+    if proveedor_id is not None:
+        stmt = stmt.where(Proveedor.id != proveedor_id)
+    if db.execute(stmt).scalar_one_or_none() is not None:
+        raise ErrorNegocio("Ya existe un proveedor con ese RUC.", detalle={"campo": "ruc"})
+
+
 def crear_proveedor(db: Session, datos: dict[str, Any]) -> Proveedor:
     codigo = datos["codigo"].strip()
     existe = db.execute(
@@ -89,12 +106,7 @@ def crear_proveedor(db: Session, datos: dict[str, Any]) -> Proveedor:
     if existe is not None:
         raise ErrorNegocio("Ya existe un proveedor con ese código.", detalle={"campo": "codigo"})
     ruc = (datos.get("ruc") or "").strip() or None
-    if ruc:
-        ruc_existente = db.execute(
-            select(Proveedor).where(Proveedor.ruc == ruc)
-        ).scalar_one_or_none()
-        if ruc_existente is not None:
-            raise ErrorNegocio("Ya existe un proveedor con ese RUC.", detalle={"campo": "ruc"})
+    _verificar_ruc_unico(db, ruc)
     proveedor = Proveedor(
         codigo=codigo,
         razon_social=datos["razon_social"].strip(),
@@ -113,9 +125,18 @@ def crear_proveedor(db: Session, datos: dict[str, Any]) -> Proveedor:
 
 
 def actualizar_proveedor(db: Session, proveedor_id: int, cambios: dict[str, Any]) -> Proveedor:
+    """Aplica los cambios de un proveedor.
+
+    Un campo que llega en `null` se **borra**: queda vacío. Un campo que no
+    llega en la petición se deja como estaba. Antes los `null` se ignoraban y
+    el valor anterior sobrevivía, así que vaciar el RUC no lo limpiaba.
+    """
     proveedor = obtener_proveedor(db, proveedor_id)
+
+    if "razon_social" in cambios and cambios["razon_social"] is not None:
+        proveedor.razon_social = str(cambios["razon_social"]).strip()
+
     for campo in (
-        "razon_social",
         "nombre_comercial",
         "ruc",
         "telefono",
@@ -124,11 +145,18 @@ def actualizar_proveedor(db: Session, proveedor_id: int, cambios: dict[str, Any]
         "email",
         "observaciones",
     ):
-        if campo in cambios and cambios[campo] is not None:
-            valor = cambios[campo]
+        if campo not in cambios:
+            continue
+        valor = cambios[campo]
+        if valor is None:
+            setattr(proveedor, campo, None)
+        else:
             setattr(proveedor, campo, str(valor).strip() or None)
+
     if "activo" in cambios and cambios["activo"] is not None:
         proveedor.activo = bool(cambios["activo"])
+
+    _verificar_ruc_unico(db, proveedor.ruc, proveedor.id)
     db.flush()
     return proveedor
 

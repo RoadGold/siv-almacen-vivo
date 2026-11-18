@@ -19,7 +19,13 @@ import {
   useToast,
 } from '@/design-system';
 import { claves } from '@/shared/api/clavesConsulta';
-import { catalogoApi, inventarioApi, lotesApi, ventasApi } from '@/shared/api/endpoints';
+import {
+  catalogoApi,
+  configuracionApi,
+  inventarioApi,
+  lotesApi,
+  ventasApi,
+} from '@/shared/api/endpoints';
 import { Decimal } from '@/shared/format/decimal';
 import { parsearEntradaNumerica } from '@/shared/format/entrada';
 import {
@@ -36,12 +42,25 @@ import { buscarPorCodigoBarras, pareceCodigoBarras } from './buscarCodigoBarras'
 import type { LineaCarrito, ResultadoBusqueda } from './tipos';
 import { generarClaveIdempotencia, nuevoIdLinea, useCarritoVenta } from './useCarritoVenta';
 import type {
+  FormaPago,
   LoteResumen,
   PrevisualizacionVenta,
   Presentacion,
   Venta,
 } from '@/shared/types/api';
 import { SelectorLote, precioDeLote, type AsignacionLote } from './SelectorLote';
+
+/**
+ * Formas de pago que se muestran mientras el backend no responde.
+ * La lista que manda el servidor es la que vale; esta solo evita que el
+ * selector aparezca vacío en el primer instante.
+ */
+const FORMAS_PAGO_POR_DEFECTO: FormaPago[] = [
+  { valor: 'efectivo', etiqueta: 'Efectivo' },
+  { valor: 'tarjeta', etiqueta: 'Tarjeta' },
+  { valor: 'voucher', etiqueta: 'Voucher' },
+  { valor: 'yape', etiqueta: 'Yape / Plin' },
+];
 
 /** Pantalla VENDER: dos paneles (buscador y carrito) con cinta de impacto. */
 export function Vender() {
@@ -95,6 +114,15 @@ export function Vender() {
       }),
     enabled: !codigoEnviado,
   });
+
+  // Las formas de pago las decide el backend: el cliente no las escribe a mano.
+  const consultaFormasPago = useQuery({
+    queryKey: ['configuracion', 'formas-pago'],
+    queryFn: () => configuracionApi.formasPago(),
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const formasPago = consultaFormasPago.data ?? FORMAS_PAGO_POR_DEFECTO;
 
   const consultaExistencias = useQuery({
     queryKey: claves.existencias({ busqueda: busquedaRetrasada, tamano: 25 }),
@@ -408,6 +436,21 @@ export function Vender() {
     const total = Decimal.desde(presentacionPrevia.total);
     if (recibido.comparar(total) < 0) return null;
     return recibido.resta(total);
+  }, [formaPago, montoRecibido, presentacionPrevia]);
+
+  /**
+   * Importe que quedaría sin cobrar cuando el efectivo no cubre el total.
+   * La venta se permite, pero el sistema avisa: el backend registra la deuda
+   * y la deja visible en el ticket.
+   */
+  const deuda = useMemo(() => {
+    if (formaPago !== 'efectivo') return null;
+    if (!presentacionPrevia) return null;
+    if (montoRecibido.trim() === '') return null;
+    const recibido = Decimal.desde(parsearEntradaNumerica(montoRecibido) || '0');
+    const total = Decimal.desde(presentacionPrevia.total);
+    if (recibido.comparar(total) >= 0) return null;
+    return total.resta(recibido);
   }, [formaPago, montoRecibido, presentacionPrevia]);
 
   return (
@@ -807,23 +850,24 @@ export function Vender() {
               </legend>
               <div className="flex flex-wrap items-end gap-3">
                 <div className="w-[170px]">
-                  <label
+                  <Field
                     htmlFor="forma-pago"
-                    className="mb-1 block text-xs font-semibold text-ink"
+                    etiqueta="Forma de pago"
+                    compacto
                   >
-                    Forma de pago
-                  </label>
-                  <select
-                    id="forma-pago"
-                    value={formaPago}
-                    onChange={(evento) => setFormaPago(evento.target.value)}
-                    className="w-full rounded-[6px] border border-linea bg-surface px-2 py-1.5 text-sm text-ink"
-                  >
-                    <option value="efectivo">Efectivo</option>
-                    <option value="tarjeta">Tarjeta</option>
-                    <option value="voucher">Voucher</option>
-                    <option value="yape">Yape / Plin</option>
-                  </select>
+                    <select
+                      id="forma-pago"
+                      value={formaPago}
+                      onChange={(evento) => setFormaPago(evento.target.value)}
+                      className="w-full rounded-[6px] border border-linea bg-surface px-2 py-1.5 text-sm text-ink"
+                    >
+                      {formasPago.map((forma) => (
+                        <option key={forma.valor} value={forma.valor}>
+                          {forma.etiqueta}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
                 </div>
                 {formaPago === 'efectivo' ? (
                   <div className="w-[150px]">
@@ -861,6 +905,14 @@ export function Vender() {
                     </p>
                   </div>
                 ) : null}
+                {deuda ? (
+                  <div>
+                    <p className="etiqueta">Queda por cobrar</p>
+                    <p className="text-lg font-bold numero text-danger">
+                      {formatearMoneda(deuda.aTexto())}
+                    </p>
+                  </div>
+                ) : null}
                 <label className="flex items-center gap-2 pb-1 text-sm text-ink">
                   <input
                     type="checkbox"
@@ -870,6 +922,17 @@ export function Vender() {
                   Imprimir ticket
                 </label>
               </div>
+
+              {deuda ? (
+                <Notice
+                  tono="aviso"
+                  titulo="El efectivo no cubre el total"
+                  className="mt-3"
+                >
+                  Faltan {formatearMoneda(deuda.aTexto())}. La venta se registra igual y el
+                  importe queda anotado como deuda en el ticket y en la venta.
+                </Notice>
+              ) : null}
             </fieldset>
 
             <Table descripcion="Detalle del impacto de la venta">

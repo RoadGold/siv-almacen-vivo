@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Button, Field, Input, Notice, Select } from '@/design-system';
+import { AvisoErrores, Button, Field, Input, Notice, Select } from '@/design-system';
 import { Decimal } from '@/shared/format/decimal';
 import { formatearCantidad, formatearMoneda } from '@/shared/format/formato';
+import { errorDeLongitud, reglaDe } from '@/shared/contrato/reglas';
+import { mensajeDeCampo } from '@/shared/hooks/errores';
 import type { Categoria, UnidadMedida } from '@/shared/types/api';
 
 export interface PresentacionFormulario {
@@ -32,7 +34,7 @@ interface Propiedades {
   onCancelar: () => void;
   onEnviar: (datos: DatosProductoFormulario) => void;
   guardando: boolean;
-  error: string | null;
+  error: unknown;
 }
 
 const PRESENTACION_VACIA: PresentacionFormulario = {
@@ -44,6 +46,17 @@ const PRESENTACION_VACIA: PresentacionFormulario = {
   es_venta: true,
   permite_fraccion: false,
 };
+
+/**
+ * Indica si el texto es un número no negativo.
+ * Un campo vacío vale cero (se puede dejar en blanco), pero un texto que no
+ * es número no: antes se guardaba como 0 sin avisar.
+ */
+function numeroValido(texto: string): boolean {
+  if (texto.trim() === '') return true;
+  const numero = Decimal.intentarDesde(texto);
+  return numero !== null && numero.comparar(0) >= 0;
+}
 
 /** Formulario de alta de producto con sus presentaciones y ejemplo de conversión en vivo. */
 export function FormularioProducto({
@@ -86,15 +99,41 @@ export function FormularioProducto({
     setPresentaciones((actuales) => actuales.filter((_, posicion) => posicion !== indice));
   }
 
+  // Las mismas reglas que aplica el backend (ver `ProductoIn` y
+  // `PresentacionIn`): aquí se avisa antes de enviar, pero el backend sigue
+  // siendo quien decide.
   const errores: string[] = [];
   if (!codigo.trim()) errores.push('El código es obligatorio.');
+  else {
+    const error = errorDeLongitud(codigo, reglaDe('productos', 'codigo'), 'El código');
+    if (error) errores.push(error);
+  }
   if (!nombre.trim()) errores.push('El nombre es obligatorio.');
+  else {
+    const error = errorDeLongitud(nombre, reglaDe('productos', 'nombre'), 'El nombre');
+    if (error) errores.push(error);
+  }
   if (!unidadId) errores.push('Debe elegirse una unidad base.');
+
+  const stockMinimoNumero = Decimal.intentarDesde(stockMinimo);
+  if (stockMinimoNumero === null) {
+    errores.push('El stock mínimo debe ser un número.');
+  } else if (stockMinimoNumero.comparar(0) < 0) {
+    errores.push('El stock mínimo no puede ser negativo.');
+  }
+
   const presentacionesValidas = presentaciones.filter(
-    (item) => item.nombre.trim() && Decimal.desde(item.factor_base).comparar(0) > 0,
+    (item) =>
+      item.nombre.trim() &&
+      item.nombre.trim().length <= (reglaDe('presentaciones', 'nombre').max ?? 80) &&
+      (Decimal.intentarDesde(item.factor_base)?.comparar(0) ?? 0) > 0 &&
+      numeroValido(item.precio_venta) &&
+      numeroValido(item.costo_referencia),
   );
   if (presentacionesValidas.length !== presentaciones.length) {
-    errores.push('Cada presentación necesita nombre y un factor de conversión mayor que cero.');
+    errores.push(
+      'Cada presentación necesita nombre y un factor de conversión mayor que cero, con precios no negativos.',
+    );
   }
 
   function enviar() {
@@ -105,14 +144,14 @@ export function FormularioProducto({
       descripcion: descripcion.trim() || null,
       categoria_id: categoriaId === '' ? null : categoriaId,
       unidad_base_id: Number(unidadId),
-      stock_minimo_base: stockMinimo || '0',
+      stock_minimo_base: (Decimal.intentarDesde(stockMinimo)?.aTexto() ?? '0'),
       permite_fraccion: permiteFraccion,
       activo: true,
       presentaciones: presentacionesValidas.map((item) => ({
         nombre: item.nombre.trim(),
-        factor_base: Decimal.desde(item.factor_base).aTexto(),
-        precio_venta: Decimal.desde(item.precio_venta).aTexto(),
-        costo_referencia: Decimal.desde(item.costo_referencia).aTexto(),
+        factor_base: (Decimal.intentarDesde(item.factor_base)?.aTexto() ?? '0'),
+        precio_venta: (Decimal.intentarDesde(item.precio_venta)?.aTexto() ?? '0'),
+        costo_referencia: (Decimal.intentarDesde(item.costo_referencia)?.aTexto() ?? '0'),
         es_compra: item.es_compra,
         es_venta: item.es_venta,
         permite_fraccion: item.permite_fraccion,
@@ -123,20 +162,30 @@ export function FormularioProducto({
   return (
     <div className="flex flex-col gap-4">
       {error ? (
-        <Notice tono="error" titulo="No se pudo guardar el producto">
-          {error}
-        </Notice>
+        <AvisoErrores error={error} titulo="No se pudo guardar el producto" />
       ) : null}
 
       <div className="grid gap-3 md:grid-cols-2">
-        <Field htmlFor="producto-codigo" etiqueta="Código" ejemplo="ARZ-001" obligatorio>
+        <Field
+          htmlFor="producto-codigo"
+          etiqueta="Código"
+          ejemplo="ARZ-001"
+          obligatorio
+          error={mensajeDeCampo(error, 'codigo')}
+        >
           <Input
             id="producto-codigo"
             value={codigo}
             onChange={(evento) => setCodigo(evento.target.value)}
           />
         </Field>
-        <Field htmlFor="producto-nombre" etiqueta="Nombre" ejemplo="Arroz a granel" obligatorio>
+        <Field
+          htmlFor="producto-nombre"
+          etiqueta="Nombre"
+          ejemplo="Arroz a granel"
+          obligatorio
+          error={mensajeDeCampo(error, 'nombre')}
+        >
           <Input
             id="producto-nombre"
             value={nombre}
@@ -185,6 +234,7 @@ export function FormularioProducto({
           etiqueta="Stock mínimo"
           ejemplo="10000"
           ayuda={`Expresado en ${unidad?.nombre.toLowerCase() ?? 'unidad base'}.`}
+          error={mensajeDeCampo(error, 'stock_minimo_base')}
         >
           <Input
             id="producto-stock-minimo"

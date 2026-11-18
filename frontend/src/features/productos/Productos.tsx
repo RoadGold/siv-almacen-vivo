@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  AvisoErrores,
   Badge,
   Button,
   Card,
@@ -22,6 +23,8 @@ import {
 } from '@/design-system';
 import { claves } from '@/shared/api/clavesConsulta';
 import { catalogoApi } from '@/shared/api/endpoints';
+import { Decimal } from '@/shared/format/decimal';
+import { errorDeLongitud, reglaDe } from '@/shared/contrato/reglas';
 import { formatearCantidad, formatearMoneda } from '@/shared/format/formato';
 import { useRetraso } from '@/shared/hooks/useRetraso';
 import { esSinPermisos, mensajeDeError } from '@/shared/hooks/errores';
@@ -275,7 +278,7 @@ export function Productos() {
             unidades={unidades.data ?? []}
             categorias={categorias.data ?? []}
             guardando={crear.isPending}
-            error={crear.isError ? mensajeDeError(crear.error) : null}
+            error={crear.isError ? crear.error : null}
             onCancelar={() => setModalAlta(false)}
             onEnviar={(datos) => crear.mutate(datos)}
           />
@@ -293,7 +296,7 @@ export function Productos() {
           <FormularioEdicion
             producto={productoEdicion}
             guardando={actualizar.isPending}
-            error={actualizar.isError ? mensajeDeError(actualizar.error) : null}
+            error={actualizar.isError ? actualizar.error : null}
             onCancelar={() => setProductoEdicion(null)}
             onEnviar={(datos) => actualizar.mutate({ id: productoEdicion.id, ...datos })}
           />
@@ -319,23 +322,56 @@ function FormularioEdicion({
     activo: boolean;
   }) => void;
   guardando: boolean;
-  error: string | null;
+  error: unknown;
 }) {
   const [nombre, setNombre] = useState(producto.nombre);
   const [descripcion, setDescripcion] = useState(producto.descripcion ?? '');
   const [stockMinimo, setStockMinimo] = useState(producto.stock_minimo_base);
   const [activo, setActivo] = useState(producto.activo);
 
+  // Las mismas reglas que aplica el backend (ver `ProductoUpdate`).
+  const errores: string[] = [];
+  if (!nombre.trim()) errores.push('El nombre es obligatorio.');
+  else {
+    const error = errorDeLongitud(nombre, reglaDe('productos_edicion', 'nombre'), 'El nombre');
+    if (error) errores.push(error);
+  }
+  const stockNumero = Decimal.intentarDesde(stockMinimo);
+  if (stockNumero === null) {
+    errores.push('El stock mínimo debe ser un número.');
+  } else if (stockNumero.comparar(0) < 0) {
+    errores.push('El stock mínimo no puede ser negativo.');
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {error ? (
-        <Notice tono="error" titulo="No se pudo guardar el producto">
-          {error}
+        <AvisoErrores error={error} titulo="No se pudo guardar el producto" />
+      ) : null}
+
+      {errores.length > 0 ? (
+        <Notice tono="error" titulo="Revise los datos antes de guardar">
+          <ul className="list-disc pl-5">
+            {errores.map((mensaje) => (
+              <li key={mensaje}>{mensaje}</li>
+            ))}
+          </ul>
         </Notice>
       ) : null}
 
-      <Field htmlFor="edicion-nombre" etiqueta="Nombre" ejemplo="Arroz a granel" obligatorio>
-        <Input id="edicion-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+      <Field
+        htmlFor="edicion-nombre"
+        etiqueta="Nombre"
+        ejemplo="Arroz a granel"
+        obligatorio
+        error={!nombre.trim() ? 'El nombre es obligatorio.' : undefined}
+      >
+        <Input
+          id="edicion-nombre"
+          invalido={!nombre.trim()}
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+        />
       </Field>
 
       <Field
@@ -355,11 +391,19 @@ function FormularioEdicion({
         etiqueta="Stock mínimo"
         ejemplo="10000"
         ayuda={`Expresado en ${(producto.unidad_base ?? 'unidad base').toLowerCase()}.`}
+        error={
+          stockNumero === null
+            ? 'El stock mínimo debe ser un número.'
+            : stockNumero.comparar(0) < 0
+              ? 'El stock mínimo no puede ser negativo.'
+              : undefined
+        }
       >
         <Input
           id="edicion-stock-minimo"
           className="numero"
           inputMode="decimal"
+          invalido={stockNumero === null || stockNumero.comparar(0) < 0}
           value={stockMinimo}
           onChange={(e) => setStockMinimo(e.target.value)}
         />
@@ -400,11 +444,12 @@ function FormularioEdicion({
           variante="primario"
           cargando={guardando}
           textoCargando="Guardando…"
+          disabled={errores.length > 0}
           onClick={() =>
             onEnviar({
               nombre: nombre.trim(),
               descripcion: descripcion.trim() || null,
-              stock_minimo_base: stockMinimo || '0',
+              stock_minimo_base: (Decimal.intentarDesde(stockMinimo)?.aTexto() ?? '0'),
               activo,
             })
           }

@@ -52,6 +52,18 @@ class TestEntradaNumerica:
         with pytest.raises(ValueError, match="no tiene un valor num"):
             decimal_ingreso(texto)
 
+    @pytest.mark.parametrize(
+        ("texto", "esperado"),
+        [
+            ("-2", Decimal("-2")),
+            ("-2,50", Decimal("-2.50")),
+            ("-1.000", Decimal("-1000")),
+            ("-0,750", Decimal("-0.750")),
+        ],
+    )
+    def test_entiende_el_signo_menos_de_los_ajustes(self, texto: str, esperado: Decimal) -> None:
+        assert decimal_ingreso(texto) == esperado
+
 
 def test_caja_de_24_unidades():
     conversion = convertir_a_base(

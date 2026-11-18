@@ -1,0 +1,241 @@
+{
+  "reglas": {
+    "acceso": {
+      "usuario": {
+        "min": 2,
+        "max": 60
+      },
+      "password": {
+        "min": 4,
+        "max": 200
+      }
+    },
+    "usuarios": {
+      "nombre": {
+        "min": 2,
+        "max": 120
+      },
+      "usuario": {
+        "min": 2,
+        "max": 60
+      },
+      "password": {
+        "min": 6,
+        "max": 200
+      },
+      "rol": {
+        "max": 50
+      }
+    },
+    "usuarios_edicion": {
+      "nombre": {
+        "min": 2,
+        "max": 120
+      },
+      "password": {
+        "min": 6,
+        "max": 200
+      },
+      "rol": {
+        "max": 50
+      }
+    },
+    "productos": {
+      "codigo": {
+        "min": 1,
+        "max": 40
+      },
+      "nombre": {
+        "min": 1,
+        "max": 200
+      },
+      "stock_minimo_base": {
+        "menor_igual": 0.0
+      }
+    },
+    "productos_edicion": {
+      "nombre": {
+        "min": 1,
+        "max": 200
+      },
+      "stock_minimo_base": {
+        "menor_igual": 0.0
+      }
+    },
+    "presentaciones": {
+      "nombre": {
+        "min": 1,
+        "max": 80
+      },
+      "factor_base": {
+        "mayor": 0.0
+      },
+      "precio_venta": {
+        "menor_igual": 0.0
+      },
+      "costo_referencia": {
+        "menor_igual": 0.0
+      },
+      "codigo_barras": {
+        "max": 64
+      }
+    },
+    "proveedores": {
+      "codigo": {
+        "min": 1,
+        "max": 40
+      },
+      "razon_social": {
+        "min": 1,
+        "max": 200
+      },
+      "nombre_comercial": {
+        "max": 200
+      },
+      "ruc": {
+        "max": 20
+      },
+      "telefono": {
+        "max": 40
+      },
+      "contacto": {
+        "max": 120
+      },
+      "direccion": {
+        "max": 240
+      },
+      "email": {
+        "max": 120
+      }
+    },
+    "proveedores_edicion": {
+      "razon_social": {
+        "min": 1,
+        "max": 200
+      },
+      "nombre_comercial": {
+        "max": 200
+      },
+      "ruc": {
+        "max": 20
+      },
+      "telefono": {
+        "max": 40
+      },
+      "contacto": {
+        "max": 120
+      },
+      "direccion": {
+        "max": 240
+      },
+      "email": {
+        "max": 120
+      }
+    },
+    "ventas": {
+      "cantidad": {
+        "mayor": 0.0
+      },
+      "precio_unitario": {
+        "menor_igual": 0.0
+      },
+      "precio_total": {
+        "menor_igual": 0.0
+      },
+      "motivo_precio": {
+        "max": 120
+      }
+    },
+    "ventas_cabecera": {
+      "cliente": {
+        "max": 160
+      },
+      "monto_recibido": {
+        "menor_igual": 0.0
+      },
+      "idempotency_key": {
+        "max": 80
+      },
+      "lineas": {
+        "min": 1
+      }
+    },
+    "anulacion_venta": {
+      "motivo": {
+        "min": 5,
+        "max": 500
+      }
+    },
+    "abastecimientos": {
+      "cantidad": {
+        "mayor": 0.0
+      },
+      "costo_unitario": {
+        "menor_igual": 0.0
+      },
+      "precio_venta": {
+        "menor_igual": 0.0
+      }
+    },
+    "abastecimientos_documento": {
+      "documento": {
+        "max": 60
+      },
+      "lineas": {
+        "min": 1
+      }
+    },
+    "ajustes": {
+      "motivo": {
+        "min": 5,
+        "max": 500
+      }
+    },
+    "lotes_precio": {
+      "precio": {
+        "menor_igual": 0.0
+      },
+      "motivo": {
+        "max": 200
+      }
+    },
+    "configuracion": {
+      "negocio_nombre": {
+        "max": 120
+      },
+      "negocio_ruc": {
+        "max": 20
+      },
+      "negocio_direccion": {
+        "max": 240
+      },
+      "negocio_telefono": {
+        "max": 40
+      },
+      "ticket_pie": {
+        "max": 200
+      },
+      "ticket_mostrar_precio_original": {
+        "max": 3
+      },
+      "ticket_mostrar_qr": {
+        "max": 3
+      },
+      "ticket_ancho": {
+        "max": 3
+      },
+      "venta_descuento_maximo_porcentaje": {
+        "max": 20
+      },
+      "venta_descuento_maximo_monto": {
+        "max": 20
+      }
+    }
+  },
+  "formas_pago": [
+    "efectivo",
+    "tarjeta",
+    "voucher",
+    "yape"
+  ]
+}

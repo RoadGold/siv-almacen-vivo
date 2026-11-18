@@ -23,6 +23,7 @@ import { claves } from '@/shared/api/clavesConsulta';
 import { abastecimientosApi, catalogoApi, proveedoresApi } from '@/shared/api/endpoints';
 import { Decimal } from '@/shared/format/decimal';
 import { parsearEntradaNumerica } from '@/shared/format/entrada';
+import { reglaDe } from '@/shared/contrato/reglas';
 import {
   formatearCantidad,
   formatearEnUnidadLegible,
@@ -451,9 +452,20 @@ export function Recibir() {
             }
           >
             <CardBody className="grid gap-4 md:grid-cols-3">
-              <Field htmlFor="documento-ingreso" etiqueta="Documento de referencia" ejemplo="F001-00123">
+              <Field
+                htmlFor="documento-ingreso"
+                etiqueta="Documento de referencia"
+                ejemplo="F001-00123"
+                error={
+                  // La misma regla que aplica el backend (ver `AbastecimientoIn`).
+                  documento.trim().length > (reglaDe('abastecimientos_documento', 'documento').max ?? 60)
+                    ? 'El documento no puede pasar de 60 caracteres.'
+                    : undefined
+                }
+              >
                 <Input
                   id="documento-ingreso"
+                  invalido={documento.trim().length > 60}
                   value={documento}
                   onChange={(evento) => setDocumento(evento.target.value)}
                 />

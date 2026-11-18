@@ -27,6 +27,7 @@ import {
 } from '@/design-system';
 import { lotesApi } from '@/shared/api/endpoints';
 import { Decimal } from '@/shared/format/decimal';
+import { reglaDe } from '@/shared/contrato/reglas';
 import {
   abreviarUnidad,
   formatearCantidad,
@@ -115,8 +116,13 @@ export function SeccionLotes({
     mutationFn: () => {
       if (!loteEnEdicion) throw new Error('Seleccione un lote.');
       if (presentacionId === '') throw new Error('Seleccione la presentación a modificar.');
-      const valor = Decimal.desde(precio);
+      // Las mismas reglas que aplica el backend (ver `PrecioLoteIn`).
+      const valor = Decimal.intentarDesde(precio);
+      if (valor === null) throw new Error('El precio debe ser un número.');
       if (valor.comparar(0) < 0) throw new Error('El precio no puede ser negativo.');
+      if (motivo.trim().length > (reglaDe('lotes_precio', 'motivo').max ?? 200)) {
+        throw new Error('El motivo no puede pasar de 200 caracteres.');
+      }
       return lotesApi.actualizarPrecio(loteEnEdicion.id, {
         presentacion_id: presentacionId,
         precio: valor.aTexto(),

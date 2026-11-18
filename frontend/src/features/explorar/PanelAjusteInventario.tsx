@@ -14,6 +14,7 @@ import { Button, Field, Input, Modal, Notice, Select, useToast } from '@/design-
 import { ErrorApi } from '@/shared/api/client';
 import { inventarioApi } from '@/shared/api/endpoints';
 import { abreviarUnidad, formatearCantidad, formatearFecha } from '@/shared/format/formato';
+import { reglaDe } from '@/shared/contrato/reglas';
 import { mensajeDeError } from '@/shared/hooks/errores';
 import { registrarOperacion } from '@/shared/estado/operaciones';
 import { Decimal } from '@/shared/format/decimal';
@@ -112,14 +113,26 @@ export function PanelAjusteInventario({
         if (valor.comparar(Decimal.cero()) <= 0) {
           throw new Error('La cantidad del saldo inicial debe ser mayor que cero.');
         }
+        // Las mismas reglas que aplica el backend (ver `InventarioInicialIn`).
+        const referencia = motivo.trim() || 'Inventario inicial';
+        if (referencia.length > 120) {
+          throw new Error('La referencia no puede pasar de 120 caracteres.');
+        }
+        const costoNumero = Decimal.intentarDesde(costo);
+        if (costoNumero === null) {
+          throw new Error('El costo unitario debe ser un número.');
+        }
+        if (costoNumero.comparar(0) < 0) {
+          throw new Error('El costo unitario no puede ser negativo.');
+        }
         return inventarioApi.inventarioInicial({
           almacen_id: almacenId,
-          referencia: motivo.trim() || 'Inventario inicial',
+          referencia,
           lineas: [
             {
               producto_id: producto.id,
               cantidad_base: valor.aTexto(),
-              costo_unitario_base: decimal(costo).aTexto(),
+              costo_unitario_base: costoNumero.aTexto(),
             },
           ],
         });
@@ -127,8 +140,12 @@ export function PanelAjusteInventario({
       if (valor.esCero()) {
         throw new Error('El ajuste debe ser distinto de cero.');
       }
-      if (motivo.trim().length < 5) {
+      if (motivo.trim().length < (reglaDe('ajustes', 'motivo').min ?? 5)) {
         throw new Error('Escriba el motivo del ajuste (mínimo 5 caracteres).');
+      }
+      // Las mismas reglas que aplica el backend (ver `AjusteIn`).
+      if (motivo.trim().length > (reglaDe('ajustes', 'motivo').max ?? 500)) {
+        throw new Error('El motivo no puede pasar de 500 caracteres.');
       }
       if (!almacenId) throw new Error('No se pudo determinar el almacén.');
       if (requiereLote && !loteElegido) {

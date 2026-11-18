@@ -10,6 +10,8 @@
  * `sumar`, `restar` y `multiplicar` son operaciones exactas.
  */
 
+import { parsearEntradaNumerica } from './entrada';
+
 export type EntradaDecimal = string | number | bigint | Decimal | null | undefined;
 
 const REGEX_DECIMAL = /^([+-]?)(\d*)(?:[.,](\d*))?$/;
@@ -49,6 +51,19 @@ export class Decimal {
 
   static cero(): Decimal {
     return new Decimal(0n, 0);
+  }
+
+  /**
+   * Convierte **lo que escribe una persona** en decimal.
+   *
+   * Entiende la notación de miles (`1.000` son mil) igual que la caja. Si el
+   * texto no es un número, devuelve `null` en vez de `0`: así el error se ve
+   * en vez de guardarse un cero calladito.
+   */
+  static intentarDesde(texto: string): Decimal | null {
+    const normalizado = parsearEntradaNumerica(texto);
+    if (normalizado === '') return null;
+    return Decimal.desde(normalizado);
   }
 
   /** Alinea dos decimales a la misma escala. */

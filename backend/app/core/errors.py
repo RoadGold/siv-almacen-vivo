@@ -32,6 +32,10 @@ TRADUCCIONES = {
     "ensure this value is greater than or equal to": "no puede ser menor que",
     "ensure this value is less than or equal to": "no puede ser mayor que",
     "value is not a valid decimal": "no es un número válido",
+    "Input should be": "debe ser uno de:",
+    "String should have at least": "debe tener al menos",
+    "String should have at most": "no puede pasar de",
+    "characters": "caracteres",
 }
 
 # Nombre legible de los campos que más se usan.
@@ -59,6 +63,25 @@ NOMBRES_CAMPO = {
     "proveedor_id": "El proveedor",
     "lote_id": "El lote",
     "almacen_id": "El almacén",
+    "ruc": "El RUC",
+    "email": "El correo electrónico",
+    "telefono": "El teléfono",
+    "contacto": "El contacto",
+    "direccion": "La dirección",
+    "razon_social": "La razón social",
+    "nombre_comercial": "El nombre comercial",
+    "stock_minimo_base": "El stock mínimo",
+    "referencia": "La referencia",
+    "ticket_ancho": "El ancho del ticket",
+    "ticket_pie": "El mensaje del pie",
+    "negocio_nombre": "El nombre del negocio",
+    "negocio_ruc": "El RUC del negocio",
+    "negocio_direccion": "La dirección del negocio",
+    "negocio_telefono": "El teléfono del negocio",
+    "venta_descuento_maximo_porcentaje": "El límite de descuento (%)",
+    "venta_descuento_maximo_monto": "El límite de descuento (S/)",
+    "ticket_mostrar_precio_original": "Mostrar el precio original",
+    "ticket_mostrar_qr": "Mostrar el QR",
 }
 
 
@@ -85,13 +108,18 @@ def _mensaje_de_validacion(errores: list[dict[str, Any]]) -> str:
     campo = str(primero.get("loc", ["", ""])[-1])
     nombre = NOMBRES_CAMPO.get(campo)
     detalle = str(primero.get("msg", "no es válido"))
-    # Pydantic envuelve los errores de valor propio con este prefijo.
-    if detalle.startswith("Value error, "):
+    # Los errores de valor propio ya son una frase completa: se muestran tal
+    # cual, sin anteponer el nombre del campo.
+    es_frase_propia = detalle.startswith("Value error, ")
+    if es_frase_propia:
         detalle = detalle[len("Value error, ") :]
+    # Las listas de valores permitidos vienen en inglés: se ponen en español.
+    detalle = detalle.replace(" or ", " o ").replace(" and ", " y ")
+    # Las palabras sueltas del final del mensaje también se traducen.
     for original, traduccion in TRADUCCIONES.items():
-        if detalle.startswith(original):
-            detalle = traduccion + detalle[len(original) :]
-            break
+        detalle = detalle.replace(original, traduccion)
+    if es_frase_propia:
+        return f"{detalle}." if not detalle.endswith(".") else detalle
     if nombre:
         return f"{nombre} {detalle}."
     return f"Los datos enviados no son válidos: {detalle}."

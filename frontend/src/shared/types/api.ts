@@ -295,6 +295,8 @@ export interface PrevisualizacionVenta {
   costo_estimado: string;
   lineas: LineaCalculadaVenta[];
   alertas: string[];
+  /** Importe que quedaría sin cobrar si el efectivo no cubre el total. */
+  deuda?: string;
 }
 
 export interface DetalleVenta {
@@ -328,6 +330,8 @@ export interface Venta {
   forma_pago?: string | null;
   monto_recibido?: string | null;
   vuelto?: string | null;
+  /** Importe que quedó sin cobrar (efectivo insuficiente). */
+  deuda?: string | null;
   observaciones?: string | null;
   usuario?: string | null;
   ticket_impreso: boolean;
@@ -562,6 +566,12 @@ export interface ResultadoImpresion {
 export interface ConfiguracionNegocio {
   valores: Record<string, string>;
   descripciones: Record<string, string>;
+}
+
+/** Forma de pago que admite la caja (la lista la da el backend). */
+export interface FormaPago {
+  valor: string;
+  etiqueta: string;
 }
 
 export interface EstadoImpresora {

@@ -1,5 +1,6 @@
 /** Barril de Components del sistema visual. */
 export { Badge, type BadgeProps, type TonoBadge } from './Badge';
+export { AvisoErrores, type AvisoErroresProps } from './AvisoErrores';
 export { Button, type ButtonProps, type TamanoBoton, type VarianteBoton } from './Button';
 export { Card, CardBody, type CardProps } from './Card';
 export { EmptyState, type EmptyStateProps } from './EmptyState';

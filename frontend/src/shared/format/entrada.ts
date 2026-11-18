@@ -12,6 +12,7 @@
  *   0,750                       ->  0.750  (decimal: la parte entera es 0)
  *   1.5                        ->  1.5    (decimal)
  *   1.234.567                  ->  1234567 (miles)
+ *   -2                         ->  -2     (signo menos: ajustes de stock)
  */
 
 /** Quita los espacios (incluidos los finos) que separan los miles. */
@@ -25,6 +26,16 @@ function quitarEspacios(texto: string): string {
  */
 export function parsearEntradaNumerica(texto: string): string {
   let limpio = quitarEspacios(texto ?? '');
+  if (limpio === '') return '';
+
+  // El signo menos va delante: «-2» es un ajuste que resta.
+  let signo = '';
+  if (limpio.startsWith('-')) {
+    signo = '-';
+    limpio = limpio.slice(1);
+  } else if (limpio.startsWith('+')) {
+    limpio = limpio.slice(1);
+  }
   if (limpio === '') return '';
 
   const tieneComa = limpio.includes(',');
@@ -67,7 +78,7 @@ export function parsearEntradaNumerica(texto: string): string {
   if (!/^\d*\.?\d*$/.test(limpio) || limpio === '' || limpio === '.') {
     return '';
   }
-  return limpio;
+  return signo + limpio;
 }
 
 /** Indica si el texto es un número válido (tras normalizarlo). */

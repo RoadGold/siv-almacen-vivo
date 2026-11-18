@@ -85,6 +85,16 @@ def _normalizar_miles(texto: str) -> str:
     if limpio == "":
         return limpio
 
+    # El signo menos va delante: «-2» es un ajuste que resta.
+    signo = ""
+    if limpio.startswith("-"):
+        signo = "-"
+        limpio = limpio[1:]
+    elif limpio.startswith("+"):
+        limpio = limpio[1:]
+    if limpio == "":
+        return limpio
+
     tiene_coma = "," in limpio
     tiene_punto = "." in limpio
 
@@ -110,7 +120,7 @@ def _normalizar_miles(texto: str) -> str:
             # 1.000 -> miles ; 1.234.567 -> millones.
             limpio = "".join(partes)
 
-    return limpio
+    return signo + limpio
 
 
 def decimal_ingreso(valor: object) -> Decimal:

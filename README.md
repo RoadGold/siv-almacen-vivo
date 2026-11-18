@@ -106,7 +106,7 @@ La base de pruebas vive en memoria (`tmpfs`) y se crea sola:
 docker compose --profile test up -d db-test
 ```
 
-Cobertura actual: **261 pruebas** de backend (pytest) y **84** de frontend (Vitest), que incluyen
+Cobertura actual: **320 pruebas** de backend (pytest) y **119** de frontend (Vitest), que incluyen
 conversiones exactas (caja × 24, saco de 50 kg, venta fraccionada de 0,750 kg), rechazo de
 fracciones en productos indivisibles, stock insuficiente, idempotencia, concurrencia sobre la
 última unidad, atomicidad de la transacción, reversión por anulación, snapshots históricos,
@@ -115,7 +115,28 @@ lote antiguo, venta de lote nuevo, venta combinada, stock insuficiente por lote,
 lote, cambio de precio por lote, anulación con dos lotes, concurrencia, productos sin lotes,
 código de barras y conciliación de existencias)**, precios variables y su límite de descuento,
 impresión del ticket y su falla sin pérdida de la venta, permisos por rol, importación de Excel,
-reportes y **contraste WCAG AA de las paletas clara y oscura**.
+reportes, **contraste WCAG AA de las paletas clara y oscura**, **validaciones de los puntos de
+entrada (deuda por cobrar, forma de pago cerrada, limpieza de campos al editar, RUC y correo
+con formato, configuración del negocio e importación que respeta los schemas)** y el
+**contrato de validaciones entre el backend y el cliente**.
+
+### Validaciones: el backend manda, el cliente avisa
+
+Las reglas de cada dato viven en los schemas del backend (`backend/app/schemas/`), que es la
+única autoridad. El cliente aplica la misma regla para avisar antes de enviar, sin una ida y
+vuelta al servidor.
+
+Para que las dos capas no se separen, el backend **extrae** sus reglas de los schemas y las
+publica en `frontend/src/shared/contrato/reglas.json`:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m app.core.contrato_cli --escribir
+```
+
+Si se cambia una regla en el backend y no se regenera ese archivo, la prueba
+`test_contrato_validaciones.py` falla. El cliente lee el contrato con
+`@/shared/contrato/reglas` y lo usa en lugar de escribir las reglas a mano.
 
 Recorrido de aceptación contra el sistema en marcha:
 

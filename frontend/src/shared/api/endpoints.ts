@@ -32,6 +32,7 @@ import type {
   ResultadoImportacion,
   ConfiguracionNegocio,
   EstadoImpresora,
+  FormaPago,
   ResultadoImpresion,
   LoteResumen,
   ResultadoInventarioInicial,
@@ -282,6 +283,12 @@ export const configuracionApi = {
   leer: () => api.get<ConfiguracionNegocio>('/configuracion'),
   guardar: (valores: Record<string, string>) =>
     api.put<ConfiguracionNegocio>('/configuracion', valores),
+  /**
+   * Formas de pago que admite la caja.
+   * La lista vive en el backend: el cliente no la escribe a mano, para que no
+   * se desincronice con lo que el servidor acepta.
+   */
+  formasPago: () => api.get<FormaPago[]>(`/configuracion/formas-pago`),
 };
 
 /* --- Impresora de tickets ----------------------------------------------- */

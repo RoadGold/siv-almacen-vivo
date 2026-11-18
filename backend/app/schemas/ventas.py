@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.domain.pagos import FormaPago
 from app.domain.unidades import decimal_ingreso
 
 
@@ -40,7 +41,10 @@ class VentaIn(BaseModel):
     almacen_id: int | None = None
     fecha: date | None = None
     cliente: str | None = Field(default=None, max_length=160)
-    forma_pago: str | None = Field(default=None, max_length=30)
+    forma_pago: FormaPago | None = Field(
+        default=None,
+        description="Forma de pago del cobro. Solo se admiten las de la caja.",
+    )
     monto_recibido: Decimal | None = Field(default=None, ge=0)
     observaciones: str | None = None
     idempotency_key: str | None = Field(default=None, max_length=80)
@@ -89,6 +93,10 @@ class PrevisualizacionVentaOut(BaseModel):
     costo_estimado: str
     lineas: list[LineaCalculadaVenta]
     alertas: list[str] = Field(default_factory=list)
+    deuda: str = Field(
+        default="0",
+        description="Importe que quedaría sin cobrar si el efectivo no cubre el total.",
+    )
 
 
 class DetalleVentaOut(BaseModel):
@@ -126,6 +134,7 @@ class VentaOut(BaseModel):
     forma_pago: str | None = None
     monto_recibido: str | None = None
     vuelto: str | None = None
+    deuda: str | None = None
     observaciones: str | None = None
     usuario: str | None = None
     ticket_impreso: bool = False

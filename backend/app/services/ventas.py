@@ -244,6 +244,7 @@ def previsualizar(
         "costo_estimado": num(q2(costo_estimado)),
         "lineas": lineas,
         "alertas": alertas,
+        "deuda": num(_deuda(_monto_recibido(db, payload, total), total) or Decimal("0")),
     }
 
 
@@ -262,9 +263,25 @@ def _monto_recibido(db: Session, payload: dict[str, Any], total: Decimal) -> Dec
 
 
 def _vuelto(monto_recibido: Decimal | None, total: Decimal) -> Decimal | None:
+    """Efectivo que se devuelve al cliente (nunca negativo)."""
     if monto_recibido is None:
         return None
-    return q2(monto_recibido - total) if monto_recibido >= total else q2(Decimal("0"))
+    if monto_recibido < total:
+        return q2(Decimal("0"))
+    return q2(monto_recibido - total)
+
+
+def _deuda(monto_recibido: Decimal | None, total: Decimal) -> Decimal | None:
+    """Importe que quedó sin cobrar.
+
+    La venta **no** se rechaza cuando el efectivo no cubre el total: se registra
+    y queda visible la diferencia, para que el cierre de caja la muestre.
+    """
+    if monto_recibido is None:
+        return None
+    if monto_recibido >= total:
+        return None
+    return q2(total - monto_recibido)
 
 
 def _auditar_precio(
@@ -332,7 +349,11 @@ def confirmar(
         costo_total=0,
         idempotency_key=clave,
         cliente=(payload.get("cliente") or "").strip() or None,
-        forma_pago=(payload.get("forma_pago") or "").strip() or None,
+        forma_pago=(
+            str(payload.get("forma_pago")).strip().lower()
+            if payload.get("forma_pago")
+            else None
+        ),
         observaciones=payload.get("observaciones"),
     )
     db.add(venta)
@@ -453,6 +474,7 @@ def confirmar(
     venta.costo_total = q2(costo_total)
     venta.monto_recibido = _monto_recibido(db, payload, total)
     venta.vuelto = _vuelto(venta.monto_recibido, total)
+    venta.deuda = _deuda(venta.monto_recibido, total)
     db.flush()
     return venta
 
@@ -551,6 +573,7 @@ def venta_a_dict(venta: Venta) -> dict[str, Any]:
         "forma_pago": venta.forma_pago,
         "monto_recibido": num(q2(dec(venta.monto_recibido))) if venta.monto_recibido is not None else None,
         "vuelto": num(q2(dec(venta.vuelto))) if venta.vuelto is not None else None,
+        "deuda": num(q2(dec(venta.deuda))) if venta.deuda is not None else None,
         "observaciones": venta.observaciones,
         "usuario": venta.usuario.nombre if venta.usuario else None,
         "ticket_impreso": bool(venta.ticket_impreso),

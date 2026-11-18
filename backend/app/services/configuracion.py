@@ -34,12 +34,8 @@ CLAVES = {
     "venta_descuento_maximo_monto": "0",
 }
 
-# Valores que solo pueden ser de una lista cerrada.
-VALORES_CERRADOS = {
-    "ticket_mostrar_precio_original": {"si", "no"},
-    "ticket_mostrar_qr": {"si", "no"},
-    "ticket_ancho": {"58", "80"},
-}
+# Los valores que solo pueden ser de una lista cerrada (si/no, 58/80) los
+# valida el schema `ConfiguracionIn`, en `app/schemas/configuracion.py`.
 
 DESCRIPCIONES = {
     "negocio_nombre": "Nombre comercial que aparece en el ticket",
@@ -86,7 +82,11 @@ def decimal(db: Session, clave: str, defecto: str = "0") -> Decimal:
 
 
 def guardar(db: Session, datos: dict[str, Any], usuario_id: int | None = None) -> dict[str, str]:
-    """Guarda la configuración y deja constancia en la auditoría."""
+    """Guarda la configuración y deja constancia en la auditoría.
+
+    Las reglas de cada clave las aplica el schema (`ConfiguracionIn`); aquí solo
+    se ignoran las claves desconocidas y se registra lo que cambió.
+    """
     from app.services import auditoria
 
     cambios: dict[str, str] = {}
@@ -94,15 +94,6 @@ def guardar(db: Session, datos: dict[str, Any], usuario_id: int | None = None) -
         if clave not in CLAVES:
             continue
         texto = str(valor_nuevo).strip() if valor_nuevo is not None else ""
-        if clave in VALORES_CERRADOS and texto.lower() not in VALORES_CERRADOS[clave]:
-            permitidos = ", ".join(sorted(VALORES_CERRADOS[clave]))
-            raise ValueError(f"El valor de «{clave}» debe ser uno de: {permitidos}.")
-        if clave in {"venta_descuento_maximo_porcentaje", "venta_descuento_maximo_monto"}:
-            try:
-                if dec(texto) < 0:
-                    raise ValueError("El límite no puede ser negativo.")
-            except Exception as exc:
-                raise ValueError(f"El valor de «{clave}» no es un número válido.") from exc
         actual = db.get(Configuracion, clave)
         if actual is None:
             db.add(Configuracion(clave=clave, valor=texto))

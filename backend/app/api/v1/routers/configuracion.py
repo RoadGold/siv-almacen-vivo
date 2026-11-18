@@ -11,6 +11,8 @@ from app.api.deps import requiere_permiso
 from app.core.permissions import Permiso
 from app.db.models import Usuario
 from app.db.session import get_db
+from app.domain.pagos import ETIQUETAS_FORMA_PAGO, FORMAS_PAGO
+from app.schemas.configuracion import ConfiguracionIn
 from app.services import configuracion as servicio
 
 router = APIRouter(prefix="/configuracion", tags=["Configuración"])
@@ -28,15 +30,30 @@ def leer(
     }
 
 
+@router.get("/formas-pago")
+def formas_pago(
+    _: Usuario = Depends(requiere_permiso(Permiso.CATALOGO_VER)),
+) -> list[dict[str, str]]:
+    """Formas de pago que admite la caja.
+
+    El cliente las lee de aquí: la lista vive en un solo sitio (el dominio) y no
+    se escribe a mano en dos lugares.
+    """
+    return [
+        {"valor": valor, "etiqueta": ETIQUETAS_FORMA_PAGO[valor]}
+        for valor in FORMAS_PAGO
+    ]
+
+
 @router.put("")
 def actualizar(
-    datos: dict[str, Any],
+    datos: ConfiguracionIn,
     usuario: Usuario = Depends(requiere_permiso(Permiso.ADMIN_USUARIOS)),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     """Guarda la configuración del negocio y de la caja."""
     try:
-        valores = servicio.guardar(db, datos, usuario.id)
+        valores = servicio.guardar(db, datos.model_dump(exclude_unset=True), usuario.id)
     except ValueError as error:
         from app.domain.unidades import ErrorNegocio
 

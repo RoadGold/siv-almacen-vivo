@@ -12,6 +12,7 @@ from typing import Any
 
 from sqlalchemy import select
 
+from app.domain.pagos import ETIQUETAS_FORMA_PAGO
 from app.domain.unidades import dec, q2
 from app.services import configuracion
 from app.services.impresora import ConstructorTicket, enviar
@@ -112,11 +113,13 @@ def construir_ticket(
     # --- Totales y pago ---------------------------------------------------
     t.pares("TOTAL", _dinero(venta.total))
     if venta.forma_pago:
-        t.pares("Pago", str(venta.forma_pago).capitalize())
+        t.pares("Pago", ETIQUETAS_FORMA_PAGO.get(str(venta.forma_pago), str(venta.forma_pago).capitalize()))
     if venta.monto_recibido is not None:
         t.pares("Recibido", _dinero(venta.monto_recibido))
     if venta.vuelto is not None:
         t.pares("Vuelto", _dinero(venta.vuelto))
+    if venta.deuda is not None:
+        t.pares("DEUDA", _dinero(venta.deuda))
     t.separador()
 
     # --- Código QR y pie ---------------------------------------------------
@@ -173,11 +176,13 @@ def contenido_texto_ticket(db, venta: Any) -> str:
     lineas.append("-" * config.columnas)
     lineas.append(f"TOTAL {_dinero(venta.total)}")
     if venta.forma_pago:
-        lineas.append(f"Pago {venta.forma_pago}")
+        lineas.append(f"Pago {ETIQUETAS_FORMA_PAGO.get(str(venta.forma_pago), str(venta.forma_pago))}")
     if venta.monto_recibido is not None:
         lineas.append(f"Recibido {_dinero(venta.monto_recibido)}")
     if venta.vuelto is not None:
         lineas.append(f"Vuelto {_dinero(venta.vuelto)}")
+    if venta.deuda is not None:
+        lineas.append(f"DEUDA {_dinero(venta.deuda)}")
     lineas.append("-" * config.columnas)
     lineas.append(datos.get("ticket_pie", "¡Gracias por su compra!"))
     return "\n".join(lineas)
