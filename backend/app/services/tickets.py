@@ -7,11 +7,12 @@ no sustituye a los comprobantes tributarios exigibles.
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from sqlalchemy import select
 
+from app.db.models import Dimension
 from app.domain.pagos import ETIQUETAS_FORMA_PAGO
 from app.domain.unidades import dec, q2
 from app.services import configuracion
@@ -32,6 +33,34 @@ def _cantidad(valor: Decimal | str | None) -> str:
     if "." in texto:
         texto = texto.rstrip("0").rstrip(".")
     return texto or "0"
+
+
+def _linea_en_legible(
+    detalle: Any, cantidad_presentacion: str
+) -> tuple[str, str]:
+    """Expresa una línea en la unidad que entiende el cliente.
+
+    Los balanceados se venden por kilo, no por saco: es más claro «15 kg x
+    S/ 2,86» que «0.375 x S/ 114,40». Cuando el producto no es a granel por
+    peso, se muestra la cantidad de la presentación como siempre.
+    """
+    producto = getattr(detalle, "producto", None)
+    unidad = getattr(producto, "unidad_base", None) if producto else None
+    if unidad is None or getattr(unidad, "dimension", None) != Dimension.PESO:
+        return cantidad_presentacion, _dinero(detalle.precio_unitario)
+
+    # Se pasa a kilos cuando la cantidad alcanza un kilo.
+    cantidad_base = dec(detalle.cantidad_base)
+    if cantidad_base < 1000:
+        return cantidad_presentacion, _dinero(detalle.precio_unitario)
+
+    kilos = (cantidad_base / 1000).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+    precio_por_kilo = (
+        (dec(detalle.subtotal) / kilos).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if kilos > 0
+        else Decimal("0")
+    )
+    return f"{_cantidad(kilos)} kg", _dinero(precio_por_kilo)
 
 
 def _truncar(texto: str, largo: int) -> str:
@@ -95,8 +124,11 @@ def construir_ticket(
         precio = dec(detalle.precio_unitario)
         subtotal = dec(detalle.subtotal)
 
+        # Los balanceados se leen mejor en kilos que en sacos.
+        cantidad_legible, precio_legible = _linea_en_legible(detalle, cantidad)
+
         t.linea(f"{_truncar(descripcion, t.columnas - 1)}")
-        t.pares(f"  {cantidad} x {_dinero(precio)}", _dinero(subtotal))
+        t.pares(f"  {cantidad_legible} x {precio_legible}", _dinero(subtotal))
 
         original = (
             dec(detalle.precio_original)
@@ -160,9 +192,11 @@ def contenido_texto_ticket(db, venta: Any) -> str:
         nombre = producto.nombre if producto else "Producto"
         nombre_p = presentacion.nombre if presentacion else ""
         lineas.append(f"{nombre} ({nombre_p})" if nombre_p else nombre)
+        cantidad_legible, precio_legible = _linea_en_legible(
+            detalle, _cantidad(detalle.cantidad)
+        )
         lineas.append(
-            f"  {_cantidad(detalle.cantidad)} x {_dinero(detalle.precio_unitario)}"
-            f"   {_dinero(detalle.subtotal)}"
+            f"  {cantidad_legible} x {precio_legible}   {_dinero(detalle.subtotal)}"
         )
         original = (
             dec(detalle.precio_original)

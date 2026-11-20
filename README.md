@@ -147,6 +147,31 @@ Recorrido de aceptación contra el sistema en marcha:
 Conjunto de datos ficticio para pruebas de rendimiento (10 000 productos · 500 proveedores ·
 100 000 ventas): `backend\.venv\Scripts\python.exe -m app.cli.datos_carga`.
 
+### Catálogo inicial de balanceados
+
+El catálogo real del negocio (las listas de precios de VITAMAXPRO/INVITA y de TOMASINO) se
+carga con un comando:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m app.cli.datos_balanceados_cargar --simular   # ver qué se cargaría
+.\.venv\Scripts\python.exe -m app.cli.datos_balanceados_cargar             # cargarlo
+```
+
+Qué hace:
+
+- Crea los dos proveedores (**Vitamaxpro** y **Tomasino**) y las 12 categorías y 3 marcas.
+- Carga **143 productos** con sus **189 presentaciones** (empaques). Un producto es un
+  alimento; una presentación es un empaque («saco 40 kg pellet», «20 x 1 kg polvo»).
+- El stock se lleva en **gramos**: un saco de 40 kg es un factor de 40 000.
+- Los precios de las listas son **lo que paga el negocio**: se guardan como costo de
+  referencia, y el precio de venta se calcula con el **margen del 30 %**.
+
+Es **idempotente** y se puede volver a ejecutar cuando el distribuidor mande la lista
+actualizada: los productos se reconocen por marca y nombre (y por el código del
+distribuidor en TOMASINO), así que **ningún producto cambia de código** y no se rompe el
+historial. Los productos que ya no están en la lista se **desactivan**, no se borran.
+
 ---
 
 ## Respaldo y restauración

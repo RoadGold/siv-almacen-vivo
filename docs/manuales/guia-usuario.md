@@ -254,6 +254,27 @@ nuevo.
 | `Esc` | Limpiar la búsqueda |
 | `Enter` | Agregar el producto buscado |
 
+### 3.10 Vender a granel (balanceados)
+
+Los balanceados se venden por kilo, no por saco. Cuando agrega un producto de grano a la
+venta, elija la presentación (el empaque que se lleva el cliente) y **la cantidad en sacos
+o kilos**:
+
+- Si el cliente lleva **2 sacos completos**, escriba `2`.
+- Si lleva **media bolsa de 40 kg** (20 kg), escriba `0.5`.
+- Si lleva **15 kg sueltos**, escriba `0.375` (15 de los 40 kilos del saco).
+
+El sistema convierte la cantidad a kilos y el **ticket lo muestra en kilos**, que es como
+se entiende:
+
+```text
+TERNEROS CUNA (saco 40 kg pellet)
+  80 kg x S/ 2,86   S/ 228,80
+```
+
+> El stock también se lleva en kilos: «10 sacos» son 400 kg. Si el producto se vendió por
+> fracciones, el sistema no deja registrar una cantidad que no sea múltiplo de un kilo.
+
 ---
 
 ## 4. RECIBIR · Registrar la mercadería que llegó

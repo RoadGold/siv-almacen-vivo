@@ -38,6 +38,10 @@ lo que no existe. Ajuste la cantidad y vuelva a confirmar.
 **Si el efectivo no alcanza**: el sistema avisa cuánto falta y registra la venta igual. El importe
 pendiente queda anotado como deuda en la venta y en el ticket, para que el cierre de caja cuadre.
 
+**Vender a granel**: los balanceados se venden por kilo. Si el cliente lleva media bolsa de 40 kg,
+escriba `0.5`; si lleva 15 kg sueltos, `0.375`. El ticket lo muestra en kilos («15 kg x
+S/ 2,86»).
+
 **Atajos**: `F3` enfoca el buscador · `Esc` limpia el panel.
 
 **Cómo escribir las cantidades**: el sistema entiende `1.000`, `1,000` y `1 000` como mil, y

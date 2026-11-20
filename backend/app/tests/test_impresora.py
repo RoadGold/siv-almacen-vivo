@@ -213,6 +213,92 @@ def test_impresion_del_ticket_de_una_venta(
     assert len(enviados) == 2
 
 
+def test_el_ticket_expresa_los_balanceados_en_kilos(
+    cliente, cabeceras_admin, cabeceras_vendedor, unidades, almacen, monkeypatch
+):
+    """Los productos a granel por peso se leen en kilos, no en sacos.
+
+    «15 kg x S/ 2,86» se entiende; «0.375 x S/ 114,40» no.
+    """
+    from app.services import tickets
+
+    enviados: list[bytes] = []
+
+    def _enviar_falso(datos, config=None):
+        enviados.append(datos)
+
+    monkeypatch.setattr(tickets, "enviar", _enviar_falso)
+
+    producto = cliente.post(
+        "/api/v1/catalogo/productos",
+        json={
+            "codigo": "BAL-001",
+            "nombre": "Terneros Cuna",
+            "unidad_base_id": unidades["GR"].id,
+            "presentaciones": [
+                {
+                    "nombre": "saco 40 kg pellet",
+                    "factor_base": "40000",
+                    "precio_venta": "114.40",
+                    # El balanceado se vende a granel, por kilos.
+                    "permite_fraccion": True,
+                }
+            ],
+        },
+        headers=cabeceras_admin,
+    ).json()
+    presentacion = producto["presentaciones"][0]
+    proveedor = cliente.post(
+        "/api/v1/proveedores",
+        json={"codigo": "PRV-BAL", "razon_social": "Distribuidora SAC"},
+        headers=cabeceras_admin,
+    ).json()
+    cliente.post(
+        "/api/v1/abastecimientos",
+        json={
+            "proveedor_id": proveedor["id"],
+            "almacen_id": almacen.id,
+            "lineas": [
+                {
+                    "producto_id": producto["id"],
+                    "presentacion_id": presentacion["id"],
+                    "cantidad": "10",
+                    "costo_unitario": "88.00",
+                }
+            ],
+        },
+        headers=cabeceras_admin,
+    )
+
+    # 0.375 de saco = 15 kg.
+    respuesta_venta = cliente.post(
+        "/api/v1/ventas",
+        json={
+            "forma_pago": "efectivo",
+            "monto_recibido": "50",
+            "lineas": [
+                {
+                    "producto_id": producto["id"],
+                    "presentacion_id": presentacion["id"],
+                    "cantidad": "0.375",
+                    "precio_total": "42.90",
+                }
+            ],
+        },
+        headers=cabeceras_vendedor,
+    )
+    assert respuesta_venta.status_code == 201, respuesta_venta.text
+    venta = respuesta_venta.json()
+
+    # El ticket se arma al imprimir.
+    cliente.post(f"/api/v1/ventas/{venta['id']}/imprimir", headers=cabeceras_vendedor)
+
+    assert len(enviados) == 1
+    texto = enviados[0].decode("utf-8", errors="replace")
+    assert "15 kg" in texto
+    assert "2,86" in texto
+
+
 def test_fallo_de_impresora_no_pierde_la_venta(
     cliente, cabeceras_admin, cabeceras_vendedor, unidades, almacen, monkeypatch
 ):
