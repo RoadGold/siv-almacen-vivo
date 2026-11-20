@@ -172,6 +172,25 @@ actualizada: los productos se reconocen por marca y nombre (y por el código del
 distribuidor en TOMASINO), así que **ningún producto cambia de código** y no se rompe el
 historial. Los productos que ya no están en la lista se **desactivan**, no se borran.
 
+### Empezar de cero con el catálogo
+
+Para dejar la base como recién instalada pero **con tu catálogo** (sin ventas, sin
+ingresos, sin stock y sin los datos de ejemplo):
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m app.cli.limpiar_operacion --simular   # ver qué se borra
+.\.venv\Scripts\python.exe -m app.cli.limpiar_operacion             # limpiar
+.\.venv\Scripts\python.exe -m app.cli.datos_balanceados_cargar       # rehacer los vínculos
+```
+
+Qué conserva: los usuarios y sus roles, el almacén, las unidades de medida y el catálogo
+de balanceados. Qué borra: toda la operación (ventas, ingresos, movimientos, ajustes,
+lotes, impresiones, auditoría) y los productos, proveedores, categorías y marcas de ejemplo.
+
+Las secuencias se reinician, así que la primera venta es la **V-000001** y el primer
+ingreso el **A-000001**.
+
 ---
 
 ## Respaldo y restauración
