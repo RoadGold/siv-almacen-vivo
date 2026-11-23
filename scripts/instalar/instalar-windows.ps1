@@ -44,6 +44,11 @@ $ErrorActionPreference = "Stop"
 $Raiz = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 Set-Location $Raiz
 
+# Las herramientas externas (npm, pip, python) escriben avisos por la salida de
+# error. Con $ErrorActionPreference = "Stop" eso abortaria la instalacion, asi
+# que se relaxa el error y se comprueba el codigo de salida de cada comando.
+$ErrorActionPreference = "Continue"
+
 function Escribir([string]$mensaje) { Write-Host "[SIV] $mensaje" -ForegroundColor Cyan }
 function Exito([string]$mensaje) { Write-Host "[SIV] $mensaje" -ForegroundColor Green }
 function Aviso([string]$mensaje) { Write-Host "[SIV] $mensaje" -ForegroundColor Yellow }
@@ -126,6 +131,7 @@ $contenido = $contenido -replace "(?m)^POSTGRES_PASSWORD=.*$", "POSTGRES_PASSWOR
 $contenido = $contenido -replace "(?m)^POSTGRES_DB=.*$", "POSTGRES_DB=$NombreBaseDatos"
 $contenido = $contenido -replace "(?m)^ADMIN_PASSWORD=.*$", "ADMIN_PASSWORD=$ClaveAdmin"
 Set-Content -Path $archivoEnv -Value $contenido -Encoding UTF8
+if (-not (Test-Path $archivoEnv)) { throw "No se pudo escribir el archivo .env" }
 Exito "Archivo .env escrito con una clave secreta propia."
 
 
@@ -196,6 +202,7 @@ Push-Location (Join-Path $Raiz "frontend")
 if (-not (Test-Path "node_modules")) {
     Escribir "Instalando las dependencias del frontend (puede tardar)..."
     npm install
+    if ($LASTEXITCODE -ne 0) { Pop-Location; throw "Falló la instalación de las dependencias del frontend." }
 }
 npm run build
 $codigo = $LASTEXITCODE
@@ -226,14 +233,18 @@ if (-not $SinCatalogo) {
     Paso 8 "Catálogo de balanceados"
     Push-Location (Join-Path $Raiz "backend")
     & $Python -m app.cli.datos_balanceados_cargar
+    $codigo = $LASTEXITCODE
     Pop-Location
+    if ($codigo -ne 0) { throw "No se pudo cargar el catálogo de balanceados." }
     Exito "Catalogo cargado."
 }
 if (-not $SinInventarioTienda) {
     Paso 9 "Inventario de la tienda"
     Push-Location (Join-Path $Raiz "backend")
     & $Python -m app.cli.cargar_inventario_tienda
+    $codigo = $LASTEXITCODE
     Pop-Location
+    if ($codigo -ne 0) { throw "No se pudo cargar el inventario de la tienda." }
     Exito "Inventario de la tienda cargado."
 }
 
@@ -242,10 +253,12 @@ if (-not $SinInventarioTienda) {
 if (-not $SinInicioAutomatico) {
     Paso 10 "Arranque automático al encender el equipo"
     & powershell -ExecutionPolicy Bypass -File (Join-Path $Raiz "scripts\instalar\registrar-inicio-automatico.ps1")
+    if ($LASTEXITCODE -ne 0) { Aviso "No se pudo registrar el arranque automatico. Registrelo con permisos de administrador." }
 }
 if (-not $SinTareaRespaldo) {
     Paso 11 "Respaldo automático diario (22:00)"
     & powershell -ExecutionPolicy Bypass -File (Join-Path $Raiz "scripts\instalar\registrar-tarea-respaldo.ps1") -Hora 22
+    if ($LASTEXITCODE -ne 0) { Aviso "No se pudo registrar la tarea de respaldo. Registrela con permisos de administrador." }
 }
 
 
