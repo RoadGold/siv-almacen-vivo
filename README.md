@@ -57,6 +57,12 @@ siv-almacen-vivo/
 > **¿Va a instalarlo en otro ordenador?** Vea
 > [`docs/manuales/instalacion-windows.md`](docs/manuales/instalacion-windows.md): el
 > instalador deja el sistema listo, con **arranque automático al encender el equipo**.
+>
+> ```powershell
+> git clone https://github.com/RoadGold/siv-almacen-vivo.git C:\SIV\siv-almacen-vivo
+> cd C:\SIV\siv-almacen-vivo
+> powershell -ExecutionPolicy Bypass -File scripts\instalar\instalar-windows.ps1
+> ```
 
 ### Requisitos
 

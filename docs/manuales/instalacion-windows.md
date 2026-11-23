@@ -35,11 +35,49 @@ Windows nuevo, con arranque automático al encenderlo.
 
 ## 2. Copiar el proyecto
 
+Hay dos caminos. Elija uno:
+
+### 2.A · Instalar desde GitHub (recomendado)
+
+El proyecto vive en un repositorio **privado** de GitHub. En el equipo nuevo
+solo hace falta clonarlo:
+
+```powershell
+git clone https://github.com/RoadGold/siv-almacen-vivo.git C:\SIV\siv-almacen-vivo
+cd C:\SIV\siv-almacen-vivo
+```
+
+GitHub pedirá el usuario y una **contraseña de aplicación** (un *Personal
+Access Token*), no la contraseña normal de la cuenta. Se crea en
+<https://github.com/settings/tokens> con el permiso **repo**.
+
+Si el equipo ya tiene una clave SSH configurada, también funciona:
+
+```powershell
+git clone git@github.com:RoadGold/siv-almacen-vivo.git C:\SIV\siv-almacen-vivo
+```
+
+Ventaja: para **actualizar** el sistema después basta un `git pull`.
+
+### 2.B · Copiar la carpeta a mano
+
 1. Copie la carpeta completa del proyecto al equipo nuevo, por ejemplo
    `C:\SIV\Sistema de Inventario` (**sin espacios ni acentos** en la ruta es
    más seguro).
 2. Si copia desde un USB o una red, no copie la carpeta `backend\.venv` ni
    `frontend\node_modules`: se reconstruyen en la instalación.
+
+### Qué no viaja (y por qué no pasa nada)
+
+| No se copia | Por qué |
+|---|---|
+| `.env` | Contiene la clave secreta y la contraseña de la base de datos. **Cada equipo genera el suyo** con una clave propia. |
+| `backend\.venv` | Dependencias de Python: se reinstalan en el paso 4. |
+| `frontend\node_modules` | Dependencias de Node: se reinstalan en el paso 5. |
+| `frontend\dist` | La interfaz compilada: se vuelve a compilar en el paso 5. |
+| `respaldos\*.dump` | Los respaldos de la base: no se publican. Si necesita los datos, cópielos a mano (sección 8). |
+
+Por eso el repositorio pesa poco y **no publica ningún dato del negocio**.
 
 ---
 
@@ -240,6 +278,7 @@ scripts\restaurar\restaurar.ps1 -Archivo respaldos\siv-AAAAMMDD-HHMMSS.dump
 | El catálogo está cargado | `Gestionar → Productos` |
 | El inventario coincide | `Administrar → Diagnóstico` (conciliación) |
 | Arranca solo | Apague y encienda el equipo |
+| Las pruebas pasan en GitHub | <https://github.com/RoadGold/siv-almacen-vivo/actions> (verde) |
 
 ---
 
@@ -258,9 +297,22 @@ scripts\restaurar\restaurar.ps1 -Archivo respaldos\siv-AAAAMMDD-HHMMSS.dump
 
 ## 11. Actualizar el sistema más adelante
 
+Si el sistema se instaló **desde GitHub**:
+
+```powershell
+cd C:\SIV\siv-almacen-vivo
+git pull
+powershell -ExecutionPolicy Bypass -File scripts\iniciar\iniciar-windows.ps1 -Detener
+powershell -ExecutionPolicy Bypass -File scripts\iniciar\iniciar-windows.ps1
+```
+
+Si se instaló **copiando la carpeta**, reemplace el `git pull` por copiar de
+nuevo la carpeta (sin `backend\.venv` ni `frontend\node_modules`).
+
+En ambos casos:
+
 1. Cree un **respaldo** antes de actualizar.
 2. No actualice mientras haya ventas en curso.
-3. Copie la nueva versión del proyecto sobre el equipo.
-4. `pip install -e backend` y `npm install && npm run build` en `frontend`.
-5. `alembic upgrade head` (las migraciones se aplican solas al arrancar).
-6. Reinicie: `scripts\iniciar\iniciar-windows.ps1 -Detener` y luego sin `-Detener`.
+3. `pip install -e backend` y `npm install && npm run build` en `frontend`.
+4. `alembic upgrade head` (las migraciones se aplican solas al arrancar).
+5. Reinicie el sistema.
