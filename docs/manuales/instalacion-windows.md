@@ -89,8 +89,10 @@ Abra **PowerShell como administrador** en la carpeta del proyecto y ejecute:
 powershell -ExecutionPolicy Bypass -File scripts\instalar\instalar-windows.ps1
 ```
 
-El script pregunta dos cosas:
+El script pregunta tres cosas:
 
+- la **clave del superusuario `postgres`** (la que se puso al instalar
+  PostgreSQL; si usa Docker, es la de `POSTGRES_PASSWORD` en el `.env`);
 - la **clave del usuario de PostgreSQL** (`siv`) que quiere crear;
 - la **clave del administrador** de SIV (usuario `admin`).
 
@@ -287,6 +289,7 @@ scripts\restaurar\restaurar.ps1 -Archivo respaldos\siv-AAAAMMDD-HHMMSS.dump
 | Síntoma | Causa | Solución |
 |---|---|---|
 | «No hay un almacén activo» | No se ejecutó la instalación | `scripts\instalar\instalar.py` |
+| «No se pudo conectar a PostgreSQL como 'postgres'» | La clave del superusuario no es la que se puso al instalar | Vuelva a ejecutar el instalador con la clave correcta |
 | «No se pudo conectar con el servidor local» | PostgreSQL detenido | `Get-Service postgresql*` y `Start-Service` |
 | La API no arranca | Falta una dependencia o la base no responde | `backend\api.log.err` |
 | No abre el navegador en el arranque automático | Política del navegador | Entre a `http://127.0.0.1:8000` a mano |

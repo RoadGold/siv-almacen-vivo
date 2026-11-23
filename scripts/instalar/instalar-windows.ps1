@@ -25,6 +25,7 @@
 param(
     [string]$ClaveBaseDatos = "",
     [string]$ClaveAdmin = "",
+    [string]$ClaveSuperusuario = "",
     [string]$UsuarioBaseDatos = "siv",
     [string]$NombreBaseDatos = "siv_almacen_vivo",
     [switch]$ConDocker,
@@ -123,6 +124,14 @@ if (-not $ClaveAdmin) {
 }
 if ([string]::IsNullOrWhiteSpace($ClaveAdmin)) { $ClaveAdmin = "siv-admin-2026" }
 
+if (-not $ClaveSuperusuario) {
+    Write-Host ""
+    Write-Host "  La clave del superusuario 'postgres' es la que se puso al instalar PostgreSQL." -ForegroundColor White
+    Write-Host "  Si usa Docker, es la de POSTGRES_PASSWORD en el archivo .env." -ForegroundColor White
+    $ClaveSuperusuario = Read-Host "Clave del superusuario 'postgres'"
+}
+if ([string]::IsNullOrWhiteSpace($ClaveSuperusuario)) { $ClaveSuperusuario = $ClaveBaseDatos }
+
 $secreto = ([guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N"))
 $contenido = $contenido -replace "(?m)^DATABASE_URL=.*$", "DATABASE_URL=postgresql+psycopg://${UsuarioBaseDatos}:${ClaveBaseDatos}@127.0.0.1:5432/${NombreBaseDatos}"
 $contenido = $contenido -replace "(?m)^SECRET_KEY=.*$", "SECRET_KEY=$secreto"
@@ -143,7 +152,18 @@ if (-not $ConDocker) {
         Sort-Object FullName -Descending | Select-Object -First 1
     if (-not $psql) { throw "No se encontro psql.exe. Revise la instalacion de PostgreSQL." }
 
-    $env:PGPASSWORD = $ClaveBaseDatos
+    # Se prueba la clave del superusuario; si no funciona, se intenta la
+    # conexion local sin clave (confianza de PostgreSQL).
+    $conecta = $false
+    foreach ($clave in @($ClaveSuperusuario, "")) {
+        $env:PGPASSWORD = $clave
+        & $psql.FullName -U postgres -d postgres -t -c "SELECT 1" 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) { $conecta = $true; break }
+    }
+    if (-not $conecta) {
+        throw "No se pudo conectar a PostgreSQL como 'postgres'. Revise la clave del superusuario."
+    }
+
     $sql = @"
 DO `$`$
 BEGIN
@@ -166,14 +186,26 @@ END
     } else {
         Exito "La base de datos '$NombreBaseDatos' ya existia."
     }
+    Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
 } else {
-    Copy-Item (Join-Path $Raiz ".env.example") "$archivoEnv.tmp" -Force
-    $contenido = Get-Content "$archivoEnv.tmp" -Raw
+    # Con Docker, compose.yaml crea el usuario y la base a partir de
+    # POSTGRES_*; el .env debe llevar los mismos valores que la URL.
+    $contenido = Get-Content (Join-Path $Raiz ".env.example") -Raw
     $contenido = $contenido -replace "(?m)^DATABASE_URL=.*$", "DATABASE_URL=postgresql+psycopg://${UsuarioBaseDatos}:${ClaveBaseDatos}@127.0.0.1:5432/${NombreBaseDatos}"
     $contenido = $contenido -replace "(?m)^SECRET_KEY=.*$", "SECRET_KEY=$secreto"
+    $contenido = $contenido -replace "(?m)^POSTGRES_USER=.*$", "POSTGRES_USER=$UsuarioBaseDatos"
+    $contenido = $contenido -replace "(?m)^POSTGRES_PASSWORD=.*$", "POSTGRES_PASSWORD=$ClaveBaseDatos"
+    $contenido = $contenido -replace "(?m)^POSTGRES_DB=.*$", "POSTGRES_DB=$NombreBaseDatos"
     $contenido = $contenido -replace "(?m)^ADMIN_PASSWORD=.*$", "ADMIN_PASSWORD=$ClaveAdmin"
     Set-Content -Path $archivoEnv -Value $contenido -Encoding UTF8
-    Remove-Item "$archivoEnv.tmp" -Force
+    if (-not (Test-Path $archivoEnv)) { throw "No se pudo escribir el archivo .env" }
+
+    Escribir "Levantando el contenedor de PostgreSQL..."
+    Push-Location $Raiz
+    docker compose up -d db
+    $codigo = $LASTEXITCODE
+    Pop-Location
+    if ($codigo -ne 0) { throw "No se pudo levantar el contenedor de PostgreSQL." }
     Exito "Configuracion lista para Docker."
 }
 
