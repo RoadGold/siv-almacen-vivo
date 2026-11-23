@@ -29,28 +29,65 @@ ESTADO_ACTIVO = "ACTIVO"
 ESTADO_INHABILITADO = "INHABILITADO"
 
 
+def _presentacion_del_lote(
+    lote: LoteInventario, producto: Producto | None
+) -> PresentacionProducto | None:
+    if getattr(lote, "presentacion_principal", None) is not None:
+        return lote.presentacion_principal
+    for item in lote.precios:
+        if item.presentacion is not None and item.presentacion_id == lote.presentacion_principal_id:
+            return item.presentacion
+    for item in lote.precios:
+        if item.presentacion is not None:
+            return item.presentacion
+    if producto is not None:
+        activas = [p for p in producto.presentaciones if p.activo]
+        if activas:
+            return max(activas, key=lambda p: dec(p.factor_base))
+    return None
+
+
 def _lote_a_dict(lote: LoteInventario, producto: Producto | None = None) -> dict[str, Any]:
     precios = [
         {
             "presentacion_id": precio.presentacion_id,
             "presentacion_nombre": precio.presentacion.nombre if precio.presentacion else "",
+            "factor_base": (
+                num(dec(precio.presentacion.factor_base)) if precio.presentacion else "1"
+            ),
             "precio": num(dec(precio.precio)),
         }
         for precio in sorted(lote.precios, key=lambda item: item.presentacion_id)
     ]
     cantidad = dec(lote.cantidad_disponible)
+    cantidad_ini = dec(lote.cantidad_inicial)
     valores = [dec(p["precio"]) for p in precios]
+    presentacion = _presentacion_del_lote(lote, producto)
+    factor = dec(presentacion.factor_base) if presentacion and dec(presentacion.factor_base) > 0 else Decimal("1")
+    transporte = dec(getattr(lote, "costo_transporte", 0) or 0)
+    unidad_base = (
+        producto.unidad_base.nombre
+        if producto is not None and getattr(producto, "unidad_base", None) is not None
+        else None
+    )
     return {
         "id": lote.id,
         "producto_id": lote.producto_id,
         "producto_codigo": producto.codigo if producto else None,
         "producto_nombre": producto.nombre if producto else None,
+        "unidad_base": unidad_base,
+        "presentacion_id": lote.presentacion_principal_id or (presentacion.id if presentacion else None),
+        "presentacion_nombre": presentacion.nombre if presentacion else None,
+        "factor_base": num(factor),
         "codigo_lote": lote.codigo_lote,
         "fecha_ingreso": lote.fecha_ingreso.isoformat() if lote.fecha_ingreso else None,
-        "cantidad_inicial": num(q4(dec(lote.cantidad_inicial))),
+        "cantidad_inicial": num(q4(cantidad_ini)),
         "cantidad_disponible": num(q4(cantidad)),
+        "cantidad_inicial_presentacion": num(q4(cantidad_ini / factor)),
+        "cantidad_disponible_presentacion": num(q4(cantidad / factor)),
         "costo_base": num(dec(lote.costo_base)),
         "costo_unitario": num(q2(dec(lote.costo_unitario))),
+        "costo_transporte": num(q2(transporte)),
         "precio_venta": num(q2(dec(lote.precio_venta))),
         "almacen_id": lote.almacen_id,
         "abastecimiento_id": lote.abastecimiento_id,
@@ -74,7 +111,10 @@ def listar_lotes(
     """Lotes de un producto, del más antiguo al más reciente (PEPS)."""
     consulta = (
         select(LoteInventario)
-        .options(selectinload(LoteInventario.precios).selectinload(LotePrecio.presentacion))
+        .options(
+            selectinload(LoteInventario.presentacion_principal),
+            selectinload(LoteInventario.precios).selectinload(LotePrecio.presentacion),
+        )
         .where(LoteInventario.producto_id == producto_id)
     )
     if almacen_id is not None:
@@ -90,7 +130,11 @@ def listar_lotes(
             LoteInventario.id.asc(),
         )
     ).scalars().all()
-    producto = db.get(Producto, producto_id)
+    producto = db.execute(
+        select(Producto)
+        .options(selectinload(Producto.unidad_base), selectinload(Producto.presentaciones))
+        .where(Producto.id == producto_id)
+    ).scalar_one_or_none()
     return [_lote_a_dict(lote, producto) for lote in lotes]
 
 
@@ -104,7 +148,10 @@ def lotes_disponibles(
 def obtener_lote(db: Session, lote_id: int) -> LoteInventario:
     lote = db.execute(
         select(LoteInventario)
-        .options(selectinload(LoteInventario.precios).selectinload(LotePrecio.presentacion))
+        .options(
+            selectinload(LoteInventario.presentacion_principal),
+            selectinload(LoteInventario.precios).selectinload(LotePrecio.presentacion),
+        )
         .where(LoteInventario.id == lote_id)
     ).scalar_one_or_none()
     if lote is None:
@@ -169,6 +216,7 @@ def crear_lote(
     cantidad_inicial: Decimal | None = None,
     costo_base: Decimal = Decimal("0"),
     costo_unitario: Decimal = Decimal("0"),
+    costo_transporte: Decimal = Decimal("0"),
     precio_venta: Decimal = Decimal("0"),
     presentacion_id: int | None = None,
     fecha_ingreso: date | None = None,
@@ -192,6 +240,7 @@ def crear_lote(
         cantidad_disponible=q4(Decimal("0")),
         costo_base=dec(costo_base),
         costo_unitario=q2(costo_unitario),
+        costo_transporte=q2(costo_transporte),
         precio_venta=q2(precio_venta),
         presentacion_principal_id=presentacion_id,
         almacen_id=almacen_id,

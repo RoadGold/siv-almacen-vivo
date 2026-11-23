@@ -74,4 +74,13 @@ describe('reparto sugerido (PEPS)', () => {
     expect(suggested.get(1)).toBe('3');
     expect(restante.aTexto()).toBe('7');
   });
+
+  it('convierte stock base en gramos a sacos y medios sacos al repartir entre lotes', () => {
+    // Lote 1 tiene medio saco (20 000 g) y Lote 2 tiene 5 sacos (200 000 g).
+    const lotes = [lote(1, 'L001', '20000', '110.00'), lote(2, 'L002', '200000', '115.00')];
+    const { suggested, restante } = repartoSugerido(lotes, 1, '1', '40000');
+    expect(suggested.get(1)).toBe('0.5');
+    expect(suggested.get(2)).toBe('0.5');
+    expect(restante.aTexto()).toBe('0');
+  });
 });

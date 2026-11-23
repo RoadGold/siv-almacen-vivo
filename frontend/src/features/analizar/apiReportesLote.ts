@@ -17,10 +17,16 @@ export interface FilaInventarioLote {
   fecha_ingreso?: string | null;
   producto_codigo?: string | null;
   producto_nombre?: string | null;
+  unidad_base?: string | null;
+  presentacion_nombre?: string | null;
+  factor_base?: string;
   cantidad_inicial: string;
   cantidad_disponible: string;
+  cantidad_inicial_presentacion?: string;
+  cantidad_disponible_presentacion?: string;
   costo_base: string;
   costo_unitario: string;
+  costo_transporte?: string;
   precio_venta: string;
   valor_costo: string;
   estado: string;
@@ -33,9 +39,14 @@ export interface FilaVentasLote {
   codigo_lote: string;
   producto_codigo?: string | null;
   producto_nombre?: string | null;
+  unidad_base?: string | null;
+  presentacion_nombre?: string | null;
+  factor_base?: string;
   cantidad_base: string;
+  cantidad_presentacion?: string;
   ingresos: string;
   costo: string;
+  costo_transporte?: string;
   utilidad_bruta: string;
 }
 
@@ -45,13 +56,15 @@ export const reportesLoteApi = {
     producto_id?: number | null;
     almacen_id?: number | null;
     solo_con_stock?: boolean;
+    estado?: 'con_stock' | 'agotado' | 'todos';
     limite?: number;
   } = {}) =>
     api.get<FilaInventarioLote[]>('/reportes/inventario-por-lote', {
       producto_id: filtros.producto_id ?? undefined,
       almacen_id: filtros.almacen_id ?? undefined,
       solo_con_stock: filtros.solo_con_stock ?? undefined,
-      limite: filtros.limite ?? 200,
+      estado: filtros.estado && filtros.estado !== 'todos' ? filtros.estado : undefined,
+      limite: filtros.limite ?? 500,
     }),
 
   /** Ventas, costo y utilidad bruta agrupados por lote. */
@@ -59,6 +72,6 @@ export const reportesLoteApi = {
     api.get<FilaVentasLote[]>('/reportes/ventas-por-lote', {
       desde: filtro.desde ?? undefined,
       hasta: filtro.hasta ?? undefined,
-      limite: filtro.limite ?? 200,
+      limite: filtro.limite ?? 500,
     }),
 };

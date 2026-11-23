@@ -23,7 +23,7 @@ Funciona sin Internet. Todo el stack se ejecuta en el equipo del negocio.
 | Fase 8 · Exploración, kardex y radar | ✅ Ficha viva con **panel de lotes**, radar, conciliación y **pantalla de kardex** |
 | Fase 9 · Reportes e indicadores | ✅ Ventas, costos, valorización, margen bruto, exportación CSV y **pantalla Analizar** |
 | Fase 10 · Seguridad, roles y respaldo | ✅ Roles, auditoría (incluidos los cambios de precio), **configuración del negocio**, respaldo y restauración |
-| Fase 11 · Pruebas, empaquetado y puesta en marcha | 🔄 En curso (233 pruebas de backend y 66 de frontend en verde + recorrido de aceptación E2E). **Pendiente**: empaquetador para Windows y prueba física de la impresora |
+| Fase 11 · Pruebas, empaquetado y puesta en marcha | 🔄 En curso (380 pruebas de backend y 121 de frontend en verde + recorrido de aceptación E2E). **Instalación en Windows con arranque automático** lista. **Pendiente**: empaquetador (instalador con asistente) y prueba física de la impresora |
 
 ---
 
@@ -53,6 +53,10 @@ siv-almacen-vivo/
 ---
 
 ## Puesta en marcha (desarrollo)
+
+> **¿Va a instalarlo en otro ordenador?** Vea
+> [`docs/manuales/instalacion-windows.md`](docs/manuales/instalacion-windows.md): el
+> instalador deja el sistema listo, con **arranque automático al encender el equipo**.
 
 ### Requisitos
 
@@ -106,19 +110,21 @@ La base de pruebas vive en memoria (`tmpfs`) y se crea sola:
 docker compose --profile test up -d db-test
 ```
 
-Cobertura actual: **320 pruebas** de backend (pytest) y **119** de frontend (Vitest), que incluyen
+Cobertura actual: **380 pruebas** de backend (pytest) y **121** de frontend (Vitest), que incluyen
 conversiones exactas (caja × 24, saco de 50 kg, venta fraccionada de 0,750 kg), rechazo de
 fracciones en productos indivisibles, stock insuficiente, idempotencia, concurrencia sobre la
 última unidad, atomicidad de la transacción, reversión por anulación, snapshots históricos,
 **inventario por lotes (13 escenarios: lote inicial, ingreso que no toca el anterior, venta de
 lote antiguo, venta de lote nuevo, venta combinada, stock insuficiente por lote, ajuste sobre un
 lote, cambio de precio por lote, anulación con dos lotes, concurrencia, productos sin lotes,
-código de barras y conciliación de existencias)**, precios variables y su límite de descuento,
-impresión del ticket y su falla sin pérdida de la venta, permisos por rol, importación de Excel,
-reportes, **contraste WCAG AA de las paletas clara y oscura**, **validaciones de los puntos de
-entrada (deuda por cobrar, forma de pago cerrada, limpieza de campos al editar, RUC y correo
-con formato, configuración del negocio e importación que respeta los schemas)** y el
-**contrato de validaciones entre el backend y el cliente**.
+código de barras y conciliación de existencias)**, **venta de medios sacos (−1/2 saco y luego
+−1 saco) y la regla «1/2 saco» del inventario de la tienda**, **costo de transporte por línea de
+recepción**, precios variables y su límite de descuento, impresión del ticket y su falla sin
+pérdida de la venta, permisos por rol, importación de Excel, reportes, **contraste WCAG AA de
+las paletas clara y oscura**, **validaciones de los puntos de entrada (deuda por cobrar, forma
+de pago cerrada, limpieza de campos al editar, RUC y correo con formato, configuración del
+negocio e importación que respeta los schemas)** y el **contrato de validaciones entre el
+backend y el cliente**.
 
 ### Validaciones: el backend manda, el cliente avisa
 
@@ -172,6 +178,33 @@ actualizada: los productos se reconocen por marca y nombre (y por el código del
 distribuidor en TOMASINO), así que **ningún producto cambia de código** y no se rompe el
 historial. Los productos que ya no están en la lista se **desactivan**, no se borran.
 
+### Inventario físico de la tienda
+
+El conteo de bodega (`inventario_tienda.md`, 128 líneas) se carga con:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m app.cli.cargar_inventario_tienda --simular   # ver qué se cargaría
+.\.venv\Scripts\python.exe -m app.cli.cargar_inventario_tienda             # cargarlo
+```
+
+Qué hace:
+
+- **Fusiona 9 duplicados** del catálogo base (Avemed, Broiler Tech, Layer Tech, Casta de
+  Campeones ×4 y los cruces de marca CERDOS ENGORDE y MARRANAS LACTANTES): las
+  presentaciones se traspasan al producto principal y el sobrante **se desactiva**, sin
+  borrar nada.
+- Crea los productos que no estaban: **Peces, Sequeiros, Perro y gatos, Producto
+  primario, Medicamento y Bolsas** (103 productos nuevos con sus presentaciones).
+- Aplica la **regla «1/2 saco»**: si la columna dice «sí», el producto admite venta de
+  medios sacos (`0,5` saco = `−1/2` saco, y dos medios = `−1` saco exacto); si dice «no»,
+  **solo se vende por sacos enteros**.
+- Registra el conteo como **lotes de inventario inicial** (`INVENTARIO_INICIAL`), con el
+  costo de referencia y el precio de venta del catálogo. Las líneas sin cantidad (celda
+  vacía) dejan el producto **sin stock**.
+
+Es **idempotente**: se puede volver a ejecutar sin duplicar el stock.
+
 ### Empezar de cero con el catálogo
 
 Para dejar la base como recién instalada pero **con tu catálogo** (sin ventas, sin
@@ -215,6 +248,7 @@ archivo `.info` con fecha y versión del esquema.
 | `docs/manuales/usuario.md` | Manual corto de operación para el personal |
 | `docs/manuales/guia-usuario.md` | **Guía de usuario completa**: todas las pantallas, paso a paso |
 | `docs/manuales/carga-inicial-catalogo.md` | **Carga inicial del catálogo** (productos que aún no tienen proveedor) |
+| `docs/manuales/instalacion-windows.md` | **Instalación en otro ordenador Windows** + arranque automático |
 | `docs/manuales/prueba-impresora.md` | **Prueba física de la impresora** (CBX-POS88E, ESC/POS) |
 | `docs/manuales/administrador.md` | Guía técnica: instalación, respaldo, restauración, red local, diagnóstico |
 | `docs/pruebas/matriz-de-pruebas.md` | Estado de los casos T01–T20 y criterios de calidad |

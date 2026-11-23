@@ -6,10 +6,12 @@ import {
   formatearCantidad,
   formatearCantidadConSigno,
   formatearEnUnidadLegible,
+  formatearEquivalenciaSacos,
   formatearFecha,
   formatearMoneda,
   formatearNumero,
   formatearPorcentaje,
+  formatearStockEnPresentacion,
   haceDiasISO,
   hoyISO,
   inicioMesISO,
@@ -74,5 +76,18 @@ describe('formatos locales peruanos', () => {
     expect(inicioMesISO().endsWith('-01')).toBe(true);
     expect(haceDiasISO(0)).toBe(hoyISO());
     expect(haceDiasISO(29) < hoyISO()).toBe(true);
+  });
+
+  it('expresa sacos y medios sacos como 1/2 y enteros + 1/2', () => {
+    expect(formatearEquivalenciaSacos('0.5', 'saco 40 kg pellet')).toBe('1/2 saco 40 kg pellet');
+    expect(formatearEquivalenciaSacos('-0.5', 'saco 40 kg pellet')).toBe('\u22121/2 saco 40 kg pellet');
+    expect(formatearEquivalenciaSacos('1', 'saco 40 kg pellet')).toBe('1 saco 40 kg pellet');
+    expect(formatearEquivalenciaSacos('9.5', 'saco 40 kg pellet')).toBe('9 1/2 saco 40 kg pellet');
+    expect(formatearEquivalenciaSacos('0.5')).toBe('1/2 saco');
+    expect(formatearEquivalenciaSacos('1.5')).toBe('1 1/2 sacos');
+
+    const stock = formatearStockEnPresentacion('380000', '40000', 'saco 40 kg pellet', 'Gramo');
+    expect(stock.principal).toBe('9 1/2 saco 40 kg pellet');
+    expect(stock.secundario).toBe('380 kg');
   });
 });

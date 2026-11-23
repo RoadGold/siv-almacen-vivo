@@ -38,6 +38,13 @@ import {
 import { reportesLoteApi } from './apiReportesLote';
 
 type VistaDetalle = 'producto' | 'categoria' | 'usuario';
+type FiltroEstadoLote = 'con_stock' | 'agotado' | 'todos';
+
+const FILTROS_LOTE: { id: FiltroEstadoLote; titulo: string }[] = [
+  { id: 'con_stock', titulo: 'Con existencias' },
+  { id: 'agotado', titulo: 'Agotados' },
+  { id: 'todos', titulo: 'Todos' },
+];
 
 const ATAJOS: { titulo: string; aplicar: () => { desde: string; hasta: string } }[] = [
   {
@@ -68,6 +75,7 @@ export function Analizar() {
   const [desde, setDesde] = useState(inicioMesISO());
   const [hasta, setHasta] = useState(hoyISO());
   const [vista, setVista] = useState<VistaDetalle>('producto');
+  const [filtroLote, setFiltroLote] = useState<FiltroEstadoLote>('con_stock');
   const [descargando, setDescargando] = useState(false);
   const { notificar } = useToast();
 
@@ -101,14 +109,30 @@ export function Analizar() {
   // Inventario desglosado por lote: cada lote con su stock, costo y precio.
   const inventarioLote = useQuery({
     queryKey: ['reportes', 'inventario-por-lote'],
-    queryFn: () => reportesLoteApi.inventarioPorLote({ limite: 200 }),
+    queryFn: () => reportesLoteApi.inventarioPorLote({ limite: 1000 }),
   });
 
   // Ventas y rentabilidad por lote del periodo seleccionado.
   const ventasLote = useQuery({
     queryKey: ['reportes', 'ventas-por-lote', periodo],
-    queryFn: () => reportesLoteApi.ventasPorLote({ ...periodo, limite: 200 }),
+    queryFn: () => reportesLoteApi.ventasPorLote({ ...periodo, limite: 1000 }),
   });
+
+  const lotesConStock = useMemo(
+    () => (inventarioLote.data ?? []).filter((fila) => fila.estado !== 'AGOTADO'),
+    [inventarioLote.data],
+  );
+
+  const lotesAgotados = useMemo(
+    () => (inventarioLote.data ?? []).filter((fila) => fila.estado === 'AGOTADO'),
+    [inventarioLote.data],
+  );
+
+  const lotesFiltrados = useMemo(() => {
+    if (filtroLote === 'con_stock') return lotesConStock;
+    if (filtroLote === 'agotado') return lotesAgotados;
+    return inventarioLote.data ?? [];
+  }, [filtroLote, lotesConStock, lotesAgotados, inventarioLote.data]);
 
   const valorInventarioLote = useMemo(
     () =>
@@ -367,40 +391,57 @@ export function Analizar() {
       <section aria-label="Resumen del inventario por lote" className="grid gap-4 sm:grid-cols-3">
         <TarjetaResumen
           titulo="Lotes con existencias"
-          valor={formatearNumero(
-            (inventarioLote.data ?? []).filter((fila) => fila.estado !== 'AGOTADO').length,
-            0,
-          )}
+          valor={formatearNumero(lotesConStock.length, 0)}
           detalle={`${formatearNumero(inventarioLote.data?.length ?? 0, 0)} lote(s) en total`}
           cargando={inventarioLote.isLoading}
         />
         <TarjetaResumen
           titulo="Lotes agotados"
-          valor={formatearNumero(
-            (inventarioLote.data ?? []).filter((fila) => fila.estado === 'AGOTADO').length,
-            0,
-          )}
+          valor={formatearNumero(lotesAgotados.length, 0)}
           detalle="Lotes sin existencias: conservan su trazabilidad"
           cargando={inventarioLote.isLoading}
         />
         <TarjetaResumen
           titulo="Valor del inventario por lote"
           valor={formatearMoneda(valorInventarioLote)}
-          detalle="Suma del valor al costo de cada lote"
+          detalle="Suma del valor al costo (compra + transporte) de cada lote"
           cargando={inventarioLote.isLoading}
         />
       </section>
 
       <Card
         titulo="Inventario por lote"
-        subtitulo="Stock, costo y precio de venta de cada lote de inventario"
+        subtitulo="Stock en sacos y medios sacos, costo de compra, transporte y precio de venta de cada lote"
       >
+        <div
+          className="flex flex-wrap items-center gap-1 border-b border-linea px-4 py-2"
+          role="tablist"
+          aria-label="Filtro de lotes de inventario"
+        >
+          {FILTROS_LOTE.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={filtroLote === item.id}
+              onClick={() => setFiltroLote(item.id)}
+              className={[
+                'rounded-[6px] px-3 py-1.5 text-sm font-semibold transition-colors',
+                filtroLote === item.id
+                  ? 'bg-brand text-sobre-brand'
+                  : 'text-muted hover:text-brand',
+              ].join(' ')}
+            >
+              {item.titulo}
+            </button>
+          ))}
+        </div>
         <PanelConsulta
           cargando={inventarioLote.isLoading}
           error={inventarioLote.isError ? inventarioLote.error : null}
           onReintentar={() => void inventarioLote.refetch()}
         >
-          <TablaInventarioPorLote filas={inventarioLote.data ?? []} />
+          <TablaInventarioPorLote filas={lotesFiltrados} />
         </PanelConsulta>
       </Card>
 

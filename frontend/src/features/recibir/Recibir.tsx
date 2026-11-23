@@ -138,6 +138,7 @@ export function Recibir() {
               ...item,
               cantidad: datos.cantidad,
               costo_unitario: datos.costo_unitario,
+              costo_transporte: datos.costo_transporte,
               precio_venta: datos.precio_venta,
             }
           : item,
@@ -151,7 +152,7 @@ export function Recibir() {
 
   function cambiarCampoLinea(
     indice: number,
-    campo: 'cantidad' | 'costo_unitario' | 'precio_venta',
+    campo: 'cantidad' | 'costo_unitario' | 'costo_transporte' | 'precio_venta',
     valor: string,
   ) {
     setLineas((actuales) =>
@@ -161,13 +162,17 @@ export function Recibir() {
 
   /**
    * Revisa cada línea del ingreso: la cantidad debe ser un número mayor que
-   * cero y el costo y el precio un número no negativo.
+   * cero y el costo, transporte y precio un número no negativo.
    */
   const erroresLinea = useMemo(() => {
     const errores: Record<number, string> = {};
     lineas.forEach((linea, indice) => {
       const cantidad = parsearEntradaNumerica(linea.cantidad);
       const costo = parsearEntradaNumerica(linea.costo_unitario);
+      const transporte =
+        (linea.costo_transporte ?? '').trim() === ''
+          ? '0'
+          : parsearEntradaNumerica(linea.costo_transporte);
       const precio = parsearEntradaNumerica(linea.precio_venta);
       if (cantidad === '') {
         errores[indice] = 'La cantidad no tiene un valor numérico.';
@@ -177,6 +182,10 @@ export function Recibir() {
         errores[indice] = 'El costo unitario no tiene un valor numérico.';
       } else if (Decimal.desde(costo).comparar(0) < 0) {
         errores[indice] = 'El costo unitario no puede ser negativo.';
+      } else if (transporte === '') {
+        errores[indice] = 'El transporte no tiene un valor numérico.';
+      } else if (Decimal.desde(transporte).comparar(0) < 0) {
+        errores[indice] = 'El transporte no puede ser negativo.';
       } else if (precio === '') {
         errores[indice] = 'El precio de venta no tiene un valor numérico.';
       } else if (Decimal.desde(precio).comparar(0) < 0) {
@@ -194,9 +203,9 @@ export function Recibir() {
       lineas.reduce(
         (acumulado, linea) =>
           acumulado.suma(
-            Decimal.desde(parsearEntradaNumerica(linea.cantidad)).multiplica(
-              parsearEntradaNumerica(linea.costo_unitario),
-            ),
+            Decimal.desde(parsearEntradaNumerica(linea.cantidad))
+              .multiplica(parsearEntradaNumerica(linea.costo_unitario))
+              .suma(parsearEntradaNumerica(linea.costo_transporte || '0') || '0'),
           ),
         Decimal.cero(),
       ),
@@ -225,6 +234,7 @@ export function Recibir() {
         presentacion_id: linea.presentacion_id,
         cantidad: parsearEntradaNumerica(linea.cantidad),
         costo_unitario: parsearEntradaNumerica(linea.costo_unitario),
+        costo_transporte: parsearEntradaNumerica(linea.costo_transporte || '0') || '0',
         precio_venta: parsearEntradaNumerica(linea.precio_venta),
       })),
     };
@@ -252,6 +262,8 @@ export function Recibir() {
       cliente.invalidateQueries({ queryKey: ['inventario'] });
       cliente.invalidateQueries({ queryKey: ['abastecimientos'] });
       cliente.invalidateQueries({ queryKey: ['dashboard'] });
+      cliente.invalidateQueries({ queryKey: ['reportes'] });
+      cliente.invalidateQueries({ queryKey: ['lotes'] });
     },
     onError: (error) => notificar(mensajeDeError(error), 'error'),
   });
@@ -297,6 +309,7 @@ export function Recibir() {
               <TableHeader>Presentación</TableHeader>
               <TableHeader className="text-right">Cantidad</TableHeader>
               <TableHeader className="text-right">Costo unitario</TableHeader>
+              <TableHeader className="text-right">Transporte</TableHeader>
               <TableHeader className="text-right">Subtotal</TableHeader>
               <TableHeader>Lote</TableHeader>
             </TableHead>
@@ -312,6 +325,9 @@ export function Recibir() {
                   <TableCell>{detalle.presentacion_nombre ?? '—'}</TableCell>
                   <TableCell numerica>{formatearCantidad(detalle.cantidad)}</TableCell>
                   <TableCell numerica>{formatearMoneda(detalle.costo_unitario)}</TableCell>
+                  <TableCell numerica>
+                    {formatearMoneda(detalle.costo_transporte ?? '0')}
+                  </TableCell>
                   <TableCell numerica>{formatearMoneda(detalle.subtotal)}</TableCell>
                   <TableCell>
                     {detalle.lote_codigo ? (
@@ -669,13 +685,32 @@ export function Recibir() {
                         </div>
                         <span className="ml-auto pb-1 text-sm font-semibold numero text-ink">
                           {formatearMoneda(
-                            Decimal.desde(parsearEntradaNumerica(linea.cantidad)).multiplica(
-                              parsearEntradaNumerica(linea.costo_unitario),
-                            ),
+                            Decimal.desde(parsearEntradaNumerica(linea.cantidad))
+                              .multiplica(parsearEntradaNumerica(linea.costo_unitario))
+                              .suma(parsearEntradaNumerica(linea.costo_transporte || '0') || '0'),
                           )}
                         </span>
                       </div>
-                      <div className="mt-2 flex items-end gap-2">
+                      <div className="mt-2 flex flex-wrap items-end gap-2">
+                        <div className="w-[124px]">
+                          <Field
+                            htmlFor={`transporte-linea-${indice}`}
+                            etiqueta="Transporte (lote)"
+                            ejemplo="20.00"
+                            compacto
+                          >
+                            <Input
+                              id={`transporte-linea-${indice}`}
+                              className="numero"
+                              inputMode="decimal"
+                              prefijo="S/"
+                              value={linea.costo_transporte}
+                              onChange={(evento) =>
+                                cambiarCampoLinea(indice, 'costo_transporte', evento.target.value)
+                              }
+                            />
+                          </Field>
+                        </div>
                         <div className="w-[124px]">
                           <Field
                             htmlFor={`precio-venta-linea-${indice}`}
@@ -695,9 +730,6 @@ export function Recibir() {
                             />
                           </Field>
                         </div>
-                        <p className="pb-2 text-xs text-muted">
-                          Precio del lote que crea esta línea.
-                        </p>
                       </div>
                     </li>
                   ))}
@@ -776,6 +808,7 @@ export function Recibir() {
                 <TableHeader>Presentación</TableHeader>
                 <TableHeader className="text-right">Cantidad</TableHeader>
                 <TableHeader className="text-right">Costo unitario</TableHeader>
+                <TableHeader className="text-right">Transporte</TableHeader>
                 <TableHeader className="text-right">Precio de venta</TableHeader>
                 <TableHeader className="text-right">Subtotal</TableHeader>
               </TableHead>
@@ -794,10 +827,13 @@ export function Recibir() {
                       </span>
                     </TableCell>
                     <TableCell numerica>{formatearMoneda(linea.costo_unitario)}</TableCell>
+                    <TableCell numerica>{formatearMoneda(linea.costo_transporte || '0')}</TableCell>
                     <TableCell numerica>{formatearMoneda(linea.precio_venta)}</TableCell>
                     <TableCell numerica>
                       {formatearMoneda(
-                        Decimal.desde(linea.cantidad).multiplica(linea.costo_unitario),
+                        Decimal.desde(linea.cantidad)
+                          .multiplica(linea.costo_unitario)
+                          .suma(linea.costo_transporte || '0'),
                       )}
                     </TableCell>
                   </TableRow>

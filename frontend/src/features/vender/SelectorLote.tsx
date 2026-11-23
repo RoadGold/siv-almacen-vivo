@@ -19,8 +19,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/design-system';
-import { Decimal } from '@/shared/format/decimal';
-import { formatearCantidad, formatearFecha, formatearMoneda } from '@/shared/format/formato';
+import { Decimal, type EntradaDecimal } from '@/shared/format/decimal';
+import { parsearEntradaNumerica } from '@/shared/format/entrada';
+import {
+  formatearCantidad,
+  formatearEquivalenciaSacos,
+  formatearFecha,
+  formatearMoneda,
+  formatearStockEnPresentacion,
+} from '@/shared/format/formato';
 import type { LoteResumen, Presentacion } from '@/shared/types/api';
 
 export interface AsignacionLote {
@@ -47,20 +54,48 @@ export function precioDeLote(lote: LoteResumen, presentacionId: number): Decimal
   const precio = lote.precios.find((item) => item.presentacion_id === presentacionId);
   return Decimal.desde(precio?.precio ?? lote.precio_venta);
 }
+function textoDecimalLimpio(valor: Decimal): string {
+  const texto = valor.aTexto();
+  if (!texto.includes('.')) return texto;
+  return texto.replace(/\.?0+$/, '') || '0';
+}
+
+/**
+ * Cantidad disponible del lote expresada en la presentación elegida
+ * (p. ej. 20 000 g / 40 000 g = 0.5 sacos = 1/2 saco).
+ */
+export function disponibleEnPresentacion(
+  lote: LoteResumen,
+  factorBase: EntradaDecimal = '1',
+): Decimal {
+  const factor = Decimal.desde(factorBase);
+  const factorSeguro = factor.comparar(Decimal.cero()) > 0 ? factor : Decimal.desde('1');
+  const disponibleBase = Decimal.desde(lote.cantidad_disponible);
+  if (factorSeguro.comparar('1') === 0) return disponibleBase;
+  return disponibleBase.divide(factorSeguro, 4);
+}
+
 /**
  * Reparto sugerido (PEPS): se completa la cantidad pedida con el lote más
  * antiguo disponible, pasando al siguiente si el primero no alcanza.
+ * Convierte el stock base del lote (gramos/unidades) a la presentación de venta
+ * (sacos/medios sacos).
  */
-export function repartoSugerido(lotes: LoteResumen[], _presentacionId: number, cantidad: string) {
+export function repartoSugerido(
+  lotes: LoteResumen[],
+  _presentacionId: number,
+  cantidad: string,
+  factorBase: EntradaDecimal = '1',
+) {
   let restante = Decimal.desde(cantidad);
   const suggested = new Map<number, string>();
   for (const lote of lotes) {
     if (restante.comparar(Decimal.cero()) <= 0) break;
-    const disponible = Decimal.desde(lote.cantidad_disponible);
+    const disponible = disponibleEnPresentacion(lote, factorBase);
     if (disponible.comparar(Decimal.cero()) <= 0) continue;
     const toma = restante.comparar(disponible) <= 0 ? restante : disponible;
-    suggested.set(lote.id, toma.aTexto());
-    restante = restante.resta(toma);
+    suggested.set(lote.id, textoDecimalLimpio(toma));
+    restante = Decimal.desde(textoDecimalLimpio(restante.resta(toma)));
   }
   return { suggested, restante };
 }
@@ -75,10 +110,11 @@ export function SelectorLote({
   onConfirmar,
 }: Props) {
   const [cantidades, setCantidades] = useState<Record<number, string>>({});
+  const factorPresentacion = presentacion?.factor_base ?? '1';
 
   const suggested = useMemo(
-    () => repartoSugerido(lotes, presentacion?.id ?? 0, cantidad),
-    [lotes, presentacion?.id, cantidad],
+    () => repartoSugerido(lotes, presentacion?.id ?? 0, cantidad, factorPresentacion),
+    [lotes, presentacion?.id, cantidad, factorPresentacion],
   );
 
   useEffect(() => {
@@ -94,7 +130,7 @@ export function SelectorLote({
     if (!presentacion) return [];
     const resultado: AsignacionLote[] = [];
     for (const lote of lotes) {
-      const texto = (cantidades[lote.id] ?? '').trim();
+      const texto = parsearEntradaNumerica((cantidades[lote.id] ?? '').trim());
       if (texto === '') continue;
       const valor = Decimal.desde(texto);
       if (valor.comparar(Decimal.cero()) <= 0) continue;
@@ -103,7 +139,7 @@ export function SelectorLote({
         lote_id: lote.id,
         lote_codigo: lote.codigo_lote,
         presentacion_id: presentacion.id,
-        cantidad: valor.aTexto(),
+        cantidad: textoDecimalLimpio(valor),
         precio_unitario: precio.aTexto(),
         subtotal: valor.multiplica(precio).redondear(2).aTexto(),
       });
@@ -111,12 +147,22 @@ export function SelectorLote({
     return resultado;
   }, [lotes, cantidades, presentacion]);
 
+  const hayExcesoEnLote = useMemo(() => {
+    return lotes.some((lote) => {
+      const texto = parsearEntradaNumerica((cantidades[lote.id] ?? '').trim());
+      if (texto === '') return false;
+      const valor = Decimal.desde(texto);
+      const disp = disponibleEnPresentacion(lote, factorPresentacion);
+      return valor.comparar(disp) > 0;
+    });
+  }, [lotes, cantidades, factorPresentacion]);
+
   const totalPedido = Decimal.desde(cantidad);
   const totalAsignado = asignaciones.reduce(
     (acumulado, item) => acumulado.suma(Decimal.desde(item.cantidad)),
     Decimal.cero(),
   );
-  const completo = totalAsignado.comparar(totalPedido) === 0;
+  const completo = totalAsignado.comparar(totalPedido) === 0 && !hayExcesoEnLote;
   const hayPreciosDistintos = lotes.some(
     (lote) => precioDeLote(lote, presentacion?.id ?? 0).aTexto() !== precioDeLote(lotes[0], presentacion?.id ?? 0).aTexto(),
   );
@@ -175,9 +221,15 @@ export function SelectorLote({
             {lotes.map((lote, indice) => {
               const precio = precioDeLote(lote, presentacion?.id ?? 0);
               const asignado = (cantidades[lote.id] ?? '').trim();
-              const valor = Decimal.desde(asignado || '0');
+              const valor = Decimal.desde(parsearEntradaNumerica(asignado) || '0');
               const importe = valor.multiplica(precio);
               const esSugerido = (suggested.suggested.get(lote.id) ?? '') !== '' && indice === 0;
+              const stockLegible = formatearStockEnPresentacion(
+                lote.cantidad_disponible,
+                factorPresentacion,
+                presentacion?.nombre ?? lote.presentacion_nombre,
+                lote.unidad_base,
+              );
               return (
                 <TableRow key={lote.id}>
                   <TableCell>
@@ -192,7 +244,10 @@ export function SelectorLote({
                     {lote.fecha_ingreso ? formatearFecha(lote.fecha_ingreso) : 'Sin fecha'}
                   </TableCell>
                   <TableCell numerica>
-                    {formatearCantidad(lote.cantidad_disponible)}
+                    <span className="font-semibold text-ink">{stockLegible.principal}</span>
+                    {stockLegible.secundario ? (
+                      <span className="block text-2xs text-muted">{stockLegible.secundario}</span>
+                    ) : null}
                   </TableCell>
                   <TableCell numerica>{formatearMoneda(precio.aTexto())}</TableCell>
                   <TableCell numerica>
@@ -222,8 +277,8 @@ export function SelectorLote({
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="text-muted">
-            Asignado {formatearCantidad(totalAsignado.aTexto())} de{' '}
-            {formatearCantidad(totalPedido.aTexto())}
+            Asignado {formatearEquivalenciaSacos(totalAsignado.aTexto(), presentacion?.nombre)} de{' '}
+            {formatearEquivalenciaSacos(totalPedido.aTexto(), presentacion?.nombre)}
           </span>
           <span className="font-semibold numero text-ink">
             Total {formatearMoneda(
@@ -237,10 +292,14 @@ export function SelectorLote({
           </span>
         </div>
 
-        {!completo ? (
+        {hayExcesoEnLote ? (
+          <Notice tono="error" titulo="Cantidad superior al stock del lote">
+            Uno de los lotes seleccionados no tiene suficientes sacos disponibles.
+          </Notice>
+        ) : !completo ? (
           <Notice tono="aviso" titulo="Falta completar la cantidad">
-            Reparta las {formatearCantidad(totalPedido.aTexto())} entre los lotes antes de
-            confirmar.
+            Reparta {formatearEquivalenciaSacos(totalPedido.aTexto(), presentacion?.nombre)} entre
+            los lotes antes de confirmar.
           </Notice>
         ) : null}
       </div>

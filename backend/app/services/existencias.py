@@ -514,13 +514,17 @@ def registrar_saldo_inicial(
 ) -> dict[str, Any]:
     """Carga inicial de existencias: una operación administrativa, no una compra.
 
-    Se diferencia de un abastecimiento (que exige proveedor) y queda registrada
-    con el tipo de movimiento `SALDO_INICIAL`.
+    Se diferencia de un abastecimiento (que exige proveedor), queda registrada
+    con el tipo de movimiento `SALDO_INICIAL` y crea un lote por línea con
+    origen `INVENTARIO_INICIAL`.
     """
+    from app.services import lotes as servicio_lotes
+
     if not lineas:
         raise ErrorNegocio("Debe incluir al menos una línea de inventario inicial.")
     total = Decimal("0")
     detalle = []
+    vistos_en_esta_carga: set[int] = set()
     for linea in lineas:
         producto = db.get(Producto, linea["producto_id"])
         if producto is None:
@@ -530,11 +534,45 @@ def registrar_saldo_inicial(
             raise ErrorNegocio("La cantidad del inventario inicial debe ser mayor que cero.")
         costo = dec(linea.get("costo_unitario_base") or 0)
         existencia = inventario.bloquear_existencia(db, almacen_id, producto.id)
-        if dec(existencia.cantidad_base) != 0:
+        if dec(existencia.cantidad_base) != 0 and producto.id not in vistos_en_esta_carga:
             raise ErrorNegocio(
                 f"«{producto.nombre}» ya tiene existencias: use un ajuste administrativo.",
                 detalle={"producto_id": producto.id},
             )
+        vistos_en_esta_carga.add(producto.id)
+
+        presentacion_id = linea.get("presentacion_id")
+        presentacion = (
+            db.get(PresentacionProducto, presentacion_id)
+            if presentacion_id is not None
+            else _presentacion_visual(producto, cantidad)
+        )
+        factor = dec(presentacion.factor_base) if presentacion is not None else Decimal("1")
+        costo_unitario = (
+            dec(linea["costo_unitario"])
+            if linea.get("costo_unitario") is not None
+            else q2(costo * factor)
+        )
+        precio_venta = (
+            dec(linea["precio_venta"])
+            if linea.get("precio_venta") is not None
+            else (dec(presentacion.precio_venta) if presentacion is not None else Decimal("0"))
+        )
+        lote = servicio_lotes.crear_lote(
+            db,
+            producto_id=producto.id,
+            almacen_id=almacen_id,
+            cantidad_base=cantidad,
+            cantidad_inicial=cantidad,
+            costo_base=costo,
+            costo_unitario=costo_unitario,
+            precio_venta=precio_venta,
+            presentacion_id=presentacion.id if presentacion is not None else None,
+            fecha_ingreso=linea.get("fecha_ingreso") or date.today(),
+            usuario_id=usuario_id,
+            origen="INVENTARIO_INICIAL",
+        )
+
         inventario.aplicar_entrada(
             db,
             almacen_id=almacen_id,
@@ -546,12 +584,15 @@ def registrar_saldo_inicial(
             origen_id=0,
             usuario_id=usuario_id,
             referencia=referencia,
+            lote_id=lote.id,
         )
         total += cantidad
         detalle.append(
             {
                 "producto_id": producto.id,
                 "producto": producto.nombre,
+                "lote_id": lote.id,
+                "codigo_lote": lote.codigo_lote,
                 "cantidad_base": num(q4(cantidad)),
                 "costo_unitario_base": num(costo),
             }

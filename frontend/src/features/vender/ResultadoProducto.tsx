@@ -2,7 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button, Field, Input, Select } from '@/design-system';
 import { Decimal } from '@/shared/format/decimal';
 import { parsearEntradaNumerica } from '@/shared/format/entrada';
-import { etiquetaEstado, formatearCantidad, formatearMoneda } from '@/shared/format/formato';
+import {
+  etiquetaEstado,
+  formatearCantidad,
+  formatearEnUnidadLegible,
+  formatearEquivalenciaSacos,
+  formatearMoneda,
+} from '@/shared/format/formato';
 import { lotesApi } from '@/shared/api/endpoints';
 import type { LoteResumen, Presentacion } from '@/shared/types/api';
 import type { LineaCarrito, ResultadoBusqueda } from './tipos';
@@ -128,8 +134,12 @@ export function FilaResultado({ resultado, onAgregar, onSeleccionarLote }: Propi
             {etiquetaEstado(resultado.estado)}
           </Badge>
           <span className="text-xs numero text-ink-suave">
-            {formatearCantidad(resultado.cantidad_presentacion ?? resultado.stock_base)} ·{' '}
-            {resultado.unidad_base ?? 'und'}
+            {resultado.cantidad_presentacion && resultado.presentacion_principal
+              ? `${formatearEquivalenciaSacos(
+                  resultado.cantidad_presentacion,
+                  resultado.presentacion_principal,
+                )} (${formatearEnUnidadLegible(resultado.stock_base, resultado.unidad_base)})`
+              : formatearEnUnidadLegible(resultado.stock_base, resultado.unidad_base)}
           </span>
         </div>
       </div>
@@ -187,6 +197,27 @@ export function FilaResultado({ resultado, onAgregar, onSeleccionarLote }: Propi
           </Field>
         </div>
 
+        {presentacion?.permite_fraccion ? (
+          <div className="flex items-center gap-1 pb-0.5" aria-label="Atajos de fracción de saco">
+            <Button
+              variante={cantidadNumero === '0.5' ? 'primario' : 'secundario'}
+              tamano="sm"
+              onClick={() => setCantidad('0,5')}
+              title="Medio saco (0,5)"
+            >
+              1/2
+            </Button>
+            <Button
+              variante={cantidadNumero === '1' ? 'primario' : 'secundario'}
+              tamano="sm"
+              onClick={() => setCantidad('1')}
+              title="Un saco entero (1)"
+            >
+              1
+            </Button>
+          </div>
+        ) : null}
+
         <Button
           variante="secundario"
           onClick={() => void agregar()}
@@ -202,7 +233,12 @@ export function FilaResultado({ resultado, onAgregar, onSeleccionarLote }: Propi
         <p className="mt-2 text-xs text-muted">
           1 {presentacion.nombre} = {formatearCantidad(presentacion.factor_base)}{' '}
           {resultado.unidad_base ?? 'und'}
-          {presentacion.permite_fraccion ? ' · admite fracciones' : ''}
+          {presentacion.permite_fraccion
+            ? ` · admite medio saco (1/2 = ${formatearEnUnidadLegible(
+                Decimal.desde(presentacion.factor_base).divide('2', 4),
+                resultado.unidad_base,
+              )})`
+            : ''}
         </p>
       ) : null}
     </article>

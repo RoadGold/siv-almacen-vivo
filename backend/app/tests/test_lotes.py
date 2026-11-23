@@ -777,3 +777,115 @@ def test_13_las_existencias_consolidadas_siguen_coincidiendo_con_los_lotes(
         )
     ).scalar_one()
     assert Decimal(str(existencia.cantidad_base)) == suma_lotes
+
+
+# --- Prueba 14: venta de medios sacos (-1/2 y luego -1 saco) y transporte ---
+def test_14_venta_de_dos_medios_sacos_y_costo_con_transporte(
+    cliente, cabeceras_admin, cabeceras_vendedor, unidades, almacen
+):
+    """Vender medio saco resta 1/2 saco al lote; otro medio saco completa 1 saco."""
+    balanceado = cliente.post(
+        "/api/v1/catalogo/productos",
+        json={
+            "codigo": "BAL-40KG",
+            "nombre": "Vitamaxpro Terneros Cuna",
+            "unidad_base_id": unidades["GR"].id,
+            "permite_fraccion": True,
+            "presentaciones": [
+                {
+                    "nombre": "saco 40 kg pellet",
+                    "factor_base": "40000",
+                    "precio_venta": "120.00",
+                    "permite_fraccion": True,
+                }
+            ],
+        },
+        headers=cabeceras_admin,
+    ).json()
+    presentacion = balanceado["presentaciones"][0]
+    proveedor = cliente.post(
+        "/api/v1/proveedores",
+        json={"codigo": "PRV-BAL", "razon_social": "Vitamaxpro"},
+        headers=cabeceras_admin,
+    ).json()
+
+    # Ingreso de 10 sacos a S/ 80.00 + S/ 50.00 de transporte = S/ 850.00 total
+    # (Costo real por saco = S/ 85.00; costo por gramo = 85 / 40000 = 0.002125)
+    ingreso = cliente.post(
+        "/api/v1/abastecimientos",
+        json={
+            "proveedor_id": proveedor["id"],
+            "almacen_id": almacen.id,
+            "documento": "F001-TRANSP",
+            "lineas": [
+                {
+                    "producto_id": balanceado["id"],
+                    "presentacion_id": presentacion["id"],
+                    "cantidad": "10",
+                    "costo_unitario": "80.00",
+                    "costo_transporte": "50.00",
+                    "precio_venta": "120.00",
+                }
+            ],
+        },
+        headers=cabeceras_admin,
+    )
+    assert ingreso.status_code == 201, ingreso.text
+    datos_ingreso = ingreso.json()
+    assert datos_ingreso["total"] == "850"
+    assert datos_ingreso["detalles"][0]["costo_transporte"] == "50"
+    assert datos_ingreso["detalles"][0]["subtotal"] == "850"
+
+    lotes = _lotes(cliente, cabeceras_admin, balanceado["id"])
+    assert len(lotes) == 1
+    lote_id = lotes[0]["id"]
+    assert lotes[0]["cantidad_disponible"] == "400000"
+    assert lotes[0]["cantidad_disponible_presentacion"] == "10"
+    assert lotes[0]["costo_transporte"] == "50"
+    assert lotes[0]["costo_base"] == "0.002125"
+
+    # 1. Primera venta de medio saco (0.5): debe restar 1/2 saco -> quedan 9.5 sacos (380 000 g)
+    venta_1 = cliente.post(
+        "/api/v1/ventas",
+        json={
+            "almacen_id": almacen.id,
+            "lineas": [
+                {
+                    "producto_id": balanceado["id"],
+                    "presentacion_id": presentacion["id"],
+                    "cantidad": "0.5",
+                    "lote_id": lote_id,
+                }
+            ],
+        },
+        headers=cabeceras_vendedor,
+    )
+    assert venta_1.status_code == 201, venta_1.text
+    assert venta_1.json()["total"] == "60"
+    # Costo de medio saco con transporte incluido: 20 000 g * 0.002125 = S/ 42.50
+    assert venta_1.json()["costo_total"] == "42.5"
+
+    lotes = _lotes(cliente, cabeceras_admin, balanceado["id"])
+    assert lotes[0]["cantidad_disponible"] == "380000"
+    assert lotes[0]["cantidad_disponible_presentacion"] == "9.5"
+
+    # 2. Segunda venta de medio saco (0.5): completa 1 saco vendido -> quedan 9 sacos (360 000 g)
+    venta_2 = cliente.post(
+        "/api/v1/ventas",
+        json={
+            "almacen_id": almacen.id,
+            "lineas": [
+                {
+                    "producto_id": balanceado["id"],
+                    "presentacion_id": presentacion["id"],
+                    "cantidad": "0.5",
+                    "lote_id": lote_id,
+                }
+            ],
+        },
+        headers=cabeceras_vendedor,
+    )
+    assert venta_2.status_code == 201, venta_2.text
+    lotes = _lotes(cliente, cabeceras_admin, balanceado["id"])
+    assert lotes[0]["cantidad_disponible"] == "360000"
+    assert lotes[0]["cantidad_disponible_presentacion"] == "9"

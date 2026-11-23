@@ -100,7 +100,8 @@ def previsualizar(db: Session, payload: dict[str, Any]) -> dict[str, Any]:
             permite_fraccion=bool(presentacion.permite_fraccion or producto.permite_fraccion),
         )
         costo = dec(linea["costo_unitario"])
-        subtotal = q2(cantidad * costo)
+        transporte = q2(dec(linea.get("costo_transporte") or 0))
+        subtotal = q2(q2(cantidad * costo) + transporte)
 
         existencia = inventario.existencia_actual(db, almacen.id, producto.id)
         stock_actual = dec(existencia.cantidad_base) if existencia else Decimal("0")
@@ -125,6 +126,7 @@ def previsualizar(db: Session, payload: dict[str, Any]) -> dict[str, Any]:
                 "cantidad_base": num(q4(conversion.cantidad_base)),
                 "unidad_base": producto.unidad_base.nombre if producto.unidad_base else None,
                 "costo_unitario": num(q2(costo)),
+                "costo_transporte": num(transporte),
                 "subtotal": str(subtotal),
                 "stock_actual_base": num(q4(stock_actual)),
                 "stock_resultante_base": num(q4(resultado)),
@@ -169,8 +171,12 @@ def confirmar(db: Session, payload: dict[str, Any], usuario_id: int) -> Abasteci
             permite_fraccion=bool(presentacion.permite_fraccion or producto.permite_fraccion),
         )
         costo = dec(linea["costo_unitario"])
-        subtotal = q2(cantidad * costo)
-        costo_base = q6(costo / dec(presentacion.factor_base))
+        transporte = q2(dec(linea.get("costo_transporte") or 0))
+        subtotal = q2(q2(cantidad * costo) + transporte)
+        if transporte > 0:
+            costo_base = q6((cantidad * costo + transporte) / conversion.cantidad_base)
+        else:
+            costo_base = q6(costo / dec(presentacion.factor_base))
         precio_venta = (
             dec(linea["precio_venta"])
             if linea.get("precio_venta") is not None
@@ -187,6 +193,7 @@ def confirmar(db: Session, payload: dict[str, Any], usuario_id: int) -> Abasteci
             factor_snapshot=dec(presentacion.factor_base),
             cantidad_base=q4(conversion.cantidad_base),
             costo_unitario=q2(costo),
+            costo_transporte=transporte,
             costo_base=costo_base,
             subtotal=subtotal,
         )
@@ -203,6 +210,7 @@ def confirmar(db: Session, payload: dict[str, Any], usuario_id: int) -> Abasteci
             cantidad_inicial=conversion.cantidad_base,
             costo_base=costo_base,
             costo_unitario=costo,
+            costo_transporte=transporte,
             precio_venta=precio_venta,
             presentacion_id=presentacion.id,
             fecha_ingreso=fecha_lote,
@@ -296,6 +304,7 @@ def abastecimiento_a_dict(abastecimiento: Abastecimiento) -> dict[str, Any]:
                 "factor_snapshot": num(d.factor_snapshot),
                 "cantidad_base": num(q4(dec(d.cantidad_base))),
                 "costo_unitario": num(q2(dec(d.costo_unitario))),
+                "costo_transporte": num(q2(dec(getattr(d, "costo_transporte", 0) or 0))),
                 "subtotal": num(q2(dec(d.subtotal))),
                 "lote_id": d.lote_id,
                 "lote_codigo": lote.codigo_lote if lote is not None else None,

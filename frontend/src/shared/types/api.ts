@@ -346,6 +346,7 @@ export interface LineaAbastecimientoIn {
   presentacion_id: number;
   cantidad: string;
   costo_unitario: string;
+  costo_transporte?: string | null;
   precio_venta?: string | null;
 }
 
@@ -369,6 +370,7 @@ export interface LineaCalculadaAbastecimiento {
   cantidad_base: string;
   unidad_base?: string | null;
   costo_unitario: string;
+  costo_transporte?: string;
   subtotal: string;
   stock_actual_base: string;
   stock_resultante_base: string;
@@ -389,6 +391,7 @@ export interface DetalleAbastecimiento {
   factor_snapshot: string;
   cantidad_base: string;
   costo_unitario: string;
+  costo_transporte?: string;
   subtotal: string;
   producto_codigo?: string | null;
   producto_nombre?: string | null;
@@ -443,7 +446,11 @@ export interface VentasPorProducto {
   producto_id: number;
   codigo: string;
   producto: string;
+  unidad_base?: string | null;
+  presentacion_nombre?: string | null;
+  factor_base?: string;
   cantidad_base: string;
+  cantidad_presentacion?: string;
   total: string;
   costo: string;
   margen_bruto_estimado: string;
@@ -475,6 +482,7 @@ export interface AbastecimientosPorProveedor {
   proveedor: string;
   operaciones: number;
   total: string;
+  costo_transporte?: string;
   ultimo_ingreso?: string | null;
 }
 
@@ -482,8 +490,11 @@ export interface CostoHistoricoReporte {
   codigo: string;
   producto: string;
   proveedor: string;
+  presentacion?: string | null;
   cantidad: string;
   costo_unitario: string;
+  costo_transporte?: string;
+  subtotal?: string;
   factor: string;
   fecha: string;
   documento?: string | null;
@@ -493,7 +504,11 @@ export interface InventarioValorizado {
   producto_id: number;
   codigo: string;
   producto: string;
+  unidad_base?: string | null;
+  presentacion_nombre?: string | null;
+  factor_base?: string;
   cantidad_base: string;
+  cantidad_presentacion?: string;
   costo_promedio_base: string;
   valor_costo: string;
 }
@@ -515,6 +530,7 @@ export interface MargenBruto {
 export interface PrecioLote {
   presentacion_id: number;
   presentacion_nombre: string;
+  factor_base?: string;
   precio: string;
 }
 
@@ -523,12 +539,19 @@ export interface LoteResumen {
   producto_id: number;
   producto_codigo?: string | null;
   producto_nombre?: string | null;
+  unidad_base?: string | null;
+  presentacion_id?: number | null;
+  presentacion_nombre?: string | null;
+  factor_base?: string;
   codigo_lote: string;
   fecha_ingreso?: string | null;
   cantidad_inicial: string;
   cantidad_disponible: string;
+  cantidad_inicial_presentacion?: string;
+  cantidad_disponible_presentacion?: string;
   costo_base: string;
   costo_unitario: string;
+  costo_transporte?: string;
   precio_venta: string;
   almacen_id: number;
   abastecimiento_id?: number | null;

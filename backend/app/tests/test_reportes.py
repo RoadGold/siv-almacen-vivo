@@ -140,3 +140,86 @@ def test_exportacion_csv_de_ventas(cliente, cabeceras_admin, unidades, almacen):
     assert contenido.startswith("\ufeff")  # BOM para Excel
     assert "Numero" in contenido
     assert "REP-GAS" in contenido
+
+
+def test_reportes_de_inventario_y_ventas_por_lote_en_analizar(
+    cliente, cabeceras_admin, unidades, almacen
+):
+    """Los endpoints de Analizar por lote devuelven stock en sacos, transporte y utilidad."""
+    _, _, proveedor = _preparar(cliente, cabeceras_admin, unidades, almacen)
+    balanceado = crear_producto(
+        cliente,
+        cabeceras_admin,
+        unidades,
+        codigo="REP-BAL-50",
+        nombre="Balanceado Engorde",
+        unidad="GR",
+        permite_fraccion=True,
+        presentaciones=[
+            {
+                "nombre": "saco 50 kg",
+                "factor_base": "50000",
+                "precio_venta": "200.00",
+                "permite_fraccion": True,
+            }
+        ],
+    )
+    ids_bal = abbreviaturas_presentaciones(balanceado)
+
+    # Ingreso con transporte y venta de medio saco (0.5 saco de 50 kg = 25 000 g)
+    ingreso = cliente.post(
+        "/api/v1/abastecimientos",
+        json={
+            "proveedor_id": proveedor["id"],
+            "almacen_id": almacen.id,
+            "lineas": [
+                {
+                    "producto_id": balanceado["id"],
+                    "presentacion_id": ids_bal["saco 50 kg"],
+                    "cantidad": "4",
+                    "costo_unitario": "150.00",
+                    "costo_transporte": "40.00",
+                    "precio_venta": "200.00",
+                }
+            ],
+        },
+        headers=cabeceras_admin,
+    )
+    assert ingreso.status_code == 201, ingreso.text
+    lote_id = ingreso.json()["detalles"][0]["lote_id"]
+
+    venta = cliente.post(
+        "/api/v1/ventas",
+        json={
+            "almacen_id": almacen.id,
+            "lineas": [
+                {
+                    "producto_id": balanceado["id"],
+                    "presentacion_id": ids_bal["saco 50 kg"],
+                    "cantidad": "0.5",
+                    "lote_id": lote_id,
+                }
+            ],
+        },
+        headers=cabeceras_admin,
+    )
+    assert venta.status_code == 201, venta.text
+
+    inv_lotes = cliente.get(
+        "/api/v1/reportes/inventario-por-lote",
+        params={"estado": "con_stock"},
+        headers=cabeceras_admin,
+    )
+    assert inv_lotes.status_code == 200, inv_lotes.text
+    fila_lote = next(item for item in inv_lotes.json() if item["lote_id"] == lote_id)
+    assert fila_lote["cantidad_disponible_presentacion"] == "3.5"
+    assert fila_lote["costo_transporte"] == "40"
+
+    ventas_lotes = cliente.get("/api/v1/reportes/ventas-por-lote", headers=cabeceras_admin)
+    assert ventas_lotes.status_code == 200, ventas_lotes.text
+    venta_lote = next(item for item in ventas_lotes.json() if item["lote_id"] == lote_id)
+    assert venta_lote["cantidad_presentacion"] == "0.5"
+    assert venta_lote["ingresos"] == "100"
+    # Costo total del lote = 4 * 150 + 40 = 640 (160 por saco; 0.5 saco = 80)
+    assert venta_lote["costo"] == "80"
+    assert venta_lote["utilidad_bruta"] == "20"

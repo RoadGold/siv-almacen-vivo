@@ -46,10 +46,13 @@ def abastecimientos(
 def costos(
     producto_id: int | None = None,
     proveedor_id: int | None = None,
+    limite: int = Query(default=500, ge=1, le=5000),
     _: Usuario = Depends(requiere_permiso(Permiso.REPORTES_VER)),
     db: Session = Depends(get_db),
 ) -> list[dict]:
-    return servicio.historico_de_costos(db, producto_id=producto_id, proveedor_id=proveedor_id)
+    return servicio.historico_de_costos(
+        db, producto_id=producto_id, proveedor_id=proveedor_id, limite=limite
+    )
 
 
 @router.get("/inventario")
@@ -67,7 +70,8 @@ def inventario_por_lote(
     producto_id: int | None = None,
     almacen_id: int | None = None,
     solo_con_stock: bool = Query(default=False),
-    limite: int = Query(default=200, ge=1, le=1000),
+    estado: str | None = Query(default=None),
+    limite: int = Query(default=500, ge=1, le=5000),
     _: Usuario = Depends(requiere_permiso(Permiso.REPORTES_VER)),
     db: Session = Depends(get_db),
 ) -> list[dict]:
@@ -77,6 +81,7 @@ def inventario_por_lote(
         producto_id=producto_id,
         almacen_id=almacen_id,
         solo_con_stock=solo_con_stock,
+        estado=estado,
         limite=limite,
     )
 
@@ -85,7 +90,7 @@ def inventario_por_lote(
 def ventas_por_lote(
     desde: date | None = None,
     hasta: date | None = None,
-    limite: int = Query(default=200, ge=1, le=1000),
+    limite: int = Query(default=500, ge=1, le=5000),
     _: Usuario = Depends(requiere_permiso(Permiso.REPORTES_VER)),
     db: Session = Depends(get_db),
 ) -> list[dict]:

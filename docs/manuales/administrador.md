@@ -16,6 +16,12 @@ Todo escucha **solo en localhost**. Para abrirlo a la red local ver la sección 
 
 ## 2. Instalación en el equipo del negocio
 
+> Para instalar en un equipo Windows nuevo, la guía completa está en
+> [`instalacion-windows.md`](instalacion-windows.md). El script
+> `scripts\instalar\instalar-windows.ps1` hace todo el proceso (base de datos,
+> dependencias, compilación, migraciones, usuario administrador, catálogo,
+> arranque automático y respaldo diario).
+
 ### Opción A · PostgreSQL nativo (recomendada en producción)
 
 1. Instale PostgreSQL 16 desde <https://www.postgresql.org/download/windows/>.
@@ -68,8 +74,10 @@ docker compose up -d db
 
 | Acción | Comando / acceso |
 |---|---|
-| Iniciar todo | `scripts\iniciar\iniciar-local.ps1` |
-| Detener la API | Cerrar la consola del proceso o `Stop-Process` del proceso `python` |
+| Iniciar todo (Windows) | `scripts\iniciar\iniciar-windows.ps1 -AbrirNavegador` |
+| Iniciar todo (desarrollo, con Docker) | `scripts\iniciar\iniciar-local.ps1` |
+| Detener la API | `scripts\iniciar\iniciar-windows.ps1 -Detener` |
+| Arranque automático al encender | `scripts\instalar\registrar-inicio-automatico.ps1` |
 | Estado del servidor | <http://127.0.0.1:8000/api/salud> |
 | Documentación de la API | <http://127.0.0.1:8000/api/docs> |
 | Ver registros | `backend\api.log` y `backend\api.log.err` |

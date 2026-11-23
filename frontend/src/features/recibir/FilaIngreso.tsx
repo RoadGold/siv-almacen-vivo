@@ -15,6 +15,8 @@ export interface DatosLineaIngreso {
   unidad_base: string | null;
   cantidad: string;
   costo_unitario: string;
+  /** Gasto extra de transporte del lote recibido. */
+  costo_transporte: string;
   /** Precio de venta del lote que se crea con esta línea. */
   precio_venta: string;
 }
@@ -54,6 +56,7 @@ export function FilaIngreso({
   );
   const [cantidad, setCantidad] = useState('1');
   const [costo, setCosto] = useState(() => ultimoCosto ?? '0');
+  const [transporte, setTransporte] = useState('0');
   const [precioVenta, setPrecioVenta] = useState('0');
 
   useEffect(() => {
@@ -83,13 +86,19 @@ export function FilaIngreso({
   /** Valores escritos, ya normalizados (1.000 = mil, 12,50 = decimal). */
   const cantidadNumero = parsearEntradaNumerica(cantidad);
   const costoNumero = parsearEntradaNumerica(costo);
+  const transporteNumero =
+    transporte.trim() === '' ? '0' : parsearEntradaNumerica(transporte);
   const precioNumero = parsearEntradaNumerica(precioVenta);
   const cantidadValida = cantidadNumero !== '' && Decimal.desde(cantidadNumero).comparar(0) > 0;
   const costoValido = costoNumero !== '' && Decimal.desde(costoNumero).comparar(0) >= 0;
+  const transporteValido =
+    transporteNumero !== '' && Decimal.desde(transporteNumero).comparar(0) >= 0;
   const precioValido = precioNumero !== '' && Decimal.desde(precioNumero).comparar(0) >= 0;
 
   function agregar() {
-    if (!presentacion || !cantidadValida || !costoValido || !precioValido) return;
+    if (!presentacion || !cantidadValida || !costoValido || !transporteValido || !precioValido) {
+      return;
+    }
     onAgregar({
       producto_id: productoId,
       presentacion_id: presentacion.id,
@@ -100,6 +109,7 @@ export function FilaIngreso({
       unidad_base: unidadBase ?? null,
       cantidad: cantidadNumero,
       costo_unitario: costoNumero,
+      costo_transporte: transporteNumero,
       precio_venta: precioNumero,
     });
   }
@@ -193,6 +203,28 @@ export function FilaIngreso({
 
           <div className="w-[128px]">
             <Field
+              htmlFor={`transporte-ingreso-${productoId}`}
+              etiqueta="Transporte (lote)"
+              ejemplo="20.00"
+              compacto
+              error={
+                transporte !== '' && !transporteValido ? 'No es un número válido.' : undefined
+              }
+            >
+              <Input
+                id={`transporte-ingreso-${productoId}`}
+                className="numero"
+                inputMode="decimal"
+                prefijo="S/"
+                invalido={transporte !== '' && !transporteValido}
+                value={transporte}
+                onChange={(evento) => setTransporte(evento.target.value)}
+              />
+            </Field>
+          </div>
+
+          <div className="w-[128px]">
+            <Field
               htmlFor={`precio-venta-ingreso-${productoId}`}
               etiqueta="Precio de venta del lote"
               ejemplo="170.00"
@@ -216,7 +248,7 @@ export function FilaIngreso({
           <Button
             variante="secundario"
             onClick={agregar}
-            disabled={!cantidadValida || !costoValido || !precioValido}
+            disabled={!cantidadValida || !costoValido || !transporteValido || !precioValido}
           >
             Añadir
           </Button>

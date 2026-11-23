@@ -139,6 +139,75 @@ export function abreviarUnidad(unidadBase: string | null | undefined): string {
   return UNIDADES[clave]?.etiqueta ?? unidadBase.toLowerCase();
 }
 
+/**
+ * Expresa una cantidad de presentación (sacos y medios sacos) con fracciones
+ * legibles: `0.5` → «1/2 saco», `1.5` → «1 1/2 sacos», `-0.5` → «−1/2 saco».
+ */
+export function formatearEquivalenciaSacos(
+  cantidadPresentacion: EntradaDecimal,
+  nombrePresentacion?: string | null,
+): string {
+  const decimal = Decimal.desde(cantidadPresentacion).redondear(4);
+  const negativo = decimal.esNegativo();
+  const magnitud = negativo ? decimal.multiplica(-1) : decimal;
+  const signo = negativo ? '−' : '';
+
+  const [enteroTexto] = magnitud.aTexto(4).split('.');
+  const entero = Decimal.desde(enteroTexto || '0');
+  const resto = magnitud.resta(entero);
+
+  let cantidadTexto: string;
+  if (magnitud.esCero()) {
+    cantidadTexto = '0';
+  } else if (resto.esCero()) {
+    cantidadTexto = conSeparadorMiles(entero.aTexto(0));
+  } else if (resto.comparar('0.5') === 0) {
+    cantidadTexto = entero.esCero()
+      ? '1/2'
+      : `${conSeparadorMiles(entero.aTexto(0))} 1/2`;
+  } else {
+    cantidadTexto = formatearCantidad(magnitud, 3);
+  }
+
+  const etiqueta = (nombrePresentacion ?? '').trim();
+  if (etiqueta) {
+    return `${signo}${cantidadTexto} ${etiqueta}`;
+  }
+  const singular = !magnitud.esCero() && magnitud.comparar('1') <= 0;
+  return `${signo}${cantidadTexto} ${singular ? 'saco' : 'sacos'}`;
+}
+
+/**
+ * Convierte una cantidad en unidad base (p. ej. gramos) a la presentación del
+ * lote (p. ej. sacos y medios sacos) cuando el factor es mayor que 1.
+ */
+export function formatearStockEnPresentacion(
+  cantidadBase: EntradaDecimal,
+  factorBase?: EntradaDecimal,
+  nombrePresentacion?: string | null,
+  unidadBase?: string | null,
+): { principal: string; secundario: string | null } {
+  const base = Decimal.desde(cantidadBase);
+  const factor = Decimal.desde(factorBase ?? '1');
+  if (factor.comparar('1') > 0) {
+    const enPresentacion = base.divide(factor, 4);
+    return {
+      principal: formatearEquivalenciaSacos(enPresentacion, nombrePresentacion),
+      secundario: formatearEnUnidadLegible(base, unidadBase),
+    };
+  }
+  if (nombrePresentacion) {
+    return {
+      principal: `${formatearCantidad(base)} ${nombrePresentacion}`,
+      secundario: unidadBase ? formatearEnUnidadLegible(base, unidadBase) : null,
+    };
+  }
+  return {
+    principal: formatearEnUnidadLegible(base, unidadBase),
+    secundario: null,
+  };
+}
+
 const FECHA_LARGA = new Intl.DateTimeFormat('es-PE', {
   day: '2-digit',
   month: '2-digit',

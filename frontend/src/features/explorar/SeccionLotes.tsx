@@ -33,6 +33,7 @@ import {
   formatearCantidad,
   formatearFecha,
   formatearMoneda,
+  formatearStockEnPresentacion,
 } from '@/shared/format/formato';
 import { mensajeDeError } from '@/shared/hooks/errores';
 import type { LoteResumen, Presentacion } from '@/shared/types/api';
@@ -211,12 +212,34 @@ export function SeccionLotes({
                   {lote.fecha_ingreso ? formatearFecha(lote.fecha_ingreso) : '—'}
                 </TableCell>
                 <TableCell numerica>
-                  {formatearCantidad(lote.cantidad_disponible)}{' '}
-                  <span className="text-xs text-muted">{abreviarUnidad(unidadBase)}</span>
+                  {(() => {
+                    const stock = formatearStockEnPresentacion(
+                      lote.cantidad_disponible,
+                      lote.factor_base,
+                      lote.presentacion_nombre,
+                      unidadBase ?? lote.unidad_base,
+                    );
+                    return (
+                      <>
+                        <span className="font-semibold text-ink">{stock.principal}</span>
+                        {stock.secundario ? (
+                          <span className="block text-2xs text-muted">{stock.secundario}</span>
+                        ) : null}
+                      </>
+                    );
+                  })()}
                 </TableCell>
                 <TableCell numerica>
-                  {formatearMoneda(lote.costo_base)}
-                  <span className="block text-2xs text-muted">por unidad base</span>
+                  {formatearMoneda(lote.costo_unitario)}
+                  {lote.costo_transporte && Decimal.desde(lote.costo_transporte).comparar(0) > 0 ? (
+                    <span className="block text-2xs text-muted">
+                      + {formatearMoneda(lote.costo_transporte)} transp.
+                    </span>
+                  ) : (
+                    <span className="block text-2xs text-muted">
+                      {formatearMoneda(lote.costo_base)} / {abreviarUnidad(unidadBase)}
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell numerica>
                   {formatearMoneda(lote.precio_venta)}

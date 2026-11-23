@@ -229,6 +229,10 @@ class LoteInventario(Base, TimestampMixin):
     costo_base: Mapped[int] = mapped_column(COSTO_UNIT, default=0, nullable=False)
     """ Costo por presentación de compra del lote (referencia informativa). """
     costo_unitario: Mapped[int] = mapped_column(MONEDA, default=0, nullable=False)
+    """ Gasto de transporte asociado al ingreso de este lote. """
+    costo_transporte: Mapped[int] = mapped_column(
+        MONEDA, default=0, server_default="0", nullable=False
+    )
     """ Precio de venta de la presentación con la que ingresó el lote. """
     precio_venta: Mapped[int] = mapped_column(MONEDA, default=0, nullable=False)
     presentacion_principal_id: Mapped[int | None] = mapped_column(
@@ -251,6 +255,9 @@ class LoteInventario(Base, TimestampMixin):
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
 
     producto: Mapped[Producto] = relationship()
+    presentacion_principal: Mapped[PresentacionProducto | None] = relationship(
+        foreign_keys=[presentacion_principal_id]
+    )
     precios: Mapped[list["LotePrecio"]] = relationship(
         back_populates="lote", cascade="all, delete-orphan"
     )
@@ -371,6 +378,9 @@ class DetalleAbastecimiento(Base):
     factor_snapshot: Mapped[int] = mapped_column(FACTOR, nullable=False)
     cantidad_base: Mapped[int] = mapped_column(CANT, nullable=False)
     costo_unitario: Mapped[int] = mapped_column(MONEDA, nullable=False)
+    costo_transporte: Mapped[int] = mapped_column(
+        MONEDA, default=0, server_default="0", nullable=False
+    )
     costo_base: Mapped[int] = mapped_column(COSTO_UNIT, nullable=False)
     subtotal: Mapped[int] = mapped_column(MONEDA, nullable=False)
     lote_id: Mapped[int | None] = mapped_column(
@@ -473,9 +483,6 @@ class DetalleVenta(Base):
     precio_unitario: Mapped[int] = mapped_column(MONEDA, nullable=False)
     precio_original: Mapped[int | None] = mapped_column(MONEDA)
     motivo_precio: Mapped[str | None] = mapped_column(String(120))
-    lote_id: Mapped[int | None] = mapped_column(
-        ForeignKey("lotes_inventario.id", ondelete="SET NULL"), index=True
-    )
     lote_id: Mapped[int | None] = mapped_column(
         ForeignKey("lotes_inventario.id", ondelete="SET NULL"), index=True
     )

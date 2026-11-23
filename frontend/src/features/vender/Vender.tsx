@@ -31,6 +31,7 @@ import { parsearEntradaNumerica } from '@/shared/format/entrada';
 import {
   formatearCantidad,
   formatearEnUnidadLegible,
+  formatearEquivalenciaSacos,
   formatearFecha,
   formatearMoneda,
 } from '@/shared/format/formato';
@@ -280,7 +281,7 @@ export function Vender() {
         producto_nombre: peticion.producto.nombre,
         producto_codigo: peticion.producto.codigo,
         presentacion_nombre: peticion.presentacion.nombre,
-        unidad_base: null,
+        unidad_base: lote?.unidad_base ?? null,
         factor_base: peticion.presentacion.factor_base,
         precio_original: precio.aTexto(),
         precio_total: total.aTexto(),
@@ -353,6 +354,8 @@ export function Vender() {
       cliente.invalidateQueries({ queryKey: ['dashboard'] });
       cliente.invalidateQueries({ queryKey: ['inventario'] });
       cliente.invalidateQueries({ queryKey: ['ventas'] });
+      cliente.invalidateQueries({ queryKey: ['reportes'] });
+      cliente.invalidateQueries({ queryKey: ['lotes'] });
 
       // Impresión del ticket: la venta ya está registrada; si el papel falla,
       // el ticket queda pendiente y se puede reintentar.
@@ -380,10 +383,16 @@ export function Vender() {
   const cintaLocal = useMemo(
     () =>
       carrito.lineas.map((linea) => {
+        const cantNeg = Decimal.desde(linea.cantidad).multiplica(-1);
         const base = Decimal.desde(linea.cantidad).multiplica(linea.factor_base).multiplica(-1);
+        const factor = Decimal.desde(linea.factor_base);
+        const textoSacos =
+          factor.comparar('1') > 0
+            ? `${formatearEquivalenciaSacos(cantNeg, linea.presentacion_nombre)} (${formatearEnUnidadLegible(base, linea.unidad_base)})`
+            : formatearEnUnidadLegible(base, linea.unidad_base);
         return {
           id: linea.id,
-          texto: `${linea.producto_nombre} ${formatearEnUnidadLegible(base, linea.unidad_base)}`,
+          texto: `${linea.producto_nombre} ${textoSacos}`,
         };
       }),
     [carrito.lineas],
