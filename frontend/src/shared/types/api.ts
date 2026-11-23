@@ -606,7 +606,23 @@ export interface EstadoImpresora {
   qr: boolean;
   pagina_codigo: number;
   conectada: boolean;
+  /** Tiempo de respuesta del puerto, en milisegundos. */
+  tiempo_ms?: number | null;
+  /** Motivo del fallo: ok, desactivada, timeout, rechazada, sin_ruta… */
+  motivo?: string;
   mensaje: string;
+  /** Especificaciones declaradas del equipo (la impresora no las informa sola). */
+  modelo?: string;
+  ancho_mm?: string;
+  resolucion?: string;
+  /** Estado en vivo del equipo, si se pidió la consulta. */
+  estado_equipo?: {
+    respondio: boolean;
+    byte?: number | null;
+    hexadecimal?: string;
+    avisos?: string[];
+    mensaje: string;
+  };
 }
 
 export interface ResultadoImpresion {

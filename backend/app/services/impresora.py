@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import socket
 import threading
+import time
 from dataclasses import dataclass
 from typing import Iterable
 
@@ -230,24 +231,134 @@ def enviar(datos: bytes, config: ConfigImpresora | None = None) -> None:
 
 
 def comprobar(config: ConfigImpresora | None = None) -> dict:
-    """Comprueba si la impresora responde (sin imprimir nada)."""
+    """Comprueba si la impresora responde, **sin imprimir nada**.
+
+    Solo abre y cierra la conexión TCP: no envía ni un byte, así que el equipo
+    no gasta papel ni queda en ningún estado raro. Devuelve el diagnóstico
+    (tiempo de respuesta y motivo del fallo) para que el operador sepa qué
+    revisar.
+    """
     config = config or ConfigImpresora.desde_configuracion()
     if not config.activa:
-        return {"activa": False, "conectada": False, "mensaje": "La impresora está desactivada."}
+        return {
+            "activa": False,
+            "conectada": False,
+            "tiempo_ms": None,
+            "motivo": "desactivada",
+            "mensaje": "La impresora está desactivada.",
+        }
+    inicio = time.monotonic()
     try:
         with socket.create_connection(
             (config.host, config.puerto), timeout=config.tiempo_limite
         ):
+            pasado = int((time.monotonic() - inicio) * 1000)
             return {
                 "activa": True,
                 "conectada": True,
-                "mensaje": f"Impresora disponible en {config.host}:{config.puerto}.",
+                "tiempo_ms": pasado,
+                "motivo": "ok",
+                "mensaje": (
+                    f"Impresora disponible en {config.host}:{config.puerto} "
+                    f"({pasado} ms). No se ha enviado nada: no gastó papel."
+                ),
             }
+    except socket.timeout:
+        return {
+            "activa": True,
+            "conectada": False,
+            "tiempo_ms": None,
+            "motivo": "timeout",
+            "mensaje": (
+                f"La impresora no respondió en {config.tiempo_limite:g} s "
+                f"({config.host}:{config.puerto}). Revise que esté encendida y en la red."
+            ),
+        }
+    except ConnectionRefusedError:
+        return {
+            "activa": True,
+            "conectada": False,
+            "tiempo_ms": None,
+            "motivo": "rechazada",
+            "mensaje": (
+                f"El puerto {config.puerto} de {config.host} rechazó la conexión. "
+                "El puerto de impresión puede ser otro (9200 en algunas clones)."
+            ),
+        }
     except OSError as error:
         return {
             "activa": True,
             "conectada": False,
+            "tiempo_ms": None,
+            "motivo": "sin_ruta",
             "mensaje": f"No se pudo conectar con {config.host}:{config.puerto}: {error}",
+        }
+
+
+#: Comando ESC/POS de consulta de estado en vivo. No imprime: solo pregunta.
+#: `ESC i 1` = estado de la impresora; la respuesta es de un byte.
+CONSULTA_ESTADO = ESC + b"i" + b"\x01"
+
+#: Bits del byte de estado según el estándar ESC/POS (0 = todo normal).
+#: Algunas clones usan otro criterio, así que se muestra también el valor bruto.
+BITS_ESTADO = (
+    (0x01, "cajón abierto"),
+    (0x02, "fuera de línea"),
+    (0x04, "papel en movimiento"),
+    (0x08, "atasco de papel"),
+    (0x10, "tapa abierta"),
+    (0x20, "sin papel"),
+    (0x40, "papel por acabarse"),
+    (0x80, "offline"),
+)
+
+
+def consultar_estado(config: ConfigImpresora | None = None) -> dict:
+    """Pregunta al equipo su estado en vivo **sin imprimir**.
+
+    Muchos equipos ESC/POS responden a `ESC i 1` con un byte que dice si están
+    en línea, si tienen papel o si la tapa está abierta. Los que no lo soportan
+    simplemente no contestan: en ese caso se avisa, sin que sea un error.
+    """
+    config = config or ConfigImpresora.desde_configuracion()
+    if not config.activa:
+        return {"respondio": False, "byte": None, "mensaje": "La impresora está desactivada."}
+    try:
+        with socket.create_connection(
+            (config.host, config.puerto), timeout=config.tiempo_limite
+        ) as conexion:
+            conexion.settimeout(config.tiempo_limite)
+            conexion.sendall(CONSULTA_ESTADO)
+            try:
+                datos = conexion.recv(8)
+            except socket.timeout:
+                datos = b""
+            if not datos:
+                return {
+                    "respondio": False,
+                    "byte": None,
+                    "mensaje": (
+                        "El equipo no respondió a la consulta de estado. "
+                        "Puede que su firmware no la soporte; no afecta a la impresión."
+                    ),
+                }
+            valor = datos[0]
+            avisos = [nombre for mascara, nombre in BITS_ESTADO if valor & mascara]
+            return {
+                "respondio": True,
+                "byte": valor,
+                "hexadecimal": f"0x{valor:02X}",
+                "avisos": avisos,
+                "mensaje": (
+                    f"El equipo respondió: {valor} (0x{valor:02X}). "
+                    + ("Todo normal." if not avisos else "Avisos: " + ", ".join(avisos) + ".")
+                ),
+            }
+    except OSError as error:
+        return {
+            "respondio": False,
+            "byte": None,
+            "mensaje": f"No se pudo consultar el estado: {error}",
         }
 
 
@@ -268,6 +379,7 @@ __all__ = [
     "ConstructorTicket",
     "ErrorImpresora",
     "comprobar",
+    "consultar_estado",
     "enviar",
     "imprimir_lineas",
 ]

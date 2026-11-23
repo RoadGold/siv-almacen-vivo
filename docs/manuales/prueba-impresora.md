@@ -29,15 +29,33 @@ Anote la IP y el puerto.
 
 ## 3. Probar la conexión
 
-```powershell
-Test-NetConnection 192.168.1.50 -Port 9100
-```
+### 3.1 Sin tocar la impresora
 
-- `TcpTestSucceeded : True` → todo bien, siga.
-- `False` → revise: que la impresora esté encendida, que el cable de red esté conectado y que la
-  computadora vea la red de la impresora (`ipconfig`).
+La comprobación **no imprime nada**: solo abre y cierra la conexión con el
+puerto de impresión. Puede hacerse de dos formas:
 
-## 4. Enviar un ticket de prueba
+| Desde | Cómo | Qué muestra |
+|---|---|---|
+| El sistema | **Administrar → Impresora → «Comprobar conexión (sin imprimir)»** | Si el puerto responde, en cuántos milisegundos y, si no responde, el motivo (timeout, conexión rechazada, sin ruta) |
+| La consola | `Test-NetConnection 192.168.1.50 -Port 9100` | Si el puerto está abierto |
+
+> **¿Se pueden ver las especificaciones de la impresora sin tocarla?**
+> La impresora ESC/POS por red **no informa de su modelo, su ancho ni su
+> resolución**: no existe un comando estándar para preguntárselo. Por eso el
+> sistema separa dos cosas:
+>
+> - **Estado en vivo** — lo que sí se puede saber sin gastar papel: si el
+>   puerto responde, cuánto tarda y si el equipo contesta a la consulta de
+>   estado (`ESC i`), que informa de papel, tapa o atasco. Es opcional y
+>   algunos equipos no la soportan.
+> - **Especificaciones declaradas** — modelo, ancho (58/80 mm) y resolución
+>   (180/203 dpi), que **se anotan a mano** en
+>   **Administrar → Configuración → Impresora de tickets**, porque el equipo no
+>   las informa.
+>
+> La única acción que **sí consume papel** es «Imprimir ticket de prueba».
+
+### 3.2 Enviar un ticket de prueba (esto sí usa papel)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\pruebas\probar-impresora.ps1 -Ip 192.168.1.50 -Puerto 9100
@@ -88,7 +106,10 @@ Después:
 
 1. Reinicie la API.
 2. Entre en **Administrar → Impresora**: debe aparecer «Activada» y «Conectada».
-3. Pulse **Imprimir ticket de prueba**: es la prueba definitiva (usa el mismo código que la caja).
+3. Anote las **especificaciones** en **Administrar → Configuración → Impresora de
+   tickets** (modelo, ancho y resolución): el equipo no las informa y el
+   sistema las muestra junto al estado en vivo.
+4. Pulse **Imprimir ticket de prueba**: es la prueba definitiva (usa el mismo código que la caja).
 
 ## 6. Probar la caja completa
 

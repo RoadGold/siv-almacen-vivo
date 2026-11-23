@@ -3,7 +3,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { precioDeLote, repartoSugerido } from './SelectorLote';
+import {
+  disponibleEnPresentacion,
+  ordenDeLotes,
+  precioDeLote,
+  repartoSugerido,
+} from './SelectorLote';
 import type { LoteResumen } from '@/shared/types/api';
 
 function lote(
@@ -12,6 +17,7 @@ function lote(
   stock: string,
   precio: string,
   fecha: string | null = '2026-01-15',
+  presentacionId: number | null = 1,
 ): LoteResumen {
   return {
     id,
@@ -24,6 +30,9 @@ function lote(
     costo_unitario: '8',
     precio_venta: precio,
     almacen_id: 1,
+    presentacion_id: presentacionId,
+    presentacion_nombre: presentacionId === 2 ? 'saco 40 kg pellet' : 'saco 20 kg pellet',
+    factor_base: presentacionId === 2 ? '40000' : '20000',
     estado: 'ACTIVO',
     origen: 'RECEPCION',
     precios: [{ presentacion_id: 1, presentacion_nombre: 'botella', precio }],
@@ -82,5 +91,45 @@ describe('reparto sugerido (PEPS)', () => {
     expect(suggested.get(1)).toBe('0.5');
     expect(suggested.get(2)).toBe('0.5');
     expect(restante.aTexto()).toBe('0');
+  });
+
+  it('propone primero el lote cuya presentacion coincide con la de venta', () => {
+    // Lote 1 es de sacos de 20 kg (mas antiguo) y Lote 2 de sacos de 40 kg.
+    const lotes = [lote(1, 'L001', '280000', '78.00', '2026-01-15', 1)];
+    lotes.push(lote(2, 'L002', '280000', '153.40', '2026-11-22', 2));
+
+    // Se vende un saco de 40 kg: se propone el lote de 40 kg, no el de 20 kg.
+    const { suggested } = repartoSugerido(lotes, 2, '1', '40000');
+    expect(suggested.get(2)).toBe('1');
+    expect(suggested.get(1)).toBeUndefined();
+  });
+
+  it('descunta del stock lo que ya esta en el carrito de ese lote', () => {
+    const lotes = [lote(1, 'L001', '20000', '110.00', '2026-01-15', 1)];
+    // Del lote solo quedan 10 000 g libres (ya se ruth vendieron 10 000 g).
+    const disponible = disponibleEnPresentacion(lotes[0], '20000', '10000');
+    expect(disponible.comparar('0.5')).toBe(0);
+
+    // El reparto no puede ofrecer mas de lo que queda.
+    const { suggested, restante } = repartoSugerido(lotes, 1, '1', '20000', { 1: '10000' });
+    expect(suggested.get(1)).toBe('0.5');
+    expect(restante.aTexto()).toBe('0.5');
+  });
+
+  it('no ofrece un lote que ya se agoto en el carrito', () => {
+    const lotes = [lote(1, 'L001', '20000', '110.00', '2026-01-15', 1)];
+    const { suggested, restante } = repartoSugerido(lotes, 1, '1', '20000', { 1: '20000' });
+    expect(suggested.get(1)).toBeUndefined();
+    expect(restante.aTexto()).toBe('1');
+  });
+
+  it('ordena los lotes por presentacion que coincide y despues por antiguedad', () => {
+    const lotes = [
+      lote(1, 'L001', '100', '10.00', '2026-01-15', 1),
+      lote(2, 'L002', '100', '10.00', '2026-02-20', 1),
+      lote(3, 'L003', '100', '10.00', '2026-03-25', 2),
+    ];
+    const orden = ordenDeLotes(lotes, 2).map((item) => item.id);
+    expect(orden).toEqual([3, 1, 2]);
   });
 });

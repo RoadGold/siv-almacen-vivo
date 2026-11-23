@@ -124,27 +124,35 @@ export function Recibir() {
     enabled: paso === 2 && busquedaProductoRetrasada.trim().length > 0,
   });
 
+  /**
+   * Añade una línea al ingreso.
+   *
+   * **Cada línea es un lote distinto**: si el mismo producto y la misma
+   * presentación ya están en el ingreso, se crea una línea nueva (otro lote)
+   * en vez de pisar la anterior. Así se puede registrar, por ejemplo, dos
+   * entregas del mismo saco con precios distintos, y los lotes quedan
+   * separados con su propio costo y su propio precio de venta.
+   *
+   * Para corregir una errata se edita el campo directamente en el resumen.
+   */
   function agregarLinea(datos: DatosLineaIngreso) {
-    setLineas((actuales) => {
-      const existente = actuales.find(
-        (item) =>
-          item.producto_id === datos.producto_id &&
-          item.presentacion_id === datos.presentacion_id,
-      );
-      if (!existente) return [...actuales, datos];
-      return actuales.map((item) =>
-        item === existente
-          ? {
-              ...item,
-              cantidad: datos.cantidad,
-              costo_unitario: datos.costo_unitario,
-              costo_transporte: datos.costo_transporte,
-              precio_venta: datos.precio_venta,
-            }
-          : item,
-      );
-    });
+    setLineas((actuales) => [...actuales, datos]);
   }
+
+  /** Producto y presentación que se repiten en el ingreso (cada uno, un lote). */
+  const productosRepetidos = useMemo(() => {
+    const conteo = new Map<string, { nombre: string; veces: number }>();
+    for (const linea of lineas) {
+      const clave = `${linea.producto_id}-${linea.presentacion_id}`;
+      const actual = conteo.get(clave);
+      if (actual) {
+        actual.veces += 1;
+      } else {
+        conteo.set(clave, { nombre: linea.producto_nombre, veces: 1 });
+      }
+    }
+    return [...conteo.values()].filter((item) => item.veces > 1);
+  }, [lineas]);
 
   function quitarLinea(indice: number) {
     setLineas((actuales) => actuales.filter((_, posicion) => posicion !== indice));
@@ -215,7 +223,7 @@ export function Recibir() {
   const impacto = useMemo(
     () =>
       lineas.map((linea) => ({
-        id: `${linea.producto_id}-${linea.presentacion_id}`,
+        id: linea.id,
         texto: `${linea.producto_nombre} +${formatearCantidad(
           Decimal.desde(parsearEntradaNumerica(linea.cantidad)).multiplica(linea.factor_base),
         )} ${linea.unidad_base?.toLowerCase() ?? 'und'}`,
@@ -626,7 +634,7 @@ export function Recibir() {
               ) : (
                 <ul className="divide-y divide-linea">
                   {lineas.map((linea, indice) => (
-                    <li key={`${linea.producto_id}-${linea.presentacion_id}`} className="px-4 py-3">
+                    <li key={linea.id} className="px-4 py-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-ink">
@@ -748,6 +756,20 @@ export function Recibir() {
                   Cada línea de ingreso crea un lote con su propio precio y costo; los lotes
                   anteriores no cambian.
                 </p>
+                {productosRepetidos.length > 0 ? (
+                  <Notice
+                    tono="info"
+                    titulo="Hay líneas repetidas del mismo producto"
+                    className="mt-2"
+                  >
+                    {productosRepetidos
+                      .map((item) => `${item.nombre} (${item.veces} líneas)`)
+                      .join(', ')}{' '}
+                    Cada una creará <strong>su propio lote</strong>. Si solo quiere corregir una
+                    cantidad, edite el campo en la línea; si se equivocó al añadirla, pulse
+                    «Quitar».
+                  </Notice>
+                ) : null}
                 {lineasInvalidas > 0 ? (
                   <Notice
                     tono="error"
@@ -814,7 +836,7 @@ export function Recibir() {
               </TableHead>
               <TableBody>
                 {lineas.map((linea) => (
-                  <TableRow key={`${linea.producto_id}-${linea.presentacion_id}`}>
+                  <TableRow key={linea.id}>
                     <TableCell>{linea.producto_nombre}</TableCell>
                     <TableCell>{linea.presentacion_nombre}</TableCell>
                     <TableCell numerica>
@@ -922,8 +944,8 @@ export function Recibir() {
                 <TableHeader className="text-right">Stock resultante</TableHeader>
               </TableHead>
               <TableBody>
-                {previa.lineas.map((linea) => (
-                  <TableRow key={`${linea.producto_id}-${linea.presentacion_id}`}>
+                {previa.lineas.map((linea, indice) => (
+                  <TableRow key={`${linea.producto_id}-${linea.presentacion_id}-${indice}`}>
                     <TableCell>
                       <span className="font-semibold">{linea.producto_nombre}</span>
                       <span className="ml-2 text-xs text-muted">{linea.presentacion_nombre}</span>

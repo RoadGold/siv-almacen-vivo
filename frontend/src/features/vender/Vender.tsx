@@ -380,6 +380,23 @@ export function Vender() {
     },
   });
 
+  /**
+   * Cantidad ya pendiente en el carrito por cada lote (en unidad base).
+   *
+   * Se le pasa al selector de lote para que muestre el stock que **de verdad**
+   * queda y no ofrezca más mercadería de la que hay.
+   */
+  const pendientesPorLote = useMemo(() => {
+    const mapa: Record<number, string> = {};
+    for (const linea of carrito.lineas) {
+      if (linea.lote_id === null || linea.lote_id === undefined) continue;
+      const base = Decimal.desde(linea.cantidad).multiplica(linea.factor_base);
+      const actual = mapa[linea.lote_id];
+      mapa[linea.lote_id] = Decimal.desde(actual ?? '0').suma(base).aTexto();
+    }
+    return mapa;
+  }, [carrito.lineas]);
+
   const cintaLocal = useMemo(
     () =>
       carrito.lineas.map((linea) => {
@@ -1018,6 +1035,7 @@ export function Vender() {
         presentacion={peticionLote?.presentacion ?? null}
         cantidad={peticionLote?.cantidad ?? '1'}
         lotes={peticionLote?.lotes ?? []}
+        pendientesPorLote={pendientesPorLote}
         onConfirmar={confirmarLotes}
       />
 

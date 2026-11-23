@@ -779,6 +779,72 @@ def test_13_las_existencias_consolidadas_siguen_coincidiendo_con_los_lotes(
     assert Decimal(str(existencia.cantidad_base)) == suma_lotes
 
 
+# --- Prueba 15: dos lineas del mismo producto crean dos lotes ----------------
+def test_15_dos_lineas_del_mismo_producto_crean_dos_lotes(
+    cliente, cabeceras_admin, unidades, almacen
+):
+    """Dos entregas del mismo saco son dos lotes distintos, con su precio."""
+    producto = _producto(cliente, cabeceras_admin, unidades, codigo="LOT-DOS")
+    proveedor = cliente.post(
+        "/api/v1/proveedores",
+        json={"codigo": "PRV-DOS", "razon_social": "Distribuidora SAC"},
+        headers=cabeceras_admin,
+    ).json()
+    presentacion = producto["presentaciones"][0]
+
+    ingreso = cliente.post(
+        "/api/v1/abastecimientos",
+        json={
+            "proveedor_id": proveedor["id"],
+            "almacen_id": almacen.id,
+            "documento": "F001-DOS",
+            "lineas": [
+                {
+                    "producto_id": producto["id"],
+                    "presentacion_id": presentacion["id"],
+                    "cantidad": "5",
+                    "costo_unitario": "8.00",
+                    "precio_venta": "12.00",
+                },
+                {
+                    "producto_id": producto["id"],
+                    "presentacion_id": presentacion["id"],
+                    "cantidad": "3",
+                    "costo_unitario": "9.00",
+                    "precio_venta": "13.00",
+                },
+            ],
+        },
+        headers=cabeceras_admin,
+    )
+    assert ingreso.status_code == 201, ingreso.text
+    cuerpo = ingreso.json()
+    assert len(cuerpo["detalles"]) == 2
+    # Cada línea tiene su propio lote.
+    lote_1 = cuerpo["detalles"][0]["lote_id"]
+    lote_2 = cuerpo["detalles"][1]["lote_id"]
+    assert lote_1 != lote_2
+
+    lotes = _lotes(cliente, cabeceras_admin, producto["id"])
+    assert len(lotes) == 2
+    # Cada lote conserva su cantidad y su precio.
+    por_codigo = {lote["codigo_lote"]: lote for lote in lotes}
+    inicial = por_codigo[f"{producto['codigo']}-L001"]
+    segundo = por_codigo[f"{producto['codigo']}-L002"]
+    assert inicial["cantidad_disponible"] == "5"
+    assert inicial["precio_venta"] == "12"
+    assert segundo["cantidad_disponible"] == "3"
+    assert segundo["precio_venta"] == "13"
+
+    # La existencia consolidada es la suma de los dos lotes.
+    existencias = cliente.get(
+        "/api/v1/inventario/existencias",
+        params={"almacen_id": almacen.id, "q": producto["codigo"]},
+        headers=cabeceras_admin,
+    ).json()
+    assert existencias["items"][0]["cantidad_base"] == "8"
+
+
 # --- Prueba 14: venta de medios sacos (-1/2 y luego -1 saco) y transporte ---
 def test_14_venta_de_dos_medios_sacos_y_costo_con_transporte(
     cliente, cabeceras_admin, cabeceras_vendedor, unidades, almacen

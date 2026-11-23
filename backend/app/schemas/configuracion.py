@@ -61,6 +61,9 @@ class ConfiguracionIn(BaseModel):
     ticket_ancho: str | None = Field(default=None, max_length=3)
     venta_descuento_maximo_porcentaje: str | None = Field(default=None, max_length=20)
     venta_descuento_maximo_monto: str | None = Field(default=None, max_length=20)
+    impresora_modelo: str | None = Field(default=None, max_length=80)
+    impresora_ancho_mm: str | None = Field(default=None, max_length=3)
+    impresora_resolucion: str | None = Field(default=None, max_length=3)
 
     @field_validator("negocio_ruc", mode="before")
     @classmethod
@@ -95,3 +98,23 @@ class ConfiguracionIn(BaseModel):
     @classmethod
     def _limite(cls, v: Any) -> Any:
         return _validar_limite(str(v)) if v is not None else None
+
+    @field_validator("impresora_ancho_mm", mode="before")
+    @classmethod
+    def _ancho_impresora(cls, v: Any) -> Any:
+        if v is None:
+            return None
+        limpio = str(v).strip()
+        if limpio not in {"58", "80"}:
+            raise ValueError("El ancho de la impresora debe ser 58 o 80.")
+        return limpio
+
+    @field_validator("impresora_resolucion", mode="before")
+    @classmethod
+    def _resolucion(cls, v: Any) -> Any:
+        if v is None:
+            return None
+        limpio = str(v).strip()
+        if limpio not in {"180", "203"}:
+            raise ValueError("La resolución de la impresora debe ser 180 o 203 dpi.")
+        return limpio

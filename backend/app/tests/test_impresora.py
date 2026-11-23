@@ -11,6 +11,7 @@ from app.services.impresora import (
     ConstructorTicket,
     ErrorImpresora,
     comprobar,
+    consultar_estado,
 )
 
 
@@ -61,6 +62,7 @@ def test_estado_de_impresora_desactivada():
     resultado = comprobar(ConfigImpresora(activa=False))
     assert resultado["activa"] is False
     assert resultado["conectada"] is False
+    assert resultado["motivo"] == "desactivada"
 
 
 def test_estado_de_impresora_inalcanzable():
@@ -69,9 +71,154 @@ def test_estado_de_impresora_inalcanzable():
     )
     assert resultado["activa"] is True
     assert resultado["conectada"] is False
+    assert resultado["motivo"] in {"rechazada", "timeout", "sin_ruta"}
+
+
+def test_la_comprobacion_no_envia_nada_a_la_impresora(monkeypatch):
+    """Conectar y comprobar **no imprime**: no se envía ni un byte."""
+    enviados: list[bytes] = []
+
+    class ConexionFalsa:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def sendall(self, datos):
+            enviados.append(datos)
+
+        def settimeout(self, _):
+            pass
+
+    monkeypatch.setattr(
+        "app.services.impresora.socket.create_connection", lambda *a, **k: ConexionFalsa()
+    )
+    resultado = comprobar(ConfigImpresora(activa=True, host="127.0.0.1", puerto=9100))
+    assert resultado["conectada"] is True
+    assert resultado["motivo"] == "ok"
+    assert resultado["tiempo_ms"] is not None
+    assert enviados == [], "la comprobación no debe enviar nada a la impresora"
+
+
+def test_la_consulta_de_estado_no_imprime(monkeypatch):
+    """La consulta de estado pregunta, pero no imprime."""
+    enviados: list[bytes] = []
+
+    class ConexionFalsa:
+        def __init__(self, respuesta: bytes):
+            self.respuesta = respuesta
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def sendall(self, datos):
+            enviados.append(datos)
+
+        def settimeout(self, _):
+            pass
+
+        def recv(self, _):
+            return self.respuesta
+
+    monkeypatch.setattr(
+        "app.services.impresora.socket.create_connection",
+        lambda *a, **k: ConexionFalsa(b"\x00"),
+    )
+    resultado = consultar_estado(ConfigImpresora(activa=True, host="127.0.0.1", puerto=9100))
+    assert resultado["respondio"] is True
+    assert resultado["byte"] == 0
+    assert resultado["avisos"] == []
+    assert enviados == [b"\x1bi\x01"]
+
+    # Un byte con bits de problema se traduce a avisos legibles.
+    monkeypatch.setattr(
+        "app.services.impresora.socket.create_connection",
+        lambda *a, **k: ConexionFalsa(b"\x18"),
+    )
+    con_avisos = consultar_estado(ConfigImpresora(activa=True, host="127.0.0.1", puerto=9100))
+    assert "atasco de papel" in con_avisos["avisos"]
+    assert "tapa abierta" in con_avisos["avisos"]
+
+
+def test_la_consulta_de_estado_avisa_si_el_equipo_no_responde(monkeypatch):
+    class ConexionFalsa:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def sendall(self, _):
+            pass
+
+        def settimeout(self, _):
+            pass
+
+        def recv(self, _):
+            return b""
+
+    monkeypatch.setattr(
+        "app.services.impresora.socket.create_connection", lambda *a, **k: ConexionFalsa()
+    )
+    resultado = consultar_estado(ConfigImpresora(activa=True, host="127.0.0.1", puerto=9100))
+    assert resultado["respondio"] is False
+    assert "no respondió" in resultado["mensaje"]
 
 
 # --- Endpoints --------------------------------------------------------------
+def test_el_estado_de_la_impresora_da_diagnostico_y_especificaciones(
+    cliente, cabeceras_admin
+):
+    """El estado dice si responde, por qué y con qué especificaciones."""
+    cliente.put(
+        "/api/v1/configuracion",
+        json={
+            "impresora_modelo": "CBX-POS88E",
+            "impresora_ancho_mm": "80",
+            "impresora_resolucion": "203",
+        },
+        headers=cabeceras_admin,
+    )
+
+    respuesta = cliente.get("/api/v1/impresora/estado", headers=cabeceras_admin)
+    assert respuesta.status_code == 200, respuesta.text
+    cuerpo = respuesta.json()
+    assert cuerpo["modelo"] == "CBX-POS88E"
+    assert cuerpo["ancho_mm"] == "80"
+    assert cuerpo["resolucion"] == "203"
+    assert "conectada" in cuerpo
+    assert "motivo" in cuerpo
+    assert "mensaje" in cuerpo
+    # Sin pedir la consulta, no se consulta el estado del equipo.
+    assert "estado_equipo" not in cuerpo
+
+    con_estado = cliente.get(
+        "/api/v1/impresora/estado", params={"consultar": "true"}, headers=cabeceras_admin
+    )
+    assert "estado_equipo" in con_estado.json()
+
+
+def test_la_configuracion_rechaza_especificaciones_invalidas(cliente, cabeceras_admin):
+    """El ancho y la resolución de la impresora son de una lista cerrada."""
+    ancho = cliente.put(
+        "/api/v1/configuracion",
+        json={"impresora_ancho_mm": "120"},
+        headers=cabeceras_admin,
+    )
+    assert ancho.status_code == 422
+
+    resolucion = cliente.put(
+        "/api/v1/configuracion",
+        json={"impresora_resolucion": "600"},
+        headers=cabeceras_admin,
+    )
+    assert resolucion.status_code == 422
+
+
 def test_configuracion_del_negocio_lectura_y_guardado(cliente, cabeceras_admin):
     lectura = cliente.get("/api/v1/configuracion", headers=cabeceras_admin)
     assert lectura.status_code == 200

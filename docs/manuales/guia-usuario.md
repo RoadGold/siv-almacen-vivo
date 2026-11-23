@@ -306,6 +306,13 @@ Aceite 900 ml   Caja × 12   [5] cajas   [S/ 100,80]   Añadir
 > El costo que registre es el **real** de esta compra. Si difiere del histórico, el costo
 > promedio se recalcula con el nuevo valor; las ventas anteriores no cambian.
 
+> **Cada línea es un lote.** Si el mismo producto entra dos veces (por ejemplo, dos
+> entregas del mismo saco con precios distintos), **pulse «Añadir» otra vez**: se crea
+> una **línea nueva** y, con ella, un **lote nuevo** con su propio stock, su costo y su
+> precio. El sistema avisa cuando hay líneas repetidas del mismo producto. Para corregir
+> una cantidad mal escrita, edite el campo en el resumen; para deshacer una línea
+> completa, pulse **Quitar**.
+
 ### 4.3 Paso 3 · Revisar y confirmar
 
 Verá el resumen:
@@ -508,14 +515,25 @@ se modificó, con su motivo.
 - **Formato del ticket**: ancho (58 o 80 mm), mostrar el precio de lista cuando cambió, incluir QR.
 - **Reglas de la caja**: descuento máximo que puede aplicar el vendedor (20 % por defecto) y, si
   quiere, un tope en soles.
+- **Impresora de tickets**: modelo, ancho del papel y resolución (dpi). La impresora por red
+  no informa de estas especificaciones, así que se anotan aquí.
 
 ### Impresora de tickets
 
-*Administrar → Impresora de tickets* muestra si la impresora está **activada** y **conectada**, y
-permite enviar un **ticket de prueba**.
+*Administrar → Impresora de tickets* tiene dos bloques:
+
+- **Estado en vivo**: si la impresora está activada y si el puerto de impresión responde. El
+  botón **«Comprobar conexión (sin imprimir)»** no gasta papel: solo abre y cierra la
+  conexión. Si no responde, dice el motivo (timeout, conexión rechazada o sin ruta) y qué
+  revisar. La casilla **«Consultar el estado en vivo del equipo»** pregunta al equipo si
+  tiene papel, si la tapa está abierta o si hay atasco; algunos equipos no lo soportan y
+  en ese caso lo avisa.
+- **Especificaciones declaradas**: modelo, ancho, resolución, dirección de impresión,
+  corte de papel y QR.
 
 Para activarla hay que editar el archivo `.env` y reiniciar el servidor (ver la
-[guía de prueba de la impresora](prueba-impresora.md)).
+[guía de prueba de la impresora](prueba-impresora.md)). La única acción que consume papel
+es **«Imprimir ticket de prueba»**.
 
 ---
 
@@ -561,6 +579,10 @@ Al agregar un producto con varios lotes, la caja abre el **selector de lote**:
 
 - El sistema **propone el lote más antiguo** (para terminar el stock viejo, que es lo que
   conviene hacer), pero el cajero puede elegir otro o repartir la cantidad entre varios.
+  Si el lote tiene **la misma presentación** que se está vendiendo, se propone primero
+  (así se termina el saco del mismo formato) y después los más antiguos.
+- El stock que se muestra es el que **de verdad queda**: ya se descuenta lo que está en
+  el carrito de ese lote, con la nota «ya en el carrito».
 - Cada línea del carrito muestra el **código del lote** y el importe de cada línea.
 - Si la venta combina varios lotes del mismo producto, cada uno tiene su precio y el total
   se calcula con el precio que corresponde a cada lote.

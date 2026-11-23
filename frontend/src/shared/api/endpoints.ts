@@ -294,7 +294,14 @@ export const configuracionApi = {
 /* --- Impresora de tickets ----------------------------------------------- */
 
 export const impresoraApi = {
-  estado: () => api.get<EstadoImpresora>('/impresora/estado'),
+  /**
+   * Estado de la impresora. La comprobación **no imprime nada**: solo abre y
+   * cierra la conexión con el puerto de impresión.
+   */
+  estado: (consultar?: boolean) =>
+    api.get<EstadoImpresora>('/impresora/estado', {
+      consultar: consultar ? 'true' : undefined,
+    }),
   prueba: () => api.post<{ ok: boolean; mensaje: string }>('/impresora/prueba'),
   verTicket: (ventaId: number) =>
     api.get<{ texto: string }>(`/impresora/ticket/${ventaId}`),

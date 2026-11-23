@@ -32,6 +32,12 @@ CLAVES = {
     "ticket_ancho": "80",
     "venta_descuento_maximo_porcentaje": "20",
     "venta_descuento_maximo_monto": "0",
+    # Especificaciones declaradas de la impresora. La impresora ESC/POS por red
+    # no devuelve su modelo ni su resolución: se anotan aquí para tenerlas a la
+    # vista sin tocar el equipo.
+    "impresora_modelo": "",
+    "impresora_ancho_mm": "80",
+    "impresora_resolucion": "203",
 }
 
 # Los valores que solo pueden ser de una lista cerrada (si/no, 58/80) los
@@ -48,6 +54,9 @@ DESCRIPCIONES = {
     "ticket_ancho": "Ancho del papel: 58 o 80 mm",
     "venta_descuento_maximo_porcentaje": "Descuento máximo que puede aplicar el vendedor (%)",
     "venta_descuento_maximo_monto": "Descuento máximo en soles (0 = sin tope)",
+    "impresora_modelo": "Modelo de la impresora de tickets (la impresora no lo informa)",
+    "impresora_ancho_mm": "Ancho del papel de la impresora: 58 o 80 mm",
+    "impresora_resolucion": "Resolución de impresión en dpi: 180 o 203",
 }
 
 

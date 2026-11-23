@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import requiere_permiso
@@ -17,6 +17,7 @@ from app.services.impresora import (
     ConstructorTicket,
     ErrorImpresora,
     comprobar,
+    consultar_estado,
     enviar,
 )
 
@@ -25,12 +26,21 @@ router = APIRouter(prefix="/impresora", tags=["Impresora"])
 
 @router.get("/estado")
 def estado(
+    consultar: bool = Query(
+        default=False,
+        description="Consultar también el estado en vivo del equipo (no imprime).",
+    ),
     _: Usuario = Depends(requiere_permiso(Permiso.CATALOGO_VER)),
+    db: Session = Depends(get_db),
 ) -> dict:
-    """Estado de la impresora: configuración y si responde."""
+    """Estado de la impresora: configuración, especificaciones y si responde.
+
+    La comprobación **no imprime nada**: solo abre y cierra la conexión.
+    """
     config = ConfigImpresora.desde_configuracion()
     conexion = comprobar(config)
-    return {
+    declaracion = servicio_configuracion.obtener_todo(db)
+    respuesta = {
         "activa": config.activa,
         "host": config.host,
         "puerto": config.puerto,
@@ -39,8 +49,17 @@ def estado(
         "qr": config.qr,
         "pagina_codigo": config.pagina_codigo,
         "conectada": conexion["conectada"],
+        "tiempo_ms": conexion["tiempo_ms"],
+        "motivo": conexion["motivo"],
         "mensaje": conexion["mensaje"],
+        # Especificaciones declaradas (la impresora no las informa sola).
+        "modelo": declaracion.get("impresora_modelo") or "",
+        "ancho_mm": declaracion.get("impresora_ancho_mm") or "80",
+        "resolucion": declaracion.get("impresora_resolucion") or "203",
     }
+    if consultar:
+        respuesta["estado_equipo"] = consultar_estado(config)
+    return respuesta
 
 
 @router.post("/prueba")

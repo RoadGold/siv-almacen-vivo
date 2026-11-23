@@ -55,6 +55,19 @@ const CAMPOS: Record<string, { etiqueta: string; ejemplo?: string; pista?: strin
     etiqueta: 'Límite de descuento (S/)',
     ejemplo: '50',
   },
+  impresora_modelo: {
+    etiqueta: 'Modelo de la impresora',
+    ejemplo: 'CBX-POS88E',
+    pista: 'Ejemplo: CBX-POS88E. La impresora no informa de su modelo: se anota aquí.',
+  },
+  impresora_ancho_mm: {
+    etiqueta: 'Ancho del papel de la impresora',
+    pista: 'Ejemplo: 80 mm para un ticket de 48 columnas.',
+  },
+  impresora_resolucion: {
+    etiqueta: 'Resolución de la impresora',
+    pista: 'Ejemplo: 203 dpi.',
+  },
 };
 
 export function PanelConfiguracion() {
@@ -124,7 +137,7 @@ export function PanelConfiguracion() {
       );
     }
 
-    if (clave === 'ticket_ancho') {
+    if (clave === 'ticket_ancho' || clave === 'impresora_ancho_mm') {
       return (
         <Field key={clave} htmlFor={id} etiqueta={definicion.etiqueta} ayuda={ayuda}>
           <Select
@@ -136,6 +149,23 @@ export function PanelConfiguracion() {
           >
             <option value="80">80 mm (48 columnas)</option>
             <option value="58">58 mm (32 columnas)</option>
+          </Select>
+        </Field>
+      );
+    }
+
+    if (clave === 'impresora_resolucion') {
+      return (
+        <Field key={clave} htmlFor={id} etiqueta={definicion.etiqueta} ayuda={ayuda}>
+          <Select
+            id={id}
+            value={valores[clave] ?? '203'}
+            onChange={(evento) =>
+              setValores((actuales) => ({ ...actuales, [clave]: evento.target.value }))
+            }
+          >
+            <option value="203">203 dpi</option>
+            <option value="180">180 dpi</option>
           </Select>
         </Field>
       );
@@ -187,6 +217,17 @@ export function PanelConfiguracion() {
         <CardBody className="grid gap-3 md:grid-cols-2">
           {campo('venta_descuento_maximo_porcentaje')}
           {campo('venta_descuento_maximo_monto')}
+        </CardBody>
+      </Card>
+
+      <Card
+        titulo="Impresora de tickets"
+        subtitulo="Especificaciones declaradas: el equipo no informa de su modelo por la red"
+      >
+        <CardBody className="grid gap-3 md:grid-cols-3">
+          {campo('impresora_modelo')}
+          {campo('impresora_ancho_mm')}
+          {campo('impresora_resolucion')}
         </CardBody>
       </Card>
 

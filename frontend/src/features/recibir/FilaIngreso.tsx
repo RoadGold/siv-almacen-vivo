@@ -6,6 +6,8 @@ import { formatearCantidad, formatearMoneda } from '@/shared/format/formato';
 import type { Presentacion } from '@/shared/types/api';
 
 export interface DatosLineaIngreso {
+  /** Identificador local de la línea (cada línea es un lote distinto). */
+  id: string;
   producto_id: number;
   presentacion_id: number;
   presentacion_nombre: string;
@@ -19,6 +21,17 @@ export interface DatosLineaIngreso {
   costo_transporte: string;
   /** Precio de venta del lote que se crea con esta línea. */
   precio_venta: string;
+}
+
+/**
+ * Identificador local de una línea del ingreso.
+ *
+ * Cada línea del ingreso crea **su propio lote**, así que dos líneas del mismo
+ * producto y presentación son dos lotes distintos y necesitan identificadores
+ * distintos.
+ */
+export function nuevoIdLineaIngreso(): string {
+  return `ingreso-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 interface Propiedades {
@@ -100,6 +113,7 @@ export function FilaIngreso({
       return;
     }
     onAgregar({
+      id: nuevoIdLineaIngreso(),
       producto_id: productoId,
       presentacion_id: presentacion.id,
       presentacion_nombre: presentacion.nombre,

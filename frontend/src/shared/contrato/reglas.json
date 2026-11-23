@@ -232,6 +232,15 @@
       },
       "venta_descuento_maximo_monto": {
         "max": 20
+      },
+      "impresora_modelo": {
+        "max": 80
+      },
+      "impresora_ancho_mm": {
+        "max": 3
+      },
+      "impresora_resolucion": {
+        "max": 3
       }
     }
   },
