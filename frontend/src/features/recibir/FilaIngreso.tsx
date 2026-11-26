@@ -218,8 +218,8 @@ export function FilaIngreso({
           <div className="w-[128px]">
             <Field
               htmlFor={`transporte-ingreso-${productoId}`}
-              etiqueta="Transporte (lote)"
-              ejemplo="20.00"
+              etiqueta="Transporte por saco"
+              ejemplo="5.00"
               compacto
               error={
                 transporte !== '' && !transporteValido ? 'No es un número válido.' : undefined
@@ -274,6 +274,9 @@ export function FilaIngreso({
           1 {presentacion.nombre} = {formatearCantidad(presentacion.factor_base)}{' '}
           {unidadBase?.toLowerCase() ?? 'und'} · precio de venta del lote{' '}
           {formatearMoneda(precioVenta)}
+          {transporteNumero && Decimal.desde(transporteNumero).comparar(0) > 0
+            ? ` · ${formatearMoneda(transporteNumero)} de transporte por unidad`
+            : ''}
         </p>
       ) : null}
     </article>

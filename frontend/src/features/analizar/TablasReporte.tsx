@@ -18,11 +18,13 @@ import {
   formatearFecha,
   formatearMoneda,
   formatearNumero,
+  formatearPorcentaje,
   formatearStockEnPresentacion,
 } from '@/shared/format/formato';
 import type {
   AbastecimientosPorProveedor,
   CostoHistoricoReporte,
+  GananciaProveedor,
   InventarioValorizado,
   ReporteVentas,
 } from '@/shared/types/api';
@@ -461,6 +463,72 @@ export function TablaVentasPorLote({ filas }: { filas: FilaVentasLote[] }) {
               </TableRow>
             );
           })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/**
+ * Tabla del histórico de ganancias por proveedor.
+ *
+ * Lo que se vendió de cada lote se atribuye al proveedor que lo suministró:
+ * así se ve qué proveedor deja más margen y cuál se está paid.
+ */
+export function TablaGananciasPorProveedor({ filas }: { filas: GananciaProveedor[] }) {
+  if (filas.length === 0) {
+    return (
+      <EmptyState
+        titulo="Sin ganancias por proveedor"
+        descripcion="Todavía no hay ventas de mercadería que se pueda atribuir a un proveedor."
+      />
+    );
+  }
+
+  return (
+    <div className="max-h-[420px] overflow-y-auto">
+      <Table descripcion="Histórico de ganancias por proveedor">
+        <TableHead>
+          <TableHeader>Proveedor</TableHeader>
+          <TableHeader>Periodo</TableHeader>
+          <TableHeader className="text-right">Compras</TableHeader>
+          <TableHeader className="text-right">Ingresos</TableHeader>
+          <TableHeader className="text-right">Costo vendido</TableHeader>
+          <TableHeader className="text-right">Margen bruto</TableHeader>
+          <TableHeader className="text-right">%</TableHeader>
+        </TableHead>
+        <TableBody>
+          {filas.map((fila, indice) => (
+            <TableRow key={`${fila.proveedor_id ?? 'sin'}-${fila.periodo}-${indice}`}>
+              <TableCell>
+                <span className="font-semibold text-ink">{fila.proveedor}</span>
+                {fila.proveedor_id === null ? (
+                  <span className="ml-2 text-xs text-muted">
+                    (mercadería sin proveedor conocido)
+                  </span>
+                ) : null}
+              </TableCell>
+              <TableCell className="numero text-xs">
+                {fila.periodo === 'total' ? 'Todo el periodo' : fila.periodo}
+              </TableCell>
+              <TableCell numerica>
+                {formatearMoneda(fila.compras)}
+                {Decimal.desde(fila.costo_transporte_compras).comparar(0) > 0 ? (
+                  <span className="block text-2xs text-muted">
+                    incl. {formatearMoneda(fila.costo_transporte_compras)} de transporte
+                  </span>
+                ) : null}
+              </TableCell>
+              <TableCell numerica>{formatearMoneda(fila.ingresos)}</TableCell>
+              <TableCell numerica>{formatearMoneda(fila.costo)}</TableCell>
+              <TableCell numerica className="font-semibold">
+                {formatearMoneda(fila.margen_bruto)}
+              </TableCell>
+              <TableCell numerica>
+                {formatearPorcentaje(fila.margen_porcentaje)}
+              </TableCell>
+            </TableRow>
+          ))}
         </TableBody>
       </Table>
     </div>

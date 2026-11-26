@@ -70,6 +70,10 @@ def _lote_a_dict(lote: LoteInventario, producto: Producto | None = None) -> dict
         if producto is not None and getattr(producto, "unidad_base", None) is not None
         else None
     )
+    unidades_del_lote = (cantidad_ini / factor) if factor > 0 else Decimal("0")
+    transporte_unitario = (
+        q2(transporte / unidades_del_lote) if unidades_del_lote > 0 else Decimal("0")
+    )
     return {
         "id": lote.id,
         "producto_id": lote.producto_id,
@@ -83,14 +87,21 @@ def _lote_a_dict(lote: LoteInventario, producto: Producto | None = None) -> dict
         "fecha_ingreso": lote.fecha_ingreso.isoformat() if lote.fecha_ingreso else None,
         "cantidad_inicial": num(q4(cantidad_ini)),
         "cantidad_disponible": num(q4(cantidad)),
-        "cantidad_inicial_presentacion": num(q4(cantidad_ini / factor)),
+        "cantidad_inicial_presentacion": num(q4(unidades_del_lote)),
         "cantidad_disponible_presentacion": num(q4(cantidad / factor)),
         "costo_base": num(dec(lote.costo_base)),
         "costo_unitario": num(q2(dec(lote.costo_unitario))),
         "costo_transporte": num(q2(transporte)),
+        "costo_transporte_unitario": num(transporte_unitario),
         "precio_venta": num(q2(dec(lote.precio_venta))),
         "almacen_id": lote.almacen_id,
         "abastecimiento_id": lote.abastecimiento_id,
+        "proveedor_id": getattr(lote, "proveedor_id", None),
+        "proveedor_nombre": (
+            getattr(lote.proveedor, "razon_social", None)
+            if getattr(lote, "proveedor", None) is not None
+            else None
+        ),
         "estado": "AGOTADO" if cantidad <= 0 else lote.estado,
         "origen": lote.origen,
         "precios": precios,
@@ -222,11 +233,16 @@ def crear_lote(
     fecha_ingreso: date | None = None,
     abastecimiento_id: int | None = None,
     detalle_abastecimiento_id: int | None = None,
+    proveedor_id: int | None = None,
     usuario_id: int | None = None,
     origen: str = "RECEPCION",
     codigo: str | None = None,
 ) -> LoteInventario:
-    """Crea un lote con su stock, su costo y sus precios de venta."""
+    """Crea un lote con su stock, su costo y sus precios de venta.
+
+    `proveedor_id` es el proveedor que suministró la mercadería: es lo que
+    permite atribuir después la venta de este lote a su proveedor.
+    """
     producto = db.get(Producto, producto_id)
     if producto is None:
         raise ErrorNegocio("El producto del lote no existe.", detalle={"producto_id": producto_id})
@@ -246,6 +262,7 @@ def crear_lote(
         almacen_id=almacen_id,
         abastecimiento_id=abastecimiento_id,
         detalle_abastecimiento_id=detalle_abastecimiento_id,
+        proveedor_id=proveedor_id,
         estado=ESTADO_ACTIVO,
         origen=origen,
         usuario_id=usuario_id,

@@ -248,6 +248,14 @@ class LoteInventario(Base, TimestampMixin):
     detalle_abastecimiento_id: Mapped[int | None] = mapped_column(
         ForeignKey("detalle_abastecimientos.id", ondelete="SET NULL")
     )
+    proveedor_id: Mapped[int | None] = mapped_column(
+        ForeignKey("proveedores.id", ondelete="SET NULL"), index=True
+    )
+    """ Proveedor que suministró la mercadería de este lote.
+
+    Es lo que permite atribuir la venta de un lote al proveedor que lo
+    entregó: sin este dato no se puede saber de quién fue la ganancia.
+    """
     estado: Mapped[str] = mapped_column(String(20), default="ACTIVO", nullable=False, index=True)
     """ ACTIVO | INHABILITADO (agotado se deduce de la cantidad). """
     origen: Mapped[str] = mapped_column(String(20), default="RECEPCION", nullable=False)
@@ -257,6 +265,9 @@ class LoteInventario(Base, TimestampMixin):
     producto: Mapped[Producto] = relationship()
     presentacion_principal: Mapped[PresentacionProducto | None] = relationship(
         foreign_keys=[presentacion_principal_id]
+    )
+    proveedor: Mapped["Proveedor | None"] = relationship(
+        foreign_keys=[proveedor_id]
     )
     precios: Mapped[list["LotePrecio"]] = relationship(
         back_populates="lote", cascade="all, delete-orphan"

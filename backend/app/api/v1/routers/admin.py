@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_user, permisos_usuario, requiere_permiso
@@ -17,6 +17,68 @@ from app.schemas.common import Pagina
 from app.services import auditoria as servicio_auditoria
 
 router = APIRouter(prefix="/admin", tags=["Administración"])
+
+
+@router.get("/estado-base")
+def estado_base(
+    _: Usuario = Depends(requiere_permiso(Permiso.ADMIN_AUDITORIA)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Estado de la base de datos: qué contiene y si está limpia.
+
+    Sirve para comprobar, desde el sistema, que la base no tiene operación
+    pendiente y que las existencias cuadran con la suma de los lotes.
+    """
+    from app.services import inventario as motor
+
+    tablas = [
+        "productos",
+        "presentaciones_producto",
+        "proveedores",
+        "marcas",
+        "categorias",
+        "lotes_inventario",
+        "existencias",
+        "movimientos_inventario",
+        "ventas",
+        "detalle_ventas",
+        "abastecimientos",
+        "detalle_abastecimientos",
+        "ajustes_inventario",
+        "impresiones_venta",
+        "auditoria",
+        "usuarios",
+        "almacenes",
+        "unidades_medida",
+        "configuracion",
+    ]
+    conteos = {
+        tabla: db.execute(
+            text(f'SELECT COUNT(*) FROM "{tabla}"')
+        ).scalar_one()
+        for tabla in tablas
+    }
+
+    try:
+        version_esquema = db.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+    except Exception:  # pragma: no cover - la tabla siempre existe tras migrar
+        version_esquema = None
+
+    conciliacion = motor.conciliar(db)
+    return {
+        "conteos": conteos,
+        "version_esquema": version_esquema,
+        "diferencias_conciliacion": len(conciliacion),
+        "detalle_conciliacion": conciliacion[:20],
+        "operacion_pendiente": bool(
+            conteos["ventas"]
+            or conteos["abastecimientos"]
+            or conteos["ajustes_inventario"]
+            or conteos["impresiones_venta"]
+            or conteos["auditoria"]
+        ),
+        "tiene_stock": bool(conteos["existencias"]),
+    }
 
 
 @router.get("/usuarios", response_model=Pagina[UsuarioOut])

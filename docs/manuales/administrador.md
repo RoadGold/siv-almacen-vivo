@@ -156,6 +156,37 @@ Procedimiento de emergencia si el equipo principal falla:
 - La conciliación de inventario (`/api/v1/inventario/conciliacion`) compara el kardex con las
   existencias y **reporta** diferencias sin corregirlas: es una herramienta de revisión, no un
   botón de reparación automática.
+- **Administrar → Diagnóstico → «Estado de la base de datos»** muestra el estado en vivo: qué
+  contiene la base, si queda operación pendiente y si las existencias cuadran con los lotes.
+
+## 9 bis. Limpiar y reiniciar la base
+
+```powershell
+cd backend
+
+# Vaciar la OPERACIÓN (ventas, ingresos, ajustes, movimientos, lotes, auditoría)
+# y conservar TODO el catálogo.
+.\.venv\Scripts\python.exe -m app.cli.limpiar_operacion --simular
+.\.venv\Scripts\python.exe -m app.cli.limpiar_operacion
+
+# Dejar la base TOTALMENTE vacía (también sin catálogo).
+# Conserva usuarios, roles, almacén, unidades y la configuración del negocio.
+.\.venv\Scripts\python.exe -m app.cli.reiniciar_base --simular
+.\.venv\Scripts\python.exe -m app.cli.reiniciar_base
+
+# Volver a llenarla
+.\.venv\Scripts\python.exe -m app.cli.datos_balanceados_cargar
+.\.venv\Scripts\python.exe -m app.cli.cargar_inventario_tienda
+```
+
+Las secuencias se reinician: la primera venta será la `V-000001` y el primer ingreso el `A-000001`.
+
+> **Haga un respaldo antes** (`scripts\respaldo\crear-respaldo.ps1`): ninguna de estas dos
+> operaciones se puede deshacer.
+
+El **esquema** de la base está en
+[`esquema-base-datos.md`](esquema-base-datos.md) y se regenera desde la base viva con
+`python -m app.cli.esquema_base_datos` (por ejemplo, después de una migración).
 
 ## 10. Límites conocidos de la versión actual
 

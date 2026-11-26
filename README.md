@@ -223,12 +223,37 @@ cd backend
 .\.venv\Scripts\python.exe -m app.cli.datos_balanceados_cargar       # rehacer los vínculos
 ```
 
-Qué conserva: los usuarios y sus roles, el almacén, las unidades de medida y el catálogo
-de balanceados. Qué borra: toda la operación (ventas, ingresos, movimientos, ajustes,
-lotes, impresiones, auditoría) y los productos, proveedores, categorías y marcas de ejemplo.
+Qué conserva: los usuarios y sus roles, el almacén, las unidades de medida y **todo el
+catálogo** (productos, presentaciones, proveedores, marcas y categorías). Qué borra: toda la
+operación (ventas, ingresos, movimientos, ajustes, lotes, impresiones y auditoría).
+
+Para dejar la base **totalmente vacía** (también sin catálogo), sin más que los usuarios,
+el almacén, las unidades y la configuración del negocio:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m app.cli.reiniciar_base --simular   # ver qué se borra
+.\.venv\Scripts\python.exe -m app.cli.reiniciar_base             # vaciarla
+```
 
 Las secuencias se reinician, así que la primera venta es la **V-000001** y el primer
 ingreso el **A-000001**.
+
+### El esquema de la base de datos
+
+[`docs/arquitectura/esquema-base-datos.md`](docs/arquitectura/esquema-base-datos.md) describe
+**la base real**: cada tabla con sus columnas, tipos, claves, foráneas e índices, el diagrama
+de relaciones y las reglas del modelo. Se genera desde la base viva, así que nunca queda
+viejo:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m app.cli.esquema_base_datos
+```
+
+El estado de la base también se ve desde el sistema, en **Administrar → Diagnóstico →
+«Estado de la base de datos»**: qué contiene, si queda operación pendiente y si las
+existencias cuadran con la suma de los lotes.
 
 ---
 

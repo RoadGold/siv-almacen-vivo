@@ -13,7 +13,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import String, func, literal, select
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -518,6 +518,7 @@ def inventario_por_lote(
             UnidadMedida.nombre,
             PresentacionProducto.nombre,
             PresentacionProducto.factor_base,
+            Proveedor.razon_social,
         )
         .join(Producto, Producto.id == LoteInventario.producto_id)
         .outerjoin(UnidadMedida, UnidadMedida.id == Producto.unidad_base_id)
@@ -525,6 +526,7 @@ def inventario_por_lote(
             PresentacionProducto,
             PresentacionProducto.id == LoteInventario.presentacion_principal_id,
         )
+        .outerjoin(Proveedor, Proveedor.id == LoteInventario.proveedor_id)
         .where(*filtros)
         .order_by(Producto.nombre, LoteInventario.fecha_ingreso.asc().nulls_last(), LoteInventario.id)
         .limit(max(1, min(limite, 5000)))
@@ -548,10 +550,16 @@ def inventario_por_lote(
         unidad_base_nombre,
         presentacion_nombre,
         factor_base,
+        proveedor_nombre,
     ) in filas:
         cantidad = dec(cantidad_disponible)
         cantidad_ini = dec(cantidad_inicial)
         factor = dec(factor_base) if factor_base and dec(factor_base) > 0 else Decimal("1")
+        unidades_lote = (cantidad_ini / factor) if factor > 0 else Decimal("0")
+        transporte = dec(costo_transporte or 0)
+        transporte_unitario = (
+            q2(transporte / unidades_lote) if unidades_lote > 0 else Decimal("0")
+        )
         resultado.append(
             {
                 "lote_id": lote_id,
@@ -564,13 +572,15 @@ def inventario_por_lote(
                 "factor_base": num(factor),
                 "cantidad_inicial": num(q4(cantidad_ini)),
                 "cantidad_disponible": num(q4(cantidad)),
-                "cantidad_inicial_presentacion": num(q4(cantidad_ini / factor)),
+                "cantidad_inicial_presentacion": num(q4(unidades_lote)),
                 "cantidad_disponible_presentacion": num(q4(cantidad / factor)),
                 "costo_base": num(dec(costo_base)),
                 "costo_unitario": num(q2(dec(costo_unitario))),
-                "costo_transporte": num(q2(dec(costo_transporte or 0))),
+                "costo_transporte": num(q2(transporte)),
+                "costo_transporte_unitario": num(transporte_unitario),
                 "precio_venta": num(q2(dec(precio_venta))),
                 "valor_costo": num(q2(cantidad * dec(costo_base))),
+                "proveedor_nombre": proveedor_nombre,
                 "estado": "AGOTADO" if cantidad <= 0 else estado_lote,
                 "origen": origen,
             }
@@ -664,9 +674,139 @@ def ventas_por_lote(
     return resultado
 
 
+def ganancias_por_proveedor(
+    db: Session,
+    *,
+    desde: date | None = None,
+    hasta: date | None = None,
+    agrupar: str = "mes",
+) -> list[dict[str, Any]]:
+    """Histórico de ganancias por proveedor.
+
+    Cada lote de inventario recuerda al proveedor que suministró la mercadería
+    (`lotes_inventario.proveedor_id`). Con ese dato, lo que se vendió de cada
+    lote se atribuye a su proveedor:
+
+    - **compras**: lo que se le compró en el periodo (mercadería + transporte);
+    - **ingresos**: lo que se vendió de su mercadería;
+    - **costo**: el costo de lo vendido (con su transporte);
+    - **margen**: ingresos − costo.
+
+    Se agrupa por mes (o por el periodo completo) para ver la evolución.
+    """
+    from app.db.models import LoteInventario
+
+    inicio, fin = _periodo(desde, hasta)
+    por_mes = agrupar != "total"
+
+    # --- Lo vendido, atribuido al proveedor del lote ------------------------
+    if por_mes:
+        periodo_ventas = func.date_trunc("month", Venta.fecha).cast(String).label("periodo")
+        periodo_compras = (
+            func.date_trunc("month", Abastecimiento.fecha).cast(String).label("periodo")
+        )
+    else:
+        periodo_ventas = literal("total").label("periodo")
+        periodo_compras = literal("total").label("periodo")
+
+    ventas_filas = db.execute(
+        select(
+            LoteInventario.proveedor_id.label("proveedor_id"),
+            periodo_ventas,
+            func.coalesce(func.sum(DetalleVenta.subtotal), 0).label("ingresos"),
+            func.coalesce(func.sum(DetalleVenta.costo_total_linea), 0).label("costo"),
+            func.coalesce(func.sum(DetalleVenta.cantidad_base), 0).label("cantidad_base"),
+            func.count(func.distinct(Venta.id)).label("operaciones"),
+        )
+        .join(DetalleVenta, DetalleVenta.lote_id == LoteInventario.id)
+        .join(Venta, Venta.id == DetalleVenta.venta_id)
+        .where(Venta.estado == "CONFIRMADO", Venta.fecha.between(inicio, fin))
+        .group_by(LoteInventario.proveedor_id, periodo_ventas)
+    ).all()
+
+    # --- Lo comprado a cada proveedor en el periodo -------------------------
+    compras_filas = db.execute(
+        select(
+            Abastecimiento.proveedor_id.label("proveedor_id"),
+            periodo_compras,
+            func.coalesce(func.sum(DetalleAbastecimiento.subtotal), 0).label("compras"),
+            func.coalesce(func.sum(DetalleAbastecimiento.costo_transporte), 0).label("transporte"),
+            func.count(func.distinct(Abastecimiento.id)).label("ingresos_registrados"),
+        )
+        .join(DetalleAbastecimiento, DetalleAbastecimiento.abastecimiento_id == Abastecimiento.id)
+        .where(Abastecimiento.estado == "CONFIRMADO", Abastecimiento.fecha.between(inicio, fin))
+        .group_by(Abastecimiento.proveedor_id, periodo_compras)
+    ).all()
+
+    compras: dict[tuple[int | None, str], dict[str, Any]] = {}
+    for proveedor_id, periodo, monto, transporte, registros in compras_filas:
+        compras[(proveedor_id, periodo)] = {
+            "compras": dec(monto),
+            "transporte": dec(transporte),
+            "registros": registros,
+        }
+
+    # --- Unir y calcular el margen ------------------------------------------
+    filas: dict[tuple[int | None, str], dict[str, Any]] = {}
+    for proveedor_id, periodo, ingresos, costo, cantidad, operaciones in ventas_filas:
+        clave = (proveedor_id, periodo)
+        filas[clave] = {
+            "proveedor_id": proveedor_id,
+            "periodo": periodo,
+            "ingresos": dec(ingresos),
+            "costo": dec(costo),
+            "cantidad_base": dec(cantidad),
+            "operaciones": operaciones,
+        }
+    for (proveedor_id, periodo), datos in compras.items():
+        clave = (proveedor_id, periodo)
+        if clave not in filas:
+            filas[clave] = {
+                "proveedor_id": proveedor_id,
+                "periodo": periodo,
+                "ingresos": Decimal("0"),
+                "costo": Decimal("0"),
+                "cantidad_base": Decimal("0"),
+                "operaciones": 0,
+            }
+        filas[clave].update(datos)
+
+    nombres = {
+        id_: nombre
+        for id_, nombre in db.execute(select(Proveedor.id, Proveedor.razon_social)).all()
+    }
+
+    resultado = []
+    for (proveedor_id, periodo), datos in filas.items():
+        ingresos = datos["ingresos"]
+        costo = datos["costo"]
+        margen = ingresos - costo
+        porcentaje = (margen / ingresos * Decimal("100")) if ingresos else Decimal("0")
+        compras_total = datos.get("compras", Decimal("0"))
+        resultado.append(
+            {
+                "proveedor_id": proveedor_id,
+                "proveedor": nombres.get(proveedor_id) if proveedor_id else "Sin proveedor",
+                "periodo": periodo,
+                "operaciones": datos["operaciones"],
+                "compras": num(q2(compras_total)),
+                "costo_transporte_compras": num(q2(datos.get("transporte", Decimal("0")))),
+                "ingresos": num(q2(ingresos)),
+                "costo": num(q2(costo)),
+                "margen_bruto": num(q2(margen)),
+                "margen_porcentaje": num(porcentaje.quantize(Decimal("0.01"))),
+                "cantidad_base": num(q4(datos["cantidad_base"])),
+            }
+        )
+
+    resultado.sort(key=lambda item: (item["proveedor"], item["periodo"]))
+    return resultado
+
+
 __all__ = [
     "abastecimientos_por_proveedor",
     "exportar_ventas_csv",
+    "ganancias_por_proveedor",
     "historico_de_costos",
     "inventario_por_lote",
     "inventario_valorizado",

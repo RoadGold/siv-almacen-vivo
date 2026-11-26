@@ -100,8 +100,9 @@ def previsualizar(db: Session, payload: dict[str, Any]) -> dict[str, Any]:
             permite_fraccion=bool(presentacion.permite_fraccion or producto.permite_fraccion),
         )
         costo = dec(linea["costo_unitario"])
-        transporte = q2(dec(linea.get("costo_transporte") or 0))
-        subtotal = q2(q2(cantidad * costo) + transporte)
+        transporte_unitario = q2(dec(linea.get("costo_transporte_unitario") or 0))
+        transporte = q2(cantidad * transporte_unitario)
+        subtotal = q2(cantidad * (costo + transporte_unitario))
 
         existencia = inventario.existencia_actual(db, almacen.id, producto.id)
         stock_actual = dec(existencia.cantidad_base) if existencia else Decimal("0")
@@ -126,6 +127,7 @@ def previsualizar(db: Session, payload: dict[str, Any]) -> dict[str, Any]:
                 "cantidad_base": num(q4(conversion.cantidad_base)),
                 "unidad_base": producto.unidad_base.nombre if producto.unidad_base else None,
                 "costo_unitario": num(q2(costo)),
+                "costo_transporte_unitario": num(transporte_unitario),
                 "costo_transporte": num(transporte),
                 "subtotal": str(subtotal),
                 "stock_actual_base": num(q4(stock_actual)),
@@ -171,10 +173,13 @@ def confirmar(db: Session, payload: dict[str, Any], usuario_id: int) -> Abasteci
             permite_fraccion=bool(presentacion.permite_fraccion or producto.permite_fraccion),
         )
         costo = dec(linea["costo_unitario"])
-        transporte = q2(dec(linea.get("costo_transporte") or 0))
-        subtotal = q2(q2(cantidad * costo) + transporte)
+        transporte_unitario = q2(dec(linea.get("costo_transporte_unitario") or 0))
+        transporte = q2(cantidad * transporte_unitario)
+        subtotal = q2(cantidad * (costo + transporte_unitario))
+        # El costo del lote incluye el transporte: el inventario y el costo de
+        # la mercadería vendida reflejan el gasto real de la empresa.
         if transporte > 0:
-            costo_base = q6((cantidad * costo + transporte) / conversion.cantidad_base)
+            costo_base = q6(subtotal / conversion.cantidad_base)
         else:
             costo_base = q6(costo / dec(presentacion.factor_base))
         precio_venta = (
@@ -209,13 +214,14 @@ def confirmar(db: Session, payload: dict[str, Any], usuario_id: int) -> Abasteci
             cantidad_base=conversion.cantidad_base,
             cantidad_inicial=conversion.cantidad_base,
             costo_base=costo_base,
-            costo_unitario=costo,
+            costo_unitario=q2(costo),
             costo_transporte=transporte,
             precio_venta=precio_venta,
             presentacion_id=presentacion.id,
             fecha_ingreso=fecha_lote,
             abastecimiento_id=abastecimiento.id,
             detalle_abastecimiento_id=detalle.id,
+            proveedor_id=proveedor_id,
             usuario_id=usuario_id,
             origen="RECEPCION",
         )
@@ -295,19 +301,34 @@ def abastecimiento_a_dict(abastecimiento: Abastecimiento) -> dict[str, Any]:
         producto = d.producto
         presentacion = d.presentacion
         lote = d.lote
+        cantidad = dec(d.cantidad)
+        transporte = dec(getattr(d, "costo_transporte", 0) or 0)
+        transporte_unitario = (
+            q2(transporte / cantidad) if cantidad > 0 else Decimal("0")
+        )
         detalles.append(
             {
                 "id": d.id,
                 "producto_id": d.producto_id,
                 "presentacion_id": d.presentacion_id,
-                "cantidad": num(q4(dec(d.cantidad))),
+                "cantidad": num(q4(cantidad)),
                 "factor_snapshot": num(d.factor_snapshot),
                 "cantidad_base": num(q4(dec(d.cantidad_base))),
                 "costo_unitario": num(q2(dec(d.costo_unitario))),
-                "costo_transporte": num(q2(dec(getattr(d, "costo_transporte", 0) or 0))),
+                "costo_transporte_unitario": num(transporte_unitario),
+                "costo_transporte": num(q2(transporte)),
                 "subtotal": num(q2(dec(d.subtotal))),
                 "lote_id": d.lote_id,
                 "lote_codigo": lote.codigo_lote if lote is not None else None,
+                "proveedor_nombre": (
+                    lote.proveedor.razon_social
+                    if lote is not None and getattr(lote, "proveedor", None) is not None
+                    else (
+                        abastecimiento.proveedor.razon_social
+                        if abastecimiento.proveedor is not None
+                        else None
+                    )
+                ),
                 "producto_codigo": producto.codigo if producto else None,
                 "producto_nombre": producto.nombre if producto else None,
                 "presentacion_nombre": presentacion.nombre if presentacion else None,

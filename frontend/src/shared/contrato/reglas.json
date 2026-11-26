@@ -173,7 +173,7 @@
       "costo_unitario": {
         "menor_igual": 0.0
       },
-      "costo_transporte": {
+      "costo_transporte_unitario": {
         "menor_igual": 0.0
       },
       "precio_venta": {

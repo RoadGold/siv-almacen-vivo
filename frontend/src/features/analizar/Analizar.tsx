@@ -26,6 +26,7 @@ import { guardarArchivo, nombreArchivoConPeriodo } from '@/shared/utils/descarga
 import {
   PanelConsulta,
   TablaAbastecimientosPorProveedor,
+  TablaGananciasPorProveedor,
   TablaHistoricoCostos,
   TablaInventarioPorLote,
   TablaInventarioValorizado,
@@ -99,6 +100,14 @@ export function Analizar() {
   const costos = useQuery({
     queryKey: claves.reportes.costos({}),
     queryFn: () => reportesApi.costos({}),
+  });
+
+  // Histórico de ganancias por proveedor: lo vendido de cada lote se
+  // atribuye al proveedor que lo suministró.
+  const [agruparGanancias, setAgruparGanancias] = useState<'mes' | 'total'>('mes');
+  const gananciasProveedor = useQuery({
+    queryKey: ['reportes', 'ganancias-por-proveedor', periodo, agruparGanancias],
+    queryFn: () => reportesApi.gananciasPorProveedor({ ...periodo, agrupar: agruparGanancias }),
   });
 
   const inventario = useQuery({
@@ -359,6 +368,48 @@ export function Analizar() {
               <TablaPorUsuario reporte={ventas.data} />
             )
           ) : null}
+        </PanelConsulta>
+      </Card>
+
+      {/* --- Ganancias por proveedor --- */}
+      <Card
+        titulo="Ganancias por proveedor"
+        subtitulo="Lo que se vendió de cada lote se atribuye al proveedor que lo suministró"
+      >
+        <div
+          className="flex flex-wrap items-center gap-1 border-b border-linea px-4 py-2"
+          role="tablist"
+          aria-label="Agrupación de las ganancias por proveedor"
+        >
+          {(
+            [
+              { id: 'mes' as const, titulo: 'Mes a mes' },
+              { id: 'total' as const, titulo: 'Todo el periodo' },
+            ]
+          ).map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={agruparGanancias === item.id}
+              onClick={() => setAgruparGanancias(item.id)}
+              className={[
+                'rounded-[6px] px-3 py-1.5 text-sm font-semibold transition-colors',
+                agruparGanancias === item.id
+                  ? 'bg-brand text-sobre-brand'
+                  : 'text-muted hover:text-brand',
+              ].join(' ')}
+            >
+              {item.titulo}
+            </button>
+          ))}
+        </div>
+        <PanelConsulta
+          cargando={gananciasProveedor.isLoading}
+          error={gananciasProveedor.isError ? gananciasProveedor.error : null}
+          onReintentar={() => void gananciasProveedor.refetch()}
+        >
+          <TablaGananciasPorProveedor filas={gananciasProveedor.data ?? []} />
         </PanelConsulta>
       </Card>
 

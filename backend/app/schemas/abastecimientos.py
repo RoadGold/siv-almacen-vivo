@@ -15,10 +15,11 @@ class LineaAbastecimientoIn(BaseModel):
     presentacion_id: int
     cantidad: Decimal = Field(gt=0)
     costo_unitario: Decimal = Field(ge=0)
-    costo_transporte: Decimal = Field(
+    costo_transporte_unitario: Decimal = Field(
         default=Decimal("0"),
         ge=0,
-        description="Gasto extra de transporte correspondiente a este lote.",
+        description="Gasto de transporte **por unidad** de la presentación (por saco). "
+        "El total de la línea es cantidad x este valor.",
     )
     precio_venta: Decimal | None = Field(
         default=None,
@@ -35,7 +36,7 @@ class LineaAbastecimientoIn(BaseModel):
     def _a_decimal(cls, v):
         return None if v is None else decimal_ingreso(v)
 
-    @field_validator("costo_transporte", mode="before")
+    @field_validator("costo_transporte_unitario", mode="before")
     @classmethod
     def _transporte_a_decimal(cls, v):
         if v is None or (isinstance(v, str) and not v.strip()):
@@ -70,6 +71,7 @@ class LineaCalculada(BaseModel):
     cantidad_base: str
     unidad_base: str
     costo_unitario: str
+    costo_transporte_unitario: str = "0"
     costo_transporte: str = "0"
     subtotal: str
     stock_actual_base: str
@@ -93,10 +95,12 @@ class DetalleAbastecimientoOut(BaseModel):
     factor_snapshot: str
     cantidad_base: str
     costo_unitario: str
+    costo_transporte_unitario: str = "0"
     costo_transporte: str = "0"
     subtotal: str
     lote_id: int | None = None
     lote_codigo: str | None = None
+    proveedor_nombre: str | None = None
     producto_codigo: str | None = None
     producto_nombre: str | None = None
     presentacion_nombre: str | None = None

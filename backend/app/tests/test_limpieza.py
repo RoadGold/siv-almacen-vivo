@@ -1,8 +1,12 @@
-"""Pruebas de la limpieza de la base (empezar de cero con el catálogo).
+"""Pruebas de la limpieza de la base (empezar de cero).
 
-La limpieza tiene que dejar la base como si el negocio acabara de instalar el
-sistema: sin ventas, sin ingresos, sin stock y **solo con el catálogo de
-balanceados**.
+Hay dos niveles:
+
+- **limpiar la operación**: vacía ventas, ingresos, movimientos, lotes y
+  auditoría, y **conserva todo el catálogo** (incluidos los productos que no
+  son de balanceados).
+- **reiniciar la base**: además del catálogo, lo borra todo, menos los
+  usuarios, el almacén, las unidades y la configuración del negocio.
 """
 
 from __future__ import annotations
@@ -10,7 +14,12 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 
-from app.cli.limpiar_operacion import MARCAS_CATALOGO
+from app.cli.limpiar_operacion import (
+    TABLAS_CATALOGO,
+    TABLAS_OPERACION,
+    limpiar,
+    reiniciar,
+)
 
 
 def _conteo(db, tabla: str) -> int:
@@ -20,8 +29,7 @@ def _conteo(db, tabla: str) -> int:
 @pytest.fixture
 def base_con_datos(db, unidades, almacen):
     """Una base con operación y con productos de ejemplo, como la de trabajo."""
-    from app.core.security import hash_password
-    from app.db.models import Producto, PresentacionProducto, Usuario
+    from app.db.models import Producto, PresentacionProducto
 
     # Un producto de ejemplo (marca «Genérica») con su presentación.
     marca_id = db.execute(
@@ -65,13 +73,10 @@ def base_con_datos(db, unidades, almacen):
 
 
 class TestLimpieza:
-    """La limpieza deja la base como recién instalada, con el catálogo."""
+    """La limpieza deja la base sin operación y con el catálogo entero."""
 
     def test_borra_la_operacion(self, db, unidades, almacen, admin, base_con_datos):
         """Ventas, ingresos, movimientos, lotes y auditoría se vacían."""
-        from app.cli.limpiar_operacion import limpiar
-
-        # Se simula una venta para que haya operación que borrar.
         from app.db.models import Venta
 
         db.add(
@@ -100,54 +105,92 @@ class TestLimpieza:
         ):
             assert _conteo(db, tabla) == 0, f"la tabla {tabla} no quedó vacía"
 
-    def test_borra_lo_que_no_es_del_catalogo(self, db, unidades, almacen, base_con_datos):
-        """Los productos de ejemplo se van; los de balanceados se quedan."""
-        from app.cli.limpiar_operacion import limpiar
-
+    def test_conserva_todo_el_catalogo(self, db, unidades, almacen, base_con_datos):
+        """La limpieza ya no borra productos: el catálogo se conserva entero."""
         limpiar(db.connection())
 
         assert db.execute(
             text("SELECT COUNT(*) FROM productos WHERE codigo = 'LIM-001'")
-        ).scalar_one() == 0
+        ).scalar_one() == 1
+        assert db.execute(text("SELECT COUNT(*) FROM presentaciones_producto")).scalar_one() >= 1
 
-        # Los de balanceados siguen ahí.
-        from app.cli.datos_balanceados_cargar import cargar
-
-        cargar(db)
-        balanceados = db.execute(
-            text(
-                "SELECT COUNT(*) FROM productos p "
-                "JOIN marcas m ON m.id = p.marca_id "
-                "WHERE m.nombre IN ('Vitamaxpro', 'Invita', 'Tomasino')"
-            )
-        ).scalar_one()
-        assert balanceados == 143
-
-    def test_conserva_los_datos_de_uso(self, db, unidades, almacen, base_con_datos):
-        """Usuarios, roles, almacén y unidades se conservan: sin ellos no se entra."""
-        from app.cli.limpiar_operacion import limpiar
-
+    def test_conserva_los_datos_de_uso(self, db, unidades, almacen, admin, base_con_datos):
+        """Usuarios, roles, almacén, unidades y configuración se conservan."""
         antes_usuarios = _conteo(db, "usuarios")
         antes_unidades = _conteo(db, "unidades_medida")
         antes_almacenes = _conteo(db, "almacenes")
+        antes_config = _conteo(db, "configuracion")
 
         limpiar(db.connection())
 
         assert _conteo(db, "usuarios") == antes_usuarios
         assert _conteo(db, "unidades_medida") == antes_unidades
         assert _conteo(db, "almacenes") == antes_almacenes
+        assert _conteo(db, "configuracion") == antes_config
 
-    def test_reconstruye_los_vinculos_con_el_proveedor(self, db, unidades, almacen):
-        """Después de limpiar, los vínculos se vuelven a crear al cargar."""
+    def test_el_catalogo_y_sus_vinculos_se_conservan(self, db, unidades, almacen):
+        """La limpieza de la operación no toca el catálogo ni sus vínculos."""
         from app.cli.datos_balanceados_cargar import cargar
-        from app.cli.limpiar_operacion import limpiar
 
         cargar(db)
+        antes = _conteo(db, "productos_proveedores")
+        assert antes == 143
+
         limpiar(db.connection())
-        assert _conteo(db, "productos_proveedores") == 0
 
+        assert _conteo(db, "productos_proveedores") == antes
+        assert _conteo(db, "productos") == 143
+
+    def test_reinicia_las_secuencias(self, db, unidades, almacen, base_con_datos):
+        """La primera venta vuelve a ser la V-000001."""
+        from app.services import secuencias
+
+        db.execute(
+            text(
+                "INSERT INTO secuencias (tipo, almacen_id, valor) "
+                "VALUES ('VENTA', :almacen, 42) "
+                "ON CONFLICT (tipo, almacen_id) DO UPDATE SET valor = 42"
+            ),
+            {"almacen": almacen.id},
+        )
+        db.commit()
+
+        limpiar(db.connection())
+
+        assert _conteo(db, "secuencias") == 0
+        numero = secuencias.siguiente_numero(db, "VENTA", almacen.id)
+        assert numero == "V-000001"
+
+
+class TestReinicio:
+    """El reinicio deja la base totalmente vacía."""
+
+    def test_vacia_la_operacion_y_el_catalogo(
+        self, db, unidades, almacen, admin, base_con_datos
+    ):
+        reiniciar(db.connection())
+
+        for tabla in TABLAS_OPERACION + TABLAS_CATALOGO:
+            assert _conteo(db, tabla) == 0, f"la tabla {tabla} no quedó vacía"
+
+    def test_conserva_lo_esencial(self, db, unidades, almacen, admin, base_con_datos):
+        """Usuarios, roles, almacén, unidades y configuración siguen ahí."""
+        antes_usuarios = _conteo(db, "usuarios")
+        antes_unidades = _conteo(db, "unidades_medida")
+        antes_almacenes = _conteo(db, "almacenes")
+
+        reiniciar(db.connection())
+
+        assert _conteo(db, "usuarios") == antes_usuarios
+        assert _conteo(db, "unidades_medida") == antes_unidades
+        assert _conteo(db, "almacenes") == antes_almacenes
+
+    def test_el_catalogo_se_puede_volver_a_cargar(self, db, unidades, almacen):
+        """Tras el reinicio, el catálogo se carga otra vez sin problemas."""
+        from app.cli.datos_balanceados_cargar import cargar
+
+        reiniciar(db.connection())
         cargar(db)
-        assert _conteo(db, "productos_proveedores") == 143
 
-    def test_las_marcas_del_catalogo_son_las_esperadas(self):
-        assert set(MARCAS_CATALOGO) == {"Vitamaxpro", "Invita", "Tomasino"}
+        assert db.execute(text("SELECT COUNT(*) FROM productos")).scalar_one() == 143
+        assert db.execute(text("SELECT COUNT(*) FROM proveedores")).scalar_one() == 2

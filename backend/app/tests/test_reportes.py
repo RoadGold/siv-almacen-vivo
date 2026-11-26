@@ -166,7 +166,8 @@ def test_reportes_de_inventario_y_ventas_por_lote_en_analizar(
     )
     ids_bal = abbreviaturas_presentaciones(balanceado)
 
-    # Ingreso con transporte y venta de medio saco (0.5 saco de 50 kg = 25 000 g)
+    # Ingreso con transporte por saco y venta de medio saco (0.5 saco de 50 kg = 25 000 g)
+    # 4 sacos x (S/ 150 + S/ 10 de transporte) = S/ 640.00
     ingreso = cliente.post(
         "/api/v1/abastecimientos",
         json={
@@ -178,7 +179,7 @@ def test_reportes_de_inventario_y_ventas_por_lote_en_analizar(
                     "presentacion_id": ids_bal["saco 50 kg"],
                     "cantidad": "4",
                     "costo_unitario": "150.00",
-                    "costo_transporte": "40.00",
+                    "costo_transporte_unitario": "10.00",
                     "precio_venta": "200.00",
                 }
             ],
@@ -214,12 +215,117 @@ def test_reportes_de_inventario_y_ventas_por_lote_en_analizar(
     fila_lote = next(item for item in inv_lotes.json() if item["lote_id"] == lote_id)
     assert fila_lote["cantidad_disponible_presentacion"] == "3.5"
     assert fila_lote["costo_transporte"] == "40"
+    assert fila_lote["costo_transporte_unitario"] == "10"
 
     ventas_lotes = cliente.get("/api/v1/reportes/ventas-por-lote", headers=cabeceras_admin)
     assert ventas_lotes.status_code == 200, ventas_lotes.text
     venta_lote = next(item for item in ventas_lotes.json() if item["lote_id"] == lote_id)
     assert venta_lote["cantidad_presentacion"] == "0.5"
     assert venta_lote["ingresos"] == "100"
-    # Costo total del lote = 4 * 150 + 40 = 640 (160 por saco; 0.5 saco = 80)
+    # Costo total del lote = 4 * (150 + 10) = 640 (160 por saco; 0.5 saco = 80)
     assert venta_lote["costo"] == "80"
     assert venta_lote["utilidad_bruta"] == "20"
+
+
+def test_ganancias_por_proveedor_atribuye_la_venta_a_quien_la_vendio(
+    cliente, cabeceras_admin, unidades, almacen
+):
+    """Lo vendido de un lote se atribuye al proveedor que lo suministró."""
+    _, _, proveedor = _preparar(cliente, cabeceras_admin, unidades, almacen)
+    producto = crear_producto(
+        cliente,
+        cabeceras_admin,
+        unidades,
+        codigo="REP-GAN",
+        nombre="Producto para ganancias",
+        unidad="UND",
+        presentaciones=[{"nombre": "unidad", "factor_base": "1", "precio_venta": "10.00"}],
+    )
+    presentacion = producto["presentaciones"][0]
+
+    # Ingreso de 10 unidades a S/ 6.00 + S/ 1.00 de transporte por unidad.
+    ingreso = cliente.post(
+        "/api/v1/abastecimientos",
+        json={
+            "proveedor_id": proveedor["id"],
+            "almacen_id": almacen.id,
+            "lineas": [
+                {
+                    "producto_id": producto["id"],
+                    "presentacion_id": presentacion["id"],
+                    "cantidad": "10",
+                    "costo_unitario": "6.00",
+                    "costo_transporte_unitario": "1.00",
+                    "precio_venta": "10.00",
+                }
+            ],
+        },
+        headers=cabeceras_admin,
+    )
+    assert ingreso.status_code == 201, ingreso.text
+    lote_id = ingreso.json()["detalles"][0]["lote_id"]
+
+    # Se venden 4 unidades de ese lote.
+    venta = cliente.post(
+        "/api/v1/ventas",
+        json={
+            "almacen_id": almacen.id,
+            "lineas": [
+                {
+                    "producto_id": producto["id"],
+                    "presentacion_id": presentacion["id"],
+                    "cantidad": "4",
+                    "lote_id": lote_id,
+                }
+            ],
+        },
+        headers=cabeceras_admin,
+    )
+    assert venta.status_code == 201, venta.text
+
+    reporte = cliente.get(
+        "/api/v1/reportes/ganancias-por-proveedor",
+        params={"agrupar": "total"},
+        headers=cabeceras_admin,
+    )
+    assert reporte.status_code == 200, reporte.text
+    filas = reporte.json()
+    fila = next(f for f in filas if f["proveedor_id"] == proveedor["id"])
+
+    # Compras del proveedor: el ingreso de la preparación (475) más este
+    # (10 x (6 + 1) = 70). El transporte de este último es 10.
+    assert fila["compras"] == "545"
+    assert fila["costo_transporte_compras"] == "10"
+    # Ingresos: 4 x 10 = 40. Costo: 4 x 7 = 28 (el costo incluye el transporte).
+    assert fila["ingresos"] == "40"
+    assert fila["costo"] == "28"
+    assert fila["margen_bruto"] == "12"
+    assert fila["margen_porcentaje"] == "30"
+
+    # Sin proveedor no hay ganancia atribuida: el stock que no vino de un
+    # ingreso queda fuera del reparto por proveedor.
+    venta_sin_lote = cliente.post(
+        "/api/v1/ventas",
+        json={
+            "almacen_id": almacen.id,
+            "lineas": [
+                {
+                    "producto_id": producto["id"],
+                    "presentacion_id": presentacion["id"],
+                    "cantidad": "1",
+                }
+            ],
+        },
+        headers=cabeceras_admin,
+    )
+    assert venta_sin_lote.status_code == 201, venta_sin_lote.text
+
+    filas = cliente.get(
+        "/api/v1/reportes/ganancias-por-proveedor",
+        params={"agrupar": "total"},
+        headers=cabeceras_admin,
+    ).json()
+    # El proveedor sigue con los mismos 40 de ingresos: la venta sin lote no
+    # se le atribuye.
+    fila = next(f for f in filas if f["proveedor_id"] == proveedor["id"])
+    assert fila["ingresos"] == "40"

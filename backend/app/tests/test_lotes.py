@@ -875,7 +875,8 @@ def test_14_venta_de_dos_medios_sacos_y_costo_con_transporte(
         headers=cabeceras_admin,
     ).json()
 
-    # Ingreso de 10 sacos a S/ 80.00 + S/ 50.00 de transporte = S/ 850.00 total
+    # Ingreso de 10 sacos a S/ 80.00 + S/ 5.00 de transporte POR SACO
+    # = 10 x (80 + 5) = S/ 850.00
     # (Costo real por saco = S/ 85.00; costo por gramo = 85 / 40000 = 0.002125)
     ingreso = cliente.post(
         "/api/v1/abastecimientos",
@@ -889,7 +890,7 @@ def test_14_venta_de_dos_medios_sacos_y_costo_con_transporte(
                     "presentacion_id": presentacion["id"],
                     "cantidad": "10",
                     "costo_unitario": "80.00",
-                    "costo_transporte": "50.00",
+                    "costo_transporte_unitario": "5.00",
                     "precio_venta": "120.00",
                 }
             ],
@@ -899,8 +900,13 @@ def test_14_venta_de_dos_medios_sacos_y_costo_con_transporte(
     assert ingreso.status_code == 201, ingreso.text
     datos_ingreso = ingreso.json()
     assert datos_ingreso["total"] == "850"
-    assert datos_ingreso["detalles"][0]["costo_transporte"] == "50"
-    assert datos_ingreso["detalles"][0]["subtotal"] == "850"
+    detalle_ingreso = datos_ingreso["detalles"][0]
+    # El transporte se informa por unidad y en total.
+    assert detalle_ingreso["costo_transporte_unitario"] == "5"
+    assert detalle_ingreso["costo_transporte"] == "50"
+    assert detalle_ingreso["subtotal"] == "850"
+    # El lote recuerda al proveedor que suministró la mercadería.
+    assert detalle_ingreso["proveedor_nombre"] == "Vitamaxpro"
 
     lotes = _lotes(cliente, cabeceras_admin, balanceado["id"])
     assert len(lotes) == 1
@@ -908,6 +914,8 @@ def test_14_venta_de_dos_medios_sacos_y_costo_con_transporte(
     assert lotes[0]["cantidad_disponible"] == "400000"
     assert lotes[0]["cantidad_disponible_presentacion"] == "10"
     assert lotes[0]["costo_transporte"] == "50"
+    assert lotes[0]["costo_transporte_unitario"] == "5"
+    assert lotes[0]["proveedor_nombre"] == "Vitamaxpro"
     assert lotes[0]["costo_base"] == "0.002125"
 
     # 1. Primera venta de medio saco (0.5): debe restar 1/2 saco -> quedan 9.5 sacos (380 000 g)

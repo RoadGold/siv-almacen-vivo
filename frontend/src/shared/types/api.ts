@@ -346,7 +346,8 @@ export interface LineaAbastecimientoIn {
   presentacion_id: number;
   cantidad: string;
   costo_unitario: string;
-  costo_transporte?: string | null;
+  /** Transporte **por unidad** de la presentación (por saco). */
+  costo_transporte_unitario?: string | null;
   precio_venta?: string | null;
 }
 
@@ -370,6 +371,9 @@ export interface LineaCalculadaAbastecimiento {
   cantidad_base: string;
   unidad_base?: string | null;
   costo_unitario: string;
+  /** Transporte por unidad (por saco). */
+  costo_transporte_unitario?: string;
+  /** Transporte total de la línea. */
   costo_transporte?: string;
   subtotal: string;
   stock_actual_base: string;
@@ -391,8 +395,12 @@ export interface DetalleAbastecimiento {
   factor_snapshot: string;
   cantidad_base: string;
   costo_unitario: string;
+  /** Transporte por unidad (por saco). */
+  costo_transporte_unitario?: string;
+  /** Transporte total de la línea. */
   costo_transporte?: string;
   subtotal: string;
+  proveedor_nombre?: string | null;
   producto_codigo?: string | null;
   producto_nombre?: string | null;
   presentacion_nombre?: string | null;
@@ -484,6 +492,24 @@ export interface AbastecimientosPorProveedor {
   total: string;
   costo_transporte?: string;
   ultimo_ingreso?: string | null;
+}
+
+export interface GananciaProveedor {
+  proveedor_id: number | null;
+  proveedor: string;
+  /** Periodo mensual (`aaaa-mm`) o `total` si se piden todas las compras juntas. */
+  periodo: string;
+  operaciones: number;
+  /** Costo de lo comprado al proveedor (mercadería + transporte). */
+  compras: string;
+  costo_transporte_compras: string;
+  /** Ingresos por la venta de la mercadería de este proveedor. */
+  ingresos: string;
+  /** Costo de lo vendido (con su transporte). */
+  costo: string;
+  margen_bruto: string;
+  margen_porcentaje: string;
+  cantidad_base: string;
 }
 
 export interface CostoHistoricoReporte {
@@ -589,6 +615,17 @@ export interface ResultadoImpresion {
 export interface ConfiguracionNegocio {
   valores: Record<string, string>;
   descripciones: Record<string, string>;
+}
+
+/** Estado de la base de datos que muestra el diagnóstico. */
+export interface EstadoBaseDatos {
+  conteos: Record<string, number>;
+  version_esquema?: string | null;
+  diferencias_conciliacion: number;
+  detalle_conciliacion: { producto_id?: number; codigo?: string; [clave: string]: unknown }[];
+  /** True si quedan ventas, ingresos, ajustes o auditoría. */
+  operacion_pendiente: boolean;
+  tiene_stock: boolean;
 }
 
 /** Forma de pago que admite la caja (la lista la da el backend). */

@@ -121,8 +121,9 @@ Línea de entrada/salida: `{ producto_id, presentacion_id, cantidad, costo_unita
 | Método | Ruta | Notas |
 |---|---|---|
 | GET | `/reportes/ventas?desde=&hasta=` | `{ periodo: {operaciones,total,costo,margen_bruto_estimado,por_dia[]}, por_producto[], por_categoria[], por_usuario[] }` |
-| GET | `/reportes/abastecimientos?desde=&hasta=` | Abastecimientos por proveedor |
+| GET | `/reportes/abastecimientos?desde=&hasta=` | Abastecimientos por proveedor (con el transporte) |
 | GET | `/reportes/costos?producto_id=&proveedor_id=` | Histórico de costos de compra |
+| GET | `/reportes/ganancias-por-proveedor?desde=&hasta=&agrupar=mes\|total` | **Histórico de ganancias por proveedor**: compras, ingresos, costo, margen bruto y % |
 | GET | `/reportes/inventario?almacen_id=` | Inventario valorizado a costo promedio |
 | GET | `/reportes/margen?desde=&hasta=` | Margen **bruto estimado** + nota de lectura |
 | GET | `/reportes/ventas/exportar?desde=&hasta=` | Descarga CSV (UTF-8 con BOM) |
@@ -136,13 +137,21 @@ Línea de entrada/salida: `{ producto_id, presentacion_id, cantidad, costo_unita
 | PATCH | `/lotes/{lote_id}/precios` | `{presentacion_id, precio, motivo?}` — solo `precios.gestionar`, con auditoría |
 
 **Recepción:** cada línea de ingreso acepta `precio_venta` (el precio de venta del lote para esa
-presentación) y crea un lote. Si se omite, se usa el precio vigente de la presentación. El detalle
-del ingreso devuelve `lote_id` y `lote_codigo`.
+presentación) y `costo_transporte_unitario` (el transporte **por unidad** de la presentación, por
+saco). El total del transporte de la línea es `cantidad × costo_transporte_unitario` y se suma al
+subtotal: `cantidad × (costo_unitario + costo_transporte_unitario)`. El detalle del ingreso
+devuelve `lote_id`, `lote_codigo`, `costo_transporte_unitario` y `costo_transporte` (el total), y
+el lote recuerda al `proveedor_id` que suministró la mercadería.
 
 **Venta:** cada línea acepta `lote_id`. El precio de lista de la línea es el **del lote** (si el
 lote no tiene precio para esa presentación, se usa el de la presentación); el costo snapshot es el
 del lote. Si no se indica lote, el producto se comporta como antes (precio de la presentación y
 costo promedio consolidado).
+
+**Ganancias por proveedor:** cada lote recuerda al proveedor que lo suministró
+(`lotes_inventario.proveedor_id`), así que lo vendido de un lote se atribuye a su proveedor:
+compras, ingresos, costo (con su transporte) y margen bruto. La mercadería que entró por
+conteo físico, sin nota de compra, queda **sin proveedor** y no se atribuye a ninguno.
 
 **Ajuste:** acepta `lote_id`. Si el producto tiene varios lotes con existencias y no se indica,
 el servidor responde `400` con el detalle de los lotes candidatos: **el ajuste nunca se reparte
@@ -152,7 +161,32 @@ solo entre lotes**.
 movimiento.
 
 **Reportes:** `/reportes/inventario-por-lote` y `/reportes/ventas-por-lote` (con utilidad bruta
-por lote).
+por lote) y `/reportes/ganancias-por-proveedor` (margen atribuido a cada proveedor).
+
+## Administración
+
+| Método | Ruta | Notas |
+|---|---|---|
+| GET | `/admin/estado-base` | Estado de la base de datos: filas por tabla, versión del esquema, si queda operación pendiente y si las existencias cuadran con los lotes |
+
+**Limpieza de la base:** hay dos comandos, según lo que se quiera dejar:
+
+```powershell
+cd backend
+# Vacía la operación (ventas, ingresos, ajustes, movimientos, lotes, auditoría)
+# y conserva TODO el catálogo.
+.\.venv\Scripts\python.exe -m app.cli.limpiar_operacion --simular
+.\.venv\Scripts\python.exe -m app.cli.limpiar_operacion
+
+# Deja la base TOTALMENTE vacía: también borra el catálogo.
+# Conserva usuarios, roles, almacén, unidades y la configuración del negocio.
+.\.venv\Scripts\python.exe -m app.cli.reiniciar_base --simular
+.\.venv\Scripts\python.exe -m app.cli.reiniciar_base
+```
+
+El **esquema** de la base está documentado en
+[`esquema-base-datos.md`](esquema-base-datos.md) y se genera desde la base viva con
+`python -m app.cli.esquema_base_datos`, para que nunca quede viejo.
 
 ## Configuración e impresión
 

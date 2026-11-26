@@ -220,6 +220,44 @@ export function Recibir() {
     [lineas],
   );
 
+  /** Desglose de una línea: mercadería, transporte y total. */
+  const desglose = useMemo(
+    () =>
+      lineas.map((linea) => {
+        const cantidad = Decimal.desde(parsearEntradaNumerica(linea.cantidad) || '0');
+        const costo = Decimal.desde(parsearEntradaNumerica(linea.costo_unitario) || '0');
+        const transporteUnitario = Decimal.desde(
+          parsearEntradaNumerica(linea.costo_transporte || '0') || '0',
+        );
+        const transporte = cantidad.multiplica(transporteUnitario);
+        return {
+          id: linea.id,
+          mercaderia: cantidad.multiplica(costo),
+          transporte,
+          total: cantidad.multiplica(costo).suma(transporte),
+        };
+      }),
+    [lineas],
+  );
+
+  const totalTransporte = useMemo(
+    () =>
+      desglose.reduce(
+        (acumulado, item) => acumulado.suma(item.transporte),
+        Decimal.cero(),
+      ),
+    [desglose],
+  );
+
+  const totalMercaderia = useMemo(
+    () =>
+      desglose.reduce(
+        (acumulado, item) => acumulado.suma(item.mercaderia),
+        Decimal.cero(),
+      ),
+    [desglose],
+  );
+
   const impacto = useMemo(
     () =>
       lineas.map((linea) => ({
@@ -242,7 +280,7 @@ export function Recibir() {
         presentacion_id: linea.presentacion_id,
         cantidad: parsearEntradaNumerica(linea.cantidad),
         costo_unitario: parsearEntradaNumerica(linea.costo_unitario),
-        costo_transporte: parsearEntradaNumerica(linea.costo_transporte || '0') || '0',
+        costo_transporte_unitario: parsearEntradaNumerica(linea.costo_transporte || '0') || '0',
         precio_venta: parsearEntradaNumerica(linea.precio_venta),
       })),
     };
@@ -703,8 +741,8 @@ export function Recibir() {
                         <div className="w-[124px]">
                           <Field
                             htmlFor={`transporte-linea-${indice}`}
-                            etiqueta="Transporte (lote)"
-                            ejemplo="20.00"
+                            etiqueta="Transporte por saco"
+                            ejemplo="5.00"
                             compacto
                           >
                             <Input
@@ -739,6 +777,19 @@ export function Recibir() {
                           </Field>
                         </div>
                       </div>
+                      <p className="mt-2 text-xs text-muted">
+                        {formatearCantidad(linea.cantidad)}{' '}
+                        {linea.presentacion_nombre} × (S/{' '}
+                        {formatearMoneda(linea.costo_unitario)}
+                        {parsearEntradaNumerica(linea.costo_transporte || '0') &&
+                        Decimal.desde(linea.costo_transporte || '0').comparar(0) > 0
+                          ? ` + S/ ${formatearMoneda(linea.costo_transporte)} de transporte`
+                          : ''}
+                        ) ={' '}
+                        <span className="font-semibold text-ink">
+                          {formatearMoneda(desglose[indice]?.total.aTexto() ?? '0')}
+                        </span>
+                      </p>
                     </li>
                   ))}
                 </ul>
@@ -749,6 +800,13 @@ export function Recibir() {
                   <span className="etiqueta">Costo total</span>
                   <span className="text-2xl font-bold numero text-ink">{formatearMoneda(total)}</span>
                 </div>
+                {lineas.length > 0 ? (
+                  <p className="mt-1 text-xs text-muted">
+                    Mercadería {formatearMoneda(totalMercaderia.aTexto())} · Transporte{' '}
+                    {formatearMoneda(totalTransporte.aTexto())} · Total{' '}
+                    {formatearMoneda(total.aTexto())}
+                  </p>
+                ) : null}
                 <p className="mt-2 text-xs text-muted">
                   Impacto: {impacto.length > 0 ? impacto.map((item) => item.texto).join(' · ') : '—'}
                 </p>
@@ -830,12 +888,12 @@ export function Recibir() {
                 <TableHeader>Presentación</TableHeader>
                 <TableHeader className="text-right">Cantidad</TableHeader>
                 <TableHeader className="text-right">Costo unitario</TableHeader>
-                <TableHeader className="text-right">Transporte</TableHeader>
+                <TableHeader className="text-right">Transporte/saco</TableHeader>
                 <TableHeader className="text-right">Precio de venta</TableHeader>
                 <TableHeader className="text-right">Subtotal</TableHeader>
               </TableHead>
               <TableBody>
-                {lineas.map((linea) => (
+                {lineas.map((linea, indice) => (
                   <TableRow key={linea.id}>
                     <TableCell>{linea.producto_nombre}</TableCell>
                     <TableCell>{linea.presentacion_nombre}</TableCell>
@@ -852,11 +910,13 @@ export function Recibir() {
                     <TableCell numerica>{formatearMoneda(linea.costo_transporte || '0')}</TableCell>
                     <TableCell numerica>{formatearMoneda(linea.precio_venta)}</TableCell>
                     <TableCell numerica>
-                      {formatearMoneda(
-                        Decimal.desde(linea.cantidad)
-                          .multiplica(linea.costo_unitario)
-                          .suma(linea.costo_transporte || '0'),
-                      )}
+                      {formatearMoneda(desglose[indice]?.total.aTexto() ?? '0')}
+                      <span className="block text-2xs text-muted">
+                        mercadería {formatearMoneda(
+                          desglose[indice]?.mercaderia.aTexto() ?? '0',
+                        )}{' '}
+                        + transp. {formatearMoneda(desglose[indice]?.transporte.aTexto() ?? '0')}
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -867,6 +927,10 @@ export function Recibir() {
               <div>
                 <p className="etiqueta">Costo total del ingreso</p>
                 <p className="text-2xl font-bold numero text-ink">{formatearMoneda(total)}</p>
+                <p className="mt-1 text-xs text-muted">
+                  Mercadería {formatearMoneda(totalMercaderia.aTexto())} · Transporte{' '}
+                  {formatearMoneda(totalTransporte.aTexto())}
+                </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button variante="secundario" onClick={() => setPaso(2)}>

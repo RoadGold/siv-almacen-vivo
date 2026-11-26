@@ -98,6 +98,24 @@ def ventas_por_lote(
     return servicio.ventas_por_lote(db, desde=desde, hasta=hasta, limite=limite)
 
 
+@router.get("/ganancias-por-proveedor")
+def ganancias_por_proveedor(
+    desde: date | None = None,
+    hasta: date | None = None,
+    agrupar: str = Query(default="mes", pattern="^(mes|total)$"),
+    _: Usuario = Depends(requiere_permiso(Permiso.REPORTES_VER)),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    """Histórico de ganancias por proveedor.
+
+    Lo que se vendió de cada lote se atribuye al proveedor que lo suministró:
+    compras, ingresos, costo y margen bruto, mes a mes.
+    """
+    return servicio.ganancias_por_proveedor(
+        db, desde=desde, hasta=hasta, agrupar=agrupar
+    )
+
+
 @router.get("/margen")
 def margen(
     desde: date | None = None,

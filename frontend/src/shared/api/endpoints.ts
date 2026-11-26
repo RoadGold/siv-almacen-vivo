@@ -11,6 +11,7 @@ import type {
   Categoria,
   CostoHistoricoReporte,
   Existencia,
+  GananciaProveedor,
   InventarioValorizado,
   Marca,
   MargenBruto,
@@ -31,6 +32,7 @@ import type {
   RespuestaLogin,
   ResultadoImportacion,
   ConfiguracionNegocio,
+  EstadoBaseDatos,
   EstadoImpresora,
   FormaPago,
   ResultadoImpresion,
@@ -348,6 +350,16 @@ export const reportesApi = {
       producto_id: filtro.producto_id ?? undefined,
       proveedor_id: filtro.proveedor_id ?? undefined,
     }),
+  /**
+   * Histórico de ganancias por proveedor: lo que se compró a cada uno, lo que
+   * se vendió de su mercadería y el margen bruto.
+   */
+  gananciasPorProveedor: (filtro: FiltroPeriodo & { agrupar?: 'mes' | 'total' } = {}) =>
+    api.get<GananciaProveedor[]>('/reportes/ganancias-por-proveedor', {
+      desde: filtro.desde ?? undefined,
+      hasta: filtro.hasta ?? undefined,
+      agrupar: filtro.agrupar ?? 'mes',
+    }),
   inventario: (almacen_id?: number | null) =>
     api.get<InventarioValorizado[]>('/reportes/inventario', {
       almacen_id: almacen_id ?? undefined,
@@ -396,6 +408,8 @@ export const adminApi = {
       pagina: filtros.pagina ?? 1,
       tamano: filtros.tamano ?? 50,
     }),
+  /** Estado de la base de datos: qué contiene y si está limpia. */
+  estadoBase: () => api.get<EstadoBaseDatos>('/admin/estado-base'),
 };
 
 /* --- Importación de catálogo ---------------------------------------- */

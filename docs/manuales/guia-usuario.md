@@ -299,6 +299,8 @@ Aceite 900 ml   Caja × 12   [5] cajas   [S/ 100,80]   Añadir
 ```
 
 - Escriba la **cantidad** (cajas, sacos, unidades) y el **costo unitario** de esa presentación.
+- El **transporte se escribe por saco** (no por total): si el flete es de S/ 5 por saco, escriba
+  `5` y el sistema multiplica por la cantidad.
 - Pulse **Añadir** por cada línea.
 - Si llegó algo fuera de lo habitual, use **Buscar otro producto** para tomarlo del catálogo.
 - Si el artículo **no existe**, créelo con **Nuevo producto** sin perder las líneas ya escritas.
@@ -312,6 +314,15 @@ Aceite 900 ml   Caja × 12   [5] cajas   [S/ 100,80]   Añadir
 > precio. El sistema avisa cuando hay líneas repetidas del mismo producto. Para corregir
 > una cantidad mal escrita, edite el campo en el resumen; para deshacer una línea
 > completa, pulse **Quitar**.
+
+**El resumen de cada línea** muestra el detalle del gasto:
+
+```
+Arroz Vitamaxpro (saco 40 kg)
+   10 sacos × (S/ 150,00 + S/ 5,00 de transporte) = S/ 1 550,00
+```
+
+y al pie, el total del ingreso desglosado: mercadería, transporte y total.
 
 ### 4.3 Paso 3 · Revisar y confirmar
 
@@ -675,8 +686,13 @@ Cuatro tarjetas: **ventas**, **número de operaciones**, **costo de mercadería 
 
 ### 9.4 Otros reportes
 
+- **Ganancias por proveedor**: lo que se vendió de cada lote se atribuye al proveedor que lo
+  suministró. La tabla muestra, por proveedor y por mes (o por todo el periodo): cuánto se le
+  compró, cuánto se vendió de su mercadería, el costo de lo vendido, el **margen bruto** y su
+  porcentaje. La mercadería que entró por conteo físico (sin nota de compra) aparece como
+  **«Sin proveedor»**.
 - **Abastecimientos por proveedor**: cuántos ingresos y por qué total, con la fecha del último.
-- **Histórico de costos**: cada compra con su presentación, factor, costo y documento.
+- **Histórico de costos**: cada compra con su presentación, factor, costo, transporte y documento.
 - **Inventario valorizado**: cantidad, costo promedio y valor de cada producto.
 
 ### 9.5 Exportar
@@ -709,6 +725,18 @@ cuándo y el valor anterior y el nuevo.
 
 Muestra el estado del servidor local (conectado o no), la versión del sistema, el entorno y la
 moneda. Es la primera pantalla que debe revisar si algo no funciona.
+
+Debajo, la tarjeta **«Estado de la base de datos»** dice qué contiene la base:
+
+| Indicador | Significado |
+|---|---|
+| **Sin operación pendiente** | No hay ventas, ingresos, ajustes ni auditoría: la base está limpia |
+| **Existencias cuadradas con los lotes** | El stock coincide con la suma de los lotes (sin diferencias) |
+| **Esquema** | Versión del esquema (migración aplicada) |
+
+Debajo se ven las filas de cada tabla: las de **operación** (ventas, ingresos, ajustes,
+impresiones, auditoría) y las de **catálogo e inventario** (productos, presentaciones,
+proveedores, marcas, categorías, lotes y existencias).
 
 ---
 
